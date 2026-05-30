@@ -21,8 +21,8 @@ export async function fetchStooq(ticker) {
   if (!row) throw new Error("no data");
   const [sym, date, time, open, high, low, close, vol] = row.split(",");
   const price = parseFloat(close);
-  if (!isFinite(price)) throw new Error(`bad close: ${close}`);
-  return { ticker, price, date, source: "stooq" };
+  if (!isFinite(price) || !(price > 0)) throw new Error(`bad close: ${close}`);
+  return { ticker, price, date, source: "stooq", currency: null }; // currency unknown from Stooq
 }
 
 const sma = (arr, n) => (arr.length >= n ? arr.slice(-n).reduce((a, b) => a + b, 0) / n : null);

@@ -16,14 +16,23 @@ const t = (ms) => AbortSignal.timeout(ms);
 
 const DIVERGENCE = 0.03;     // >3% spread across sources = corroboration warning
 
-// Pure: cross-check a {sourceName: price} map → median + spread + ok flag. Testable.
+const trueMedian = (sorted) => {
+  const m = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[m] : (sorted[m - 1] + sorted[m]) / 2;
+};
+
+// Pure: cross-check a {sourceName: price} map. Computes a TRUE median, the overall
+// spread/ok flag, AND a consensus `used` price that EXCLUDES outliers (>divergence
+// from the median) — so a lone bad/synthetic print is dropped, not just flagged.
 export function corroborate(prices, divergence = DIVERGENCE) {
   const names = Object.keys(prices).filter((n) => num(prices[n]) != null);
   if (!names.length) return null;
   const vals = names.map((n) => prices[n]).sort((a, b) => a - b);
-  const median = vals[Math.floor((vals.length - 1) / 2)];
-  const spread = (Math.max(...vals) - Math.min(...vals)) / median;
-  return { sources: names, n: names.length, median, spread: +spread.toFixed(4), ok: names.length < 2 ? null : spread <= divergence };
+  const median = trueMedian(vals);
+  const spread = median ? (vals[vals.length - 1] - vals[0]) / median : Infinity;
+  const kept = vals.filter((v) => median && Math.abs(v / median - 1) <= divergence);
+  const used = kept.length ? +(kept.reduce((a, b) => a + b, 0) / kept.length).toFixed(4) : median;
+  return { sources: names, n: names.length, median: +median.toFixed(4), used, spread: +spread.toFixed(4), ok: names.length < 2 ? null : spread <= divergence };
 }
 
 // --- Keyed price-only providers (best-effort; return null on any failure) ---
@@ -67,9 +76,17 @@ export async function getQuote(ticker, { keys = {}, useKeyed = false } = {}) {
   if (!corroboration) return rich?.error ? rich : { ticker, error: "no quote from any source" };
 
   // Prefer the rich Yahoo quote (keeps technicals); if Yahoo missing, build a minimal one.
-  const base = rich?.price ? rich : { ticker, price: corroboration.median, source: corroboration.sources[0], asof: null };
+  let base = rich?.price ? rich : { ticker, price: corroboration.used, source: corroboration.sources[0], asof: null, currency: rich?.currency ?? null };
   const flags = [];
-  if (corroboration.ok === false) flags.push(`source divergence ${(corroboration.spread * 100).toFixed(1)}% (${corroboration.sources.join("/")})`);
+  if (corroboration.ok === false) {
+    flags.push(`source divergence ${(corroboration.spread * 100).toFixed(1)}% (${corroboration.sources.join("/")})`);
+    // If the published (Yahoo) price is itself the outlier, replace it with the
+    // cross-source consensus so a poisoned print can't drive triggers (red-team C2).
+    if (Math.abs(base.price / corroboration.used - 1) > DIVERGENCE) {
+      flags.push(`price ${base.price} → cross-source consensus ${corroboration.used}`);
+      base = { ...base, price: corroboration.used };
+    }
+  }
   if (base.asof) { const age = (Date.now() - Date.parse(base.asof)) / 86400000; if (age > STALE_DAYS) flags.push(`stale last bar ${base.asof}`); }
   return { ...base, corroboration, ...(flags.length ? { flags } : {}) };
 }

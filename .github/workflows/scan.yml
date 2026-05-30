@@ -13,6 +13,12 @@ permissions:
   contents: write             # to commit signals.json
   issues: write               # to open an alert issue when a trigger fires
 
+# Serialize scans so concurrent runs (cron + Refresh dispatch) can't race the commit
+# push and silently drop append-only history (red-team R3).
+concurrency:
+  group: scan-commit
+  cancel-in-progress: false
+
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -37,8 +43,9 @@ jobs:
           git config user.name "puck-bot"
           git config user.email "puck-bot@users.noreply.github.com"
           git add web/data/signals.json web/data/scarcity-history.json web/data/seen.state.json web/data/dca.json
-          git commit -m "scan: refresh signals [skip ci]" || echo "no changes"
-          git push
+          git commit -m "scan: refresh signals [skip ci]" || { echo "no changes"; exit 0; }
+          # Rebase on any concurrent commit before pushing so history is never lost (R3).
+          for i in 1 2 3; do git pull --rebase origin main && git push && break || sleep $((i*3)); done
       - name: Read alert state from signals.json
         id: alerts
         run: |

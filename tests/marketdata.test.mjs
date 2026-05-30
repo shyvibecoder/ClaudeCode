@@ -23,6 +23,15 @@ describe("marketdata: cross-source corroboration", () => {
   it("ok=null with a single source (cannot corroborate)", () => {
     assert.equal(corroborate({ yahoo: 100 }).ok, null);
   });
+  it("computes a TRUE median for even counts (red-team C1)", () => {
+    assert.equal(corroborate({ a: 100, b: 130 }).median, 115);
+  });
+  it("excludes a lone outlier from the consensus `used` price (red-team C2)", () => {
+    const c = corroborate({ yahoo: 500, stooq: 100, finnhub: 101 });
+    assert.equal(c.median, 101);   // true median, not 500 or the lower-middle
+    assert.equal(c.ok, false);     // still flagged as divergent
+    assert.equal(c.used, 100.5);   // outlier 500 excluded → mean of {100,101}
+  });
   it("drops implausible prices before computing", () => {
     const c = corroborate({ yahoo: 100, bad: -1 });
     assert.deepEqual(c.sources, ["yahoo"]);

@@ -14,7 +14,7 @@ import { toUsd, fetchRates } from "./lib/fx.mjs";
 import { newlyFired, confirmFired } from "./lib/alerts.mjs";
 import { fetchAtmIv } from "./lib/iv.mjs";
 import { analystRedteamDigest, llmAvailable } from "./lib/llm.mjs";
-import { validateInputs, validateSignals, validatePositions, assertValid, SCHEMA_VERSION } from "./lib/schema.mjs";
+import { validateInputs, validateSignals, validatePositions, validateSecurities, assertValid, SCHEMA_VERSION } from "./lib/schema.mjs";
 import { watchFilings } from "./lib/edgar.mjs";
 import { watchNews } from "./lib/news.mjs";
 import { getForwardPEs } from "./lib/fundamentals.mjs";
@@ -29,7 +29,10 @@ const dataUrl = (p) => new URL(`../web/data/${p}`, import.meta.url);
 const portfolio = read("portfolio.json");
 const scarcities = read("scarcities.json");
 const triggers = read("triggers.json");
-const securities = (() => { try { return read("securities.json").securities || {}; } catch { return {}; } })();
+const securities = (() => {
+  try { const s = read("securities.json"); assertValid("securities.json", validateSecurities(s)); return s.securities || {}; }
+  catch (e) { if (!/ENOENT|no such file/i.test(e.message)) throw e; return {}; } // S1: validate, fail loudly
+})();
 const TODAY = new Date().toISOString().slice(0, 10);
 
 // Fail loudly on malformed input data before doing any work.
@@ -186,8 +189,11 @@ if (positions?.positions) {
     const q = enriched[t];
     const price = q?.price;
     if (price && p.shares) {
-      const usd = toUsd(price * p.shares, q.currency, fxRates); // converts foreign lots to USD
-      if (usd == null) { noFx.push(`${t}(${q.currency})`); continue; } // no rate → skip + flag
+      // C3: never assume USD. Use the quote currency; if unknown but the security is
+      // flagged foreign, treat as UNKNOWN (no rate → excluded) rather than silently USD.
+      const cur = q.currency || (securities[t]?.foreign ? "UNKNOWN" : "USD");
+      const usd = toUsd(price * p.shares, cur, fxRates); // converts foreign lots to USD
+      if (usd == null) { noFx.push(`${t}(${cur})`); continue; } // no rate → skip + flag
       sum += usd; priced++;
     } else if (p.shares) missing.push(t);
   }

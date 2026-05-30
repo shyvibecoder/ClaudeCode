@@ -273,6 +273,12 @@ Puck guards against bad/synthetic data:
   so bad data can't fire an action. The **data-quality card** on the Portfolio tab shows ✓ OK or
   ⚠ degraded.
 
+- **Cross-source consensus** — when sources disagree, the published price is the **consensus that
+  excludes the outlier** (a lone bad/synthetic print is dropped, not just flagged), and foreign lots are
+  never silently summed as USD.
+- **XSS-safe** — all third-party text (news headlines, filing fields) is HTML-escaped and links are
+  restricted to `http(s)` before display, so a poisoned feed can't run code in your browser.
+
 Add free market-data keys (§9.3) for stronger corroboration.
 
 ---

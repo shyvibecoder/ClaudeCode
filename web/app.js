@@ -1,3 +1,8 @@
+// Sanitizers for untrusted third-party strings before innerHTML (mirror of
+// web/sanitize.mjs, which is unit-tested). XSS guard for RSS/EDGAR data.
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeUrl = (u) => { try { const x = new URL(String(u)); return (x.protocol === "http:" || x.protocol === "https:") ? x.href : "#"; } catch { return "#"; } };
+
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const fmtPct = (x) => (x == null ? "—" : (x * 100).toFixed(0) + "%");
@@ -80,10 +85,10 @@ function renderRadar() {
           ? `<span class="drift" title="since ${dr.since}">▲ drift: priced-in ${dr.priced_in[0]}→${dr.priced_in[1]}</span>`
           : "";
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td><strong>${s.scarcity}</strong>${s.non_consensus ? '<span class="nc">◆ non-consensus</span>' : ""}${driftMark}<br><span style="color:var(--mut)">${s.thesis}</span></td>
-          <td>${s.sector}</td><td><span class="pill ${cls}">${lbl}</span></td>
-          <td class="pi-${s.priced_in}">${s.priced_in}</td><td>${s.durability}</td><td>${s.substitution_risk}</td>
-          <td>${crowd == null ? "—" : crowd}</td><td style="font-size:11px">${s.tickers.join(", ")}</td>`;
+        tr.innerHTML = `<td><strong>${esc(s.scarcity)}</strong>${s.non_consensus ? '<span class="nc">◆ non-consensus</span>' : ""}${driftMark}<br><span style="color:var(--mut)">${esc(s.thesis)}</span></td>
+          <td>${esc(s.sector)}</td><td><span class="pill ${cls}">${lbl}</span></td>
+          <td class="pi-${esc(s.priced_in)}">${esc(s.priced_in)}</td><td>${esc(s.durability)}</td><td>${esc(s.substitution_risk)}</td>
+          <td>${crowd == null ? "—" : crowd}</td><td style="font-size:11px">${esc(s.tickers.join(", "))}</td>`;
         tb.appendChild(tr);
       });
   };
@@ -188,11 +193,11 @@ function renderCatalysts() {
   const tb = $("#filings tbody"); tb.innerHTML = "";
   filings.forEach((f) => {
     const tr = document.createElement("tr");
-    const topic = (f.items && f.items.length) ? f.items.join(", ") : "—";
+    const topic = (f.items && f.items.length) ? esc(f.items.join(", ")) : "—";
     const nb = f.is_new ? '<span class="newbadge">NEW</span> ' : "";
-    tr.innerHTML = `<td style="white-space:nowrap">${nb}${f.date || "—"}</td><td><strong>${f.ticker}</strong></td>
-      <td><span class="pill y30">${f.form}</span></td><td>${topic}</td>
-      <td>${f.url ? `<a href="${f.url}" target="_blank" rel="noopener">open ↗</a>` : ""}</td>`;
+    tr.innerHTML = `<td style="white-space:nowrap">${nb}${esc(f.date || "—")}</td><td><strong>${esc(f.ticker)}</strong></td>
+      <td><span class="pill y30">${esc(f.form)}</span></td><td>${topic}</td>
+      <td>${f.url ? `<a href="${safeUrl(f.url)}" target="_blank" rel="noopener">open ↗</a>` : ""}</td>`;
     tb.appendChild(tr);
   });
   $("#filingsEmpty").textContent = filings.length ? "" :
@@ -204,8 +209,8 @@ function renderCatalysts() {
   news.forEach((n) => { (byScar[n.scarcity] ||= []).push(n); });
   Object.entries(byScar).forEach(([id, items]) => {
     const d = document.createElement("div"); d.className = "item";
-    d.innerHTML = `<strong>${scarcityLabel(id)}</strong><br>` + items.map((n) =>
-      `${n.is_new ? '<span class="newbadge">NEW</span> ' : ""}<span style="color:var(--mut)">${n.date || ""}</span> <a href="${n.link}" target="_blank" rel="noopener">${n.title}</a>`
+    d.innerHTML = `<strong>${esc(scarcityLabel(id))}</strong><br>` + items.map((n) =>
+      `${n.is_new ? '<span class="newbadge">NEW</span> ' : ""}<span style="color:var(--mut)">${esc(n.date || "")}</span> <a href="${safeUrl(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a>`
     ).join("<br>");
     wrap.appendChild(d);
   });
