@@ -1,0 +1,13 @@
+{
+  "_comment": "Copy this to web/data/positions.local.json (gitignored) and fill in your real lots. It enables the cost-basis trim rule (>2x cost AND >50x forward) and the live sleeve-cap trigger (>~$1.72mm). 'forward_pe' is optional — the scanner fetches it when a free source allows; set it here to override. 'cash_usd' is dry powder counted toward the sleeve value. Nothing here is ever committed.",
+  "as_of": "2026-05-30",
+  "cash_usd": 75000,
+  "positions": {
+    "MU":  { "shares": 0, "cost_basis": 0 },
+    "GEV": { "shares": 0, "cost_basis": 0 },
+    "CEG": { "shares": 0, "cost_basis": 0 },
+    "ASML":{ "shares": 0, "cost_basis": 0 },
+    "MP":  { "shares": 0, "cost_basis": 0 },
+    "LEU": { "shares": 0, "cost_basis": 0 }
+  }
+}

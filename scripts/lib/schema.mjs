@@ -108,6 +108,22 @@ export function validateSignals(s, errors = []) {
   return errors;
 }
 
+// Optional, gitignored local file: real cost basis / shares for trim + sleeve-cap.
+export function validatePositions(p, errors = []) {
+  const w = "positions.local.json";
+  if (!isObj(p)) { errors.push(`${w}: root must be an object`); return errors; }
+  check(errors, isObj(p.positions), `${w}: positions must be an object`);
+  if ("cash_usd" in p) check(errors, isNum(p.cash_usd), `${w}: cash_usd must be a number`);
+  for (const [t, x] of Object.entries(isObj(p.positions) ? p.positions : {})) {
+    const at = `${w} positions.${t}`;
+    if (!isObj(x)) { errors.push(`${at}: must be an object`); continue; }
+    if ("shares" in x) check(errors, isNum(x.shares), `${at}: shares must be a number`);
+    if ("cost_basis" in x) check(errors, isNum(x.cost_basis), `${at}: cost_basis must be a number`);
+    if ("forward_pe" in x && x.forward_pe != null) check(errors, isNum(x.forward_pe), `${at}: forward_pe must be a number or null`);
+  }
+  return errors;
+}
+
 // Throw with all collected errors at once, so one run surfaces every problem.
 export function assertValid(name, errors) {
   if (errors.length) {

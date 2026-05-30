@@ -1,0 +1,6 @@
+# Personal, local-only position data (real cost basis / shares) — never commit.
+web/data/positions.local.json
+
+# Node
+node_modules/
+npm-debug.log*

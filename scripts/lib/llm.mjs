@@ -1,11 +1,10 @@
-// Free-LLM abstraction. Uses whichever free key is present, else no-op.
-//   GEMINI_API_KEY  -> Google Gemini (free tier, generous)   [default]
-//   GROQ_API_KEY    -> Groq (free tier, fast Llama)           [fallback]
-// This is where the "research / red-team agents" run in CI on a free model.
-
-export function llmAvailable() {
-  return !!(process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY);
-}
+// Free-LLM abstraction with MULTI-MODEL adversarial review.
+//   GEMINI_API_KEY -> Google Gemini (free tier)   [analyst by default]
+//   GROQ_API_KEY   -> Groq (free tier, Llama)      [red-team by default]
+// If BOTH keys are set, the analyst and red-team passes run on DIFFERENT models,
+// so the critique is genuinely adversarial (one model attacks the other's output)
+// instead of a model grading itself. With one key, both passes use it.
+// This is where the "research / red-team agents" run in CI on free models.
 
 async function callGemini(prompt) {
   const key = process.env.GEMINI_API_KEY;
@@ -34,27 +33,52 @@ async function callGroq(prompt) {
   return j?.choices?.[0]?.message?.content || "";
 }
 
-export async function llm(prompt) {
-  if (process.env.GEMINI_API_KEY) return callGemini(prompt);
-  if (process.env.GROQ_API_KEY) return callGroq(prompt);
-  return ""; // no key -> caller skips LLM features
+const PROVIDERS = {
+  gemini: { env: "GEMINI_API_KEY", label: () => `gemini:${process.env.GEMINI_MODEL || "gemini-2.0-flash"}`, call: callGemini },
+  groq: { env: "GROQ_API_KEY", label: () => `groq:${process.env.GROQ_MODEL || "llama-3.3-70b-versatile"}`, call: callGroq },
+};
+
+// Providers with a key present, in analyst-first preference order.
+export function availableProviders() {
+  return Object.keys(PROVIDERS).filter((p) => process.env[PROVIDERS[p].env]);
+}
+export function llmAvailable() { return availableProviders().length > 0; }
+
+// Call a specific provider (falls back to the first available one).
+export async function llm(prompt, provider) {
+  const avail = availableProviders();
+  const p = provider && avail.includes(provider) ? provider : avail[0];
+  return p ? PROVIDERS[p].call(prompt) : "";
 }
 
-// Two-pass "analyst + red-team" digest over fresh signals/filings/news, free model.
+// Two-pass "analyst + red-team" digest over fresh signals/filings/news.
+// Analyst runs on the first available model; red-team on a DIFFERENT model when a
+// second free key exists — a true cross-model adversarial review.
 export async function analystRedteamDigest({ signals, filings = [], headlines = [], scarcities }) {
-  if (!llmAvailable()) return "";
+  const avail = availableProviders();
+  if (!avail.length) return "";
+  const analystP = avail[0];
+  const redteamP = avail[1] || avail[0];
+  const crossModel = analystP !== redteamP;
   const ctx = JSON.stringify({ signals, filings, headlines, scarcities }, null, 0).slice(0, 24000);
-  const analyst = await llm(
+
+  const analyst = await PROVIDERS[analystP].call(
     `You are a markets analyst tracking structural-tech-scarcity theses.\n` +
-    `Given this JSON of fresh quotes, recent SEC filings (8-K/10-Q items), news headlines, ` +
-    `and the scarcity map, write 6-10 terse bullets: what materially changed for any ` +
-    `scarcity/holding — prioritize SEC filings that touch backlog, capacity, guidance, or ` +
-    `pricing — and whether any deploy/exit trigger looks closer. ` +
-    `Be specific and cite the ticker/scarcity/filing. JSON:\n${ctx}`
+    `Given this JSON of fresh quotes (incl. forward P/E where available), recent SEC ` +
+    `filings (8-K/10-Q items), news headlines, and the scarcity map, write 6-10 terse ` +
+    `bullets: what materially changed for any scarcity/holding — prioritize SEC filings ` +
+    `that touch backlog, capacity, guidance, or pricing — and whether any deploy/exit ` +
+    `trigger looks closer. Note where a name "went up a lot" but is still cheap on ` +
+    `forward multiples. Be specific and cite the ticker/scarcity/filing. JSON:\n${ctx}`
   );
-  const redteam = await llm(
-    `You are a skeptical red-team. Attack this analyst digest: which claims are over-stated, already-priced, ` +
-    `or not supported by the data? Keep it to 4-6 sharp bullets.\n\nDIGEST:\n${analyst}`
+  const redteam = await PROVIDERS[redteamP].call(
+    `You are a skeptical red-team${crossModel ? ` (a different model than the analyst)` : ""}. ` +
+    `Attack this analyst digest: which claims are over-stated, already-priced, or not ` +
+    `supported by the data (quotes/filings/news provided)? Keep it to 4-6 sharp bullets.\n\n` +
+    `DIGEST:\n${analyst}`
   );
-  return `## Analyst\n${analyst}\n\n## Red-team\n${redteam}`.trim();
+
+  const header = `_Analyst: ${PROVIDERS[analystP].label()} · Red-team: ${PROVIDERS[redteamP].label()} ` +
+    `${crossModel ? "(cross-model adversarial review)" : "(single model — set a 2nd free key, e.g. GROQ_API_KEY, for cross-model review)"}_`;
+  return `${header}\n\n## Analyst\n${analyst}\n\n## Red-team\n${redteam}`.trim();
 }

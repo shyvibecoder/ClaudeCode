@@ -9,9 +9,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { getQuotes, isTradeable } from "./lib/quotes.mjs";
 import { analystRedteamDigest, llmAvailable } from "./lib/llm.mjs";
-import { validateInputs, validateSignals, assertValid } from "./lib/schema.mjs";
+import { validateInputs, validateSignals, validatePositions, assertValid } from "./lib/schema.mjs";
 import { watchFilings } from "./lib/edgar.mjs";
 import { watchNews } from "./lib/news.mjs";
+import { getForwardPEs } from "./lib/fundamentals.mjs";
 
 const OFFLINE = process.argv.includes("--offline");
 const read = (p) => JSON.parse(readFileSync(new URL(`../web/data/${p}`, import.meta.url)));
@@ -80,10 +81,65 @@ if (!OFFLINE) {
   console.log(`News: ${news.length} deduped headlines`);
 }
 
+// --- Forward P/E (best-effort, free) for holdings: "went up a lot" != "expensive" ---
+if (!OFFLINE) {
+  const holdTickers = portfolio.holdings.map((h) => h.ticker).filter(isTradeable);
+  try {
+    const fpes = await getForwardPEs(holdTickers);
+    let got = 0;
+    for (const [t, fpe] of Object.entries(fpes)) {
+      if (fpe != null && enriched[t] && !enriched[t].error) { enriched[t].forward_pe = +fpe.toFixed(1); got++; }
+    }
+    console.log(`Forward P/E: ${got}/${holdTickers.length} resolved`);
+  } catch (e) { errors.push(`fwdpe: ${e.message}`); }
+}
+
+// --- Optional local positions (gitignored): real cost basis + shares ---
+let positions = null;
+try {
+  positions = read("positions.local.json");
+  assertValid("positions.local.json", validatePositions(positions));
+} catch (e) {
+  if (!/ENOENT|no such file/i.test(e.message)) errors.push(`positions.local.json: ${e.message}`);
+}
+
 // --- Auto triggers ---
 const avgDrawdown = drops.length ? drops.reduce((a, b) => a + b, 0) / drops.length : null;
 const dd = triggers.triggers.find((x) => x.id === "drawdown");
 const drawdownFired = avgDrawdown != null && Math.abs(avgDrawdown) >= (dd?.threshold ?? 0.2);
+
+// Sleeve-cap + cost-basis trim rule (need positions.local.json for live values).
+const sleeveCapUsd = triggers.triggers.find((x) => x.id === "sleeve_cap")?.threshold ?? 1720000;
+let sleeveValue = null, sleeveFired = false;
+let sleeveNote = "add web/data/positions.local.json (gitignored) for the live sleeve value";
+let trimHits = [], trimNote = "add positions.local.json with cost basis to evaluate";
+
+if (positions?.positions) {
+  let sum = 0, priced = 0; const missing = [];
+  for (const [t, p] of Object.entries(positions.positions)) {
+    const price = enriched[t]?.price;
+    if (price && p.shares) { sum += price * p.shares; priced++; }
+    else if (p.shares) missing.push(t);
+  }
+  if (typeof positions.cash_usd === "number") sum += positions.cash_usd;
+  if (priced) {
+    sleeveValue = Math.round(sum);
+    sleeveFired = sleeveValue >= sleeveCapUsd;
+    sleeveNote = `sleeve ≈ $${(sleeveValue / 1e6).toFixed(2)}mm vs $${(sleeveCapUsd / 1e6).toFixed(2)}mm cap` +
+      (missing.length ? ` (no price for ${missing.join(", ")})` : "");
+  }
+  for (const h of portfolio.holdings) {
+    const p = positions.positions[h.ticker];
+    const price = enriched[h.ticker]?.price;
+    if (!p || !p.cost_basis || !price) continue;
+    const gain = price / p.cost_basis;
+    const fpe = p.forward_pe ?? enriched[h.ticker]?.forward_pe ?? null;
+    if (gain >= 2 && fpe != null && fpe > 50) {
+      trimHits.push({ ticker: h.ticker, gain: +gain.toFixed(2), forward_pe: +Number(fpe).toFixed(1), action: "trim ~1/3 (tax-free in IRA)" });
+    }
+  }
+  trimNote = trimHits.length ? `${trimHits.length} name(s) > 2x cost AND > 50x forward` : "no name > 2x cost AND > 50x forward";
+}
 
 const trigger_status = {
   drawdown: {
@@ -91,8 +147,8 @@ const trigger_status = {
     value: avgDrawdown == null ? null : +(avgDrawdown * 100).toFixed(1),
     note: avgDrawdown == null ? "no data" : `avg ${(avgDrawdown * 100).toFixed(1)}% from 52w highs`,
   },
-  sleeve_cap: { fired: false, value: null, note: "needs live position values (manual for now)" },
-  trim_rule: { fired: false, hits: [] }, // needs cost basis -> manual/portfolio-tracker phase
+  sleeve_cap: { fired: sleeveFired, value: sleeveValue, note: sleeveNote },
+  trim_rule: { fired: trimHits.length > 0, hits: trimHits, note: trimNote },
 };
 
 // --- Optional free-LLM analyst + red-team digest ---
@@ -100,7 +156,7 @@ let digest = "(no LLM key set — set GEMINI_API_KEY or GROQ_API_KEY in repo sec
 if (llmAvailable() && !OFFLINE) {
   try {
     const slim = scarcities.scarcities.map((s) => ({ id: s.id, scarcity: s.scarcity, bind: s.bind_window, priced: s.priced_in, tickers: s.tickers }));
-    const slimQ = Object.fromEntries(Object.entries(enriched).map(([k, v]) => [k, v?.error ? null : { ytd: v.ytd, off_high: v.pct_off_high, crowding: v.crowding }]));
+    const slimQ = Object.fromEntries(Object.entries(enriched).map(([k, v]) => [k, v?.error ? null : { ytd: v.ytd, off_high: v.pct_off_high, crowding: v.crowding, fwd_pe: v.forward_pe ?? null }]));
     const slimF = filings.map((f) => ({ ticker: f.ticker, form: f.form, date: f.date, items: f.items }));
     const slimN = news.map((n) => ({ scarcity: n.scarcity, title: n.title, date: n.date }));
     digest = await analystRedteamDigest({ signals: slimQ, filings: slimF, headlines: slimN, scarcities: slim });

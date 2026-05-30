@@ -45,7 +45,7 @@ npm run serve                    # static server at http://localhost:3000
 
 ## Roadmap (free-tier friendly)
 - **v1 (now):** static dashboard + scanner (quotes, crowding, auto-triggers) + optional LLM digest + alert issues.
-- **v2 (now):** SEC EDGAR 8-K/10-Q watch + Google-News RSS per scarcity, summarized by the free LLM. *(Next in v2: cost-basis-aware trim-rule trigger via a gitignored `positions.local.json`; forward-multiple fetch.)*
+- **v2 (now):** SEC EDGAR 8-K/10-Q watch + Google-News RSS per scarcity, summarized by a **cross-model** free-LLM digest (analyst on one model, red-team on another); forward-P/E fetch; cost-basis trim rule + live sleeve-cap via a gitignored `positions.local.json`; on-demand Refresh that auto-reloads.
 - **v3:** scheduled re-run of the full deep-dive + red-team pipeline (the same multi-agent pattern as the research) on the free LLM, versioning each thesis; portfolio tracker with live position values and DCA-progress.
 
 > Not financial advice. The radar reflects the committed research; verify before acting.

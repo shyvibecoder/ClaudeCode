@@ -9,11 +9,23 @@ const TOKEN_KEY = "puck_dispatch_token";
 const STALE_DAYS = 3; // show a banner if the last scan is older than this
 
 let DATA = {};
-async function load() {
+const bust = () => `?t=${Date.now()}`; // cache-bust signals.json so reloads see fresh commits
+
+async function fetchData() {
   const [scar, port, trig, sig] = await Promise.all(
-    ["scarcities", "portfolio", "triggers", "signals"].map((f) => fetch(`data/${f}.json`).then((r) => r.json()).catch(() => ({})))
+    ["scarcities", "portfolio", "triggers", "signals"].map((f) =>
+      fetch(`data/${f}.json${f === "signals" ? bust() : ""}`).then((r) => r.json()).catch(() => ({})))
   );
-  DATA = { scar, port, trig, sig };
+  return { scar, port, trig, sig };
+}
+
+async function load() {
+  DATA = await fetchData();
+  render();
+}
+
+function render() {
+  const sig = DATA.sig;
   $("#scanned").textContent = sig?.scanned_at ? `· last scan ${new Date(sig.scanned_at).toLocaleString()}` : "";
   renderStale(sig); renderRadar(); renderTimeline(); renderPortfolio(); renderCatalysts(); renderDigest();
 }
@@ -89,8 +101,11 @@ function renderPortfolio() {
   DATA.trig.triggers.forEach((t) => {
     const live = DATA.sig?.trigger_status?.[t.id];
     let state = t.status; if (live?.fired) state = "fired";
+    // Show the value inline only when it's a compact number (e.g. drawdown %); the
+    // note carries formatted dollar figures (sleeve value) to avoid raw long numbers.
+    const showVal = live?.value != null && Math.abs(live.value) < 1000;
     const d = document.createElement("div"); d.className = `trig ${state}`;
-    d.innerHTML = `<span class="badge">${state}${live?.value != null ? ` · ${live.value}` : ""}</span><strong>${t.name}</strong><br>
+    d.innerHTML = `<span class="badge">${state}${showVal ? ` · ${live.value}` : ""}</span><strong>${t.name}</strong><br>
       <span style="color:var(--mut)">${t.type} · ${t.action}${live?.note ? ` <em>(${live.note})</em>` : ""}</span>`;
     tg.appendChild(d);
   });
@@ -104,7 +119,8 @@ function renderPortfolio() {
       <td>${fmtUsd(h.target_usd)}</td><td>${(h.weight*100).toFixed(1)}%</td><td>${h.tier}</td>
       <td>${Q?.price ? "$" + Q.price.toFixed(2) : "—"}</td>
       <td class="${ytd>=0?'pos':'neg'}">${fmtPct(ytd)}</td>
-      <td class="${off<0?'neg':''}">${fmtPct(off)}</td><td style="color:var(--mut)">${h.role}</td>`;
+      <td class="${off<0?'neg':''}">${fmtPct(off)}</td>
+      <td>${Q?.forward_pe ? Q.forward_pe.toFixed(1) + "x" : "—"}</td><td style="color:var(--mut)">${h.role}</td>`;
     tb.appendChild(tr);
   });
 }
@@ -171,7 +187,7 @@ async function triggerScan() {
     token = token.trim();
     localStorage.setItem(TOKEN_KEY, token);
   }
-  const btn = $("#refresh"), label = btn.textContent;
+  const btn = $("#refresh"), label = "⟳ Refresh";
   btn.disabled = true; btn.textContent = "⟳ Dispatching…";
   try {
     const r = await fetch(`https://api.github.com/repos/${REPO}/dispatches`, {
@@ -180,19 +196,49 @@ async function triggerScan() {
       body: JSON.stringify({ event_type: "scan" }),
     });
     if (r.status === 204) {
-      alert("Scan dispatched ✓ — the GitHub Action is running. Reload in ~1–2 min for fresh data.");
+      const before = DATA.sig?.scanned_at || null;
+      btn.textContent = "⏳ Scanning…";
+      showBanner("⏳ Scan running on GitHub Actions — this view will auto-refresh when fresh data lands (~1–3 min).");
+      const fresh = await pollForFresh(before);
+      if (fresh) {
+        btn.textContent = "✓ Updated"; setTimeout(() => (btn.textContent = label), 4000);
+      } else {
+        btn.textContent = label;
+        showBanner("Scan dispatched ✓ — fresh data hasn't appeared yet (the Action + Vercel redeploy can take a few minutes). It will update on its own; reload later if needed.");
+      }
     } else if ([401, 403, 404].includes(r.status)) {
       localStorage.removeItem(TOKEN_KEY);
+      btn.textContent = label;
       alert(`Dispatch rejected (HTTP ${r.status}). The saved token was cleared — make sure it grants "Contents: Read and write" on ${REPO}, then try Refresh again.`);
     } else {
+      btn.textContent = label;
       alert(`Dispatch failed (HTTP ${r.status}).\n${await r.text()}`);
     }
   } catch (e) {
+    btn.textContent = label;
     alert(`Dispatch error: ${e.message}\nManual fallback: repo → Actions → "scan" → Run workflow.`);
   } finally {
-    btn.disabled = false; btn.textContent = label;
+    btn.disabled = false;
   }
 }
+
+// Poll the committed signals.json until scanned_at advances, then live-reload the UI.
+async function pollForFresh(before, { tries = 30, intervalMs = 8000 } = {}) {
+  for (let i = 0; i < tries; i++) {
+    await new Promise((res) => setTimeout(res, intervalMs));
+    try {
+      const sig = await fetch(`data/signals.json${bust()}`).then((r) => r.json());
+      if (sig?.scanned_at && sig.scanned_at !== before) { DATA.sig = sig; render(); return true; }
+    } catch { /* keep polling */ }
+  }
+  return false;
+}
+
+function showBanner(msg) {
+  const el = $("#staleBanner"); if (!el) return;
+  el.className = "banner show"; el.textContent = msg;
+}
+
 $("#refresh").onclick = triggerScan;
 
 load();

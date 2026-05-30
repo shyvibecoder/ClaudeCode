@@ -51,8 +51,10 @@ You are working in **`shyvibecoder/deep-tech-market-research`** (private). It co
 **v2 — make the scanner smarter (free sources)**
 - [x] **SEC EDGAR watch:** recent 8-K/10-Q/10-K/6-K/20-F per holding, with 8-K item topics, surfaced in `signals.json` + a "Filings & news" tab and fed to the digest (prioritizing backlog/capacity/guidance/pricing). → `scripts/lib/edgar.mjs`.
 - [x] **News RSS per scarcity:** Google-News RSS keyed off each scarcity's `news_query` thesis terms; deduped; folded into the digest + dashboard. → `scripts/lib/news.mjs`.
-- [ ] **Cost-basis-aware trim trigger:** let the user enter actual buy prices (a gitignored `web/data/positions.local.json`); compute the "2× cost AND >50× forward" trim rule and the sleeve-cap (>~33%) trigger for real.
-- [ ] **Forward-multiple fetch:** pull forward P/E where a free source allows, to make the "went up a lot ≠ expensive" check live (this was the key analytical correction in the thesis).
+- [x] **Cost-basis-aware trim trigger:** gitignored `web/data/positions.local.json` (template: `positions.local.example.json`) drives the "2× cost AND >50× forward" trim rule and the live sleeve-cap (~$1.72mm) trigger. → in `scan.mjs`; `validatePositions` in schema.
+- [x] **Forward-multiple fetch:** best-effort free forward P/E (`scripts/lib/fundamentals.mjs`) surfaced in the holdings table + digest; overridable per position. (Yahoo crumb-gates this, so it degrades to the user-supplied value.)
+- [x] **Multi-model adversarial digest:** analyst on one free model, red-team on a different one when both keys are set (cross-model review). → `scripts/lib/llm.mjs`.
+- [x] **On-demand pull:** dashboard Refresh dispatches the scan and auto-polls + live-reloads when fresh data lands.
 
 **v3 — re-run the research loop on a schedule (the differentiator)**
 - [ ] Port the original multi-agent pattern (8 deep-dives → 4 red-teams → synthesis → adversarial pass) into a scheduled job on the **free LLM**, writing a dated `research/auto/<date>.md` and a diff vs the last run ("what changed in the thesis this month").
