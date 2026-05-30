@@ -125,6 +125,11 @@ underweight → down) and, when the horizon matures, **resolves** it against the
 is graded on whether its calls came true, turning opinions into a verifiable, compounding record. A
 hit-rate persistently below ~50% means the signal isn't working (which is what you want to know).
 
+A second **Alpha edge** line grades the harder claim. Each **de-rating / inflecting** flag becomes a
+42-day *relative* forecast — does the flagged scarcity basket actually under/out-perform the AI-capex
+complex (the theme ETFs)? That relative move, not raw direction, is the thesis's real edge, so it is
+scored separately (de-rating and inflecting buckets). It tells you whether the alpha signal earns its keep.
+
 ### 5.2 Summary cards
 Sleeve size, IRA vs taxable split, holding count, and a **data-quality** card (✓ OK or ⚠ degraded —
 see §11).
