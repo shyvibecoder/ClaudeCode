@@ -1,0 +1,34 @@
+name: research
+# v3 auto-research: monthly, re-runs the thesis on the free LLMs and opens a PR with
+# proposed scarcity reassessments (HUMAN approves; bot-owned fields only).
+on:
+  schedule:
+    - cron: "0 6 1 * *"   # 06:00 UTC on the 1st of each month
+  workflow_dispatch: {}
+permissions:
+  contents: write
+  pull-requests: write
+concurrency: { group: research, cancel-in-progress: false }
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Run the research LLMs
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: node scripts/research-run.mjs
+      - name: Open PR with proposals (human approves)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "puck-bot"; git config user.email "puck-bot@users.noreply.github.com"
+          if [ -z "$(git status --porcelain research/auto)" ]; then echo "no new research output"; exit 0; fi
+          b="auto-research/$(date +%F)"; git checkout -b "$b"
+          git add research/auto && git commit -m "auto-research proposals $(date +%F) [skip ci]"
+          git push -u origin "$b"
+          gh pr create --base main --head "$b" --title "Auto-research proposals $(date +%F)" \
+            --body "LLM-proposed scarcity reassessments (bot-owned fields only; ARCHITECTURE §1). Review the dated report in research/auto/ and apply by hand if you agree. Prompt version is in each proposal." || echo "pr skipped"

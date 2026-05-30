@@ -65,7 +65,8 @@ asserted edge into evidence, and is the one asset that compounds and can't be cl
 - [ ] **Weekly decision memo** (Visionary #11) — posture + why-changed + de-rating + catalysts + scorecard.
 
 ### P4 — differentiators (need P1–P2 as ground truth)
-- [ ] **v3 ensemble auto-research** gated by cross-model agreement × empirical calibration (Visionary #7).
+- [~] **v3 auto-research (started):** `scripts/research-run.mjs` + monthly `research.yml` run the versioned research prompts (`research-prompts.mjs`, `RESEARCH_PROMPT_VERSION`) deep-dive→red-team→synthesis on the free LLMs, gated + sanitized to bot-owned fields (F9 enforced in `research.mjs`, tested), opening a human-approved PR. **Prompts are VERSIONED and scorecard-gradeable** — each proposal records its prompt_version + the live tilt hit-rate as a calibration prior, so we can tell whether newer prompts are better-calibrated. *Next: ensemble agreement gating; close the loop by scoring proposals against outcomes.*
+- [ ] **v3 ensemble auto-research (full)** gated by cross-model agreement × empirical calibration (Visionary #7).
 - [ ] **Inaccessible-chokepoint tracker** via public proxies (Visionary #8).
 
 ### Cross-cutting
