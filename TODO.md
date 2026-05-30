@@ -21,6 +21,26 @@ all-in vs. apply the brakes into cash. See `REGIME.md` for the evidence base.
   - [ ] **Options execution rules (DEFINED-RISK ONLY — assume NO naked options, both accounts)** — risk-on → long LEAPS calls (GEV/ASML/index); defensive/macro-stress → protective puts / debit put spreads / collars on correlated cyclicals. Active rolling in IRA (tax-free); long-dated catastrophe hedges in taxable (mind holding-period/constructive-sale/wash-sale). See POSITION-SIZING §3a.
   - [ ] Version the regime engine (v1→v2) + keep thresholds coarse/economically-motivated (anti-overfit); do NOT port QQQ-tuned params onto short-history single names; no leverage.
 
+## ⚠ Data integrity / anti-injection hardening (next priority)
+Current guards: HTTPS-only sources, fail-loud schema validation (in+out), every ticker "resolved or
+errored explicitly" (never silently filled), errors captured + graceful degrade, single controlled
+writer (Actions → committed `signals.json`). **Gaps to close:**
+- [ ] **Cross-source corroboration** — when Yahoo *and* Stooq both return, compare; flag/error if they diverge >~2–3% (use Stooq as a validator, not just a fallback).
+- [ ] **Plausibility bounds** — reject price≤0/non-finite (Yahoo path lacks the `isFinite` guard Stooq has); flag implausible day-over-day or vs-52w-high moves; bound vol/ytd.
+- [ ] **Anomaly vs last run** — diff new price against the prior committed `signals.json`; flag jumps >~35% (likely bad print / unadjusted split) and withhold from triggers.
+- [ ] **Per-quote freshness** — use Yahoo's last-bar timestamp; flag stale/halted/delisted quotes.
+- [ ] **Fail-safe triggers** — don't fire auto-triggers (drawdown/sleeve) on a degraded run (too many errors/anomalies) or until **two consecutive scans agree**.
+- [ ] **Provenance** — keep `source` per quote (done) + summarize Yahoo/Stooq mix; treat heavy fallback as degraded. Untrusted EDGAR/news text stays read-only (never agentic) to avoid prompt-injection.
+
+### Free market-data sources (multi-source corroboration — all free)
+Build a provider abstraction (like the LLM one) that tries keyless first, optionally free-key, and cross-checks.
+- **Quotes/history (keyless):** Yahoo chart (primary), Stooq CSV (fallback+validator). Add as corroborators →
+  **Yahoo options endpoint** (`/v7/finance/options/{t}` — real chains + IV, keyless), **exchangerate.host/Frankfurter** (FX).
+- **Quotes (free-key, optional, generous):** Finnhub (60/min), Twelve Data (800/day), Alpha Vantage (25/day), Tiingo, FMP — keys stored as repo secrets / Settings; used to corroborate the keyless feed.
+- **Fundamentals/forward multiple:** Yahoo quoteSummary (flaky), Finnhub/FMP/Alpha Vantage OVERVIEW, **SEC EDGAR XBRL companyfacts** (keyless, authoritative for *reported* figures).
+- **Options chains + IV:** **Yahoo options endpoint** (keyless) to auto-pull real IV into the Options tab; Tradier sandbox (free key) as alt.
+- **Macro (Timing v2 overlay):** keyless `^VIX`/`^VIX3M`/`^TNX`/`HYG` (Yahoo); FRED `BAMLH0A0HYM2` (free key) for HY OAS.
+
 ## Audit fixes (ARCHITECTURE.md F1–F11)
 - [x] **F1** — dedupe trigger-alert issues in `scan.yml` (don't reopen while one is open)
 - [x] **F2** — capture per-quote `currency`; **skip + flag** non-USD lots in the sleeve value
