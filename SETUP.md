@@ -24,6 +24,12 @@ The Refresh button can kick the scan on demand from the dashboard via GitHub's `
 ## 3b. (Optional) Enable the cost-basis trim rule + live sleeve cap
 Copy `web/data/positions.local.example.json` to **`web/data/positions.local.json`** (this filename is **gitignored — never committed**) and fill in your real `shares` / `cost_basis` per ticker (and `cash_usd` dry powder). The scanner then computes the **trim rule** (a name > 2× cost basis **and** > 50× forward P/E → trim ~⅓) and the **live sleeve-cap** trigger (sleeve value vs the ~$1.72mm cap). `forward_pe` is fetched automatically where a free source allows; set it per position to override.
 
+## 3c. (Optional) Email alerts when a trigger fires
+The scanner already opens a GitHub Issue when a deploy/exit trigger fires (and you get GitHub's email if you "watch" the repo). To get a **direct email** instead — sent only when a trigger **newly** fires (a state change, not every run) — add these to the repo:
+1. **Secrets** (Settings → Secrets and variables → Actions → *Secrets*): `SMTP_USER` and `SMTP_PASS`. The easy free route is **Gmail**: use your Gmail address as `SMTP_USER` and a **Gmail App Password** as `SMTP_PASS` (Google Account → Security → 2-Step Verification → App passwords). Optional `SMTP_HOST`/`SMTP_PORT` (default `smtp.gmail.com` / `465`).
+2. **Variable** (same page → *Variables*): `ALERT_EMAIL_TO` = the address to notify.
+That's it — no email is sent unless `SMTP_USER` is set, so this stays off until you opt in. (The email step uses the `dawidd6/action-send-mail` action; pin it to a commit SHA if you prefer.)
+
 ## 4. Reliability (already on)
 - A **stale-data banner** appears on the dashboard if the last scan is more than ~3 days old.
 - The **`ci`** GitHub Action runs on every PR/push: it does an offline scan and asserts the data files + generated `signals.json` are schema-valid and that every portfolio ticker resolved or errored. The scanner itself fails loudly on malformed `web/data/*.json`.

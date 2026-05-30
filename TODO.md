@@ -97,7 +97,7 @@ Build a provider abstraction (like the LLM one) that tries keyless first, option
 
 ## v4 — tracking & alerts
 - [ ] DCA planned-vs-deployed view (uses F6)
-- [ ] Push alerts (ntfy.sh / Telegram) on trigger fire (uses F7 for dedupe across channels)
+- [x] **Email alerts** on a *newly-fired* trigger (state-change, not every run) — SMTP via repo secrets (e.g. Gmail app password); `scripts/lib/alerts.mjs` (`newlyFired`, TDD-tested) → `signals.alerts` → `scan.yml` email step. (No Telegram.)
 - [x] Rebalance helper: flag any holding >±25% from target weight (`web/rebalance.mjs`, TDD-tested; ⚖ column in Your holdings)
 
 ## Nice-to-haves

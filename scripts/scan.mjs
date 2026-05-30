@@ -11,6 +11,7 @@ import { isTradeable, fetchYahoo } from "./lib/quotes.mjs";
 import { getQuotes, providerKeys } from "./lib/marketdata.mjs";
 import { macroStress } from "./lib/macro.mjs";
 import { toUsd, fetchRates } from "./lib/fx.mjs";
+import { newlyFired } from "./lib/alerts.mjs";
 import { analystRedteamDigest, llmAvailable } from "./lib/llm.mjs";
 import { validateInputs, validateSignals, validatePositions, assertValid, SCHEMA_VERSION } from "./lib/schema.mjs";
 import { watchFilings } from "./lib/edgar.mjs";
@@ -50,10 +51,10 @@ if (!OFFLINE) {
   errors.push("offline mode: no live quotes fetched");
 }
 
-// Anomaly guard: compare each new price to the PREVIOUS committed scan; flag big jumps
-// (likely a bad print / unadjusted split) so they don't quietly drive triggers.
-let prevQuotes = {};
-try { prevQuotes = JSON.parse(readFileSync(new URL("../web/data/signals.json", import.meta.url)))?.quotes || {}; } catch { /* first run */ }
+// Previous committed scan (for the anomaly guard + alert state-change detection).
+let prevSig = {};
+try { prevSig = JSON.parse(readFileSync(new URL("../web/data/signals.json", import.meta.url))) || {}; } catch { /* first run */ }
+const prevQuotes = prevSig.quotes || {};
 const ANOMALY = 0.35;
 for (const [tk, q] of Object.entries(quotes)) {
   const prev = prevQuotes[tk]?.price;
@@ -204,6 +205,14 @@ const trigger_status = {
   trim_rule: { fired: trimHits.length > 0, hits: trimHits, note: trimNote },
 };
 
+// Alerts: which triggers are fired, and which are NEWLY fired vs the last scan
+// (email/issue fire on the state change, not every run).
+const alerts = {
+  fired: Object.entries(trigger_status).filter(([, v]) => v?.fired).map(([k]) => k),
+  newly_fired: newlyFired(trigger_status, prevSig.trigger_status),
+};
+if (alerts.newly_fired.length) console.log(`Alerts: newly fired -> ${alerts.newly_fired.join(", ")}`);
+
 // --- Macro-stress overlay inputs (free, keyless): VIX term-structure + HY credit velocity ---
 let macro = null;
 if (!OFFLINE) {
@@ -251,6 +260,7 @@ const out = {
   filings,
   news,
   trigger_status,
+  alerts,
   regime,
   data_quality,
   scarcity_drift,
