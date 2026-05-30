@@ -75,4 +75,7 @@ table.kv td:nth-child(odd){color:var(--mut)}
 .dq-warn{color:var(--y27);margin-left:5px;cursor:help}
 .card.dq-bad{border-color:#5a3a12}.card.dq-bad b{color:var(--y27)}
 #settingsMsg{white-space:pre-line}
+table.cfg{font-size:12.5px;margin:8px 0}table.cfg td{padding:3px 8px;border-bottom:1px solid var(--line)}
+table.cfg th{text-align:left;color:var(--y30);padding:8px 8px 3px;border-bottom:1px solid var(--line)}
+table.cfg code{font-size:11px}#adminStatus a{color:var(--y30)}
 @media(max-width:800px){.tcol{grid-template-columns:1fr}}

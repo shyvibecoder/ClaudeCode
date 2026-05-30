@@ -212,22 +212,26 @@ cash**. Live prices come from the latest scan.
 - **⬆ Import** — load a positions file back in.
 - **Clear holdings** — wipe them from this browser.
 
-### 9.2 LLM keys (free)
-- **Gemini** (aistudio.google.com) — powers the in-browser digest; CORS-friendly.
-- **Groq** (console.groq.com) — the second model for cross-model red-teaming (used by the scanner).
+### 9.2 🔐 Admin — credentials & configuration
+One place for every credential, in two tiers:
 
-### 9.3 Market-data keys (free, optional)
-Keyless Yahoo + Stooq always run. These add **independent cross-check sources** so a bad/synthetic price
-can't pass silently:
-- **Finnhub** (finnhub.io) — also powers the **✓ Check live prices** button (browser-side live vs last
-  scan).
-- **Twelve Data**, **Alpha Vantage** — used by the scanner.
+**Browser keys** (stored only in this browser; power client-side features):
+- **Gemini** (aistudio.google.com) — in-browser digest. **Groq** (console.groq.com) — second red-team model.
+- **Finnhub / Twelve Data / Alpha Vantage** — data cross-checks; Finnhub also powers **✓ Check live prices**.
+- **GitHub dispatch token** (Contents: R/W) — lets **⟳ Refresh** trigger a live scan (§10).
+- Click **Save browser keys**.
 
-For the *automated* scanner, also add each as a GitHub repo secret using the exact name shown (e.g.
-`FINNHUB_API_KEY`). Keys typed here stay in your browser.
+**Repo configuration** (what the automated scanner uses). Paste an **admin GitHub token** (fine-grained:
+*Secrets: read*, *Variables: read/write*) and click **⟲ Check configuration** to get a ✅/⬜ status for
+**every** secret and variable the scanner can use (LLM keys, data keys, `SMTP_USER`/`SMTP_PASS`,
+`ALERT_EMAIL_TO`, `SEC_USER_AGENT`).
+- **Variables** (alert email, SEC user-agent) are non-secret — set them **right here** with **Save
+  variables to GitHub**.
+- **Secrets** (API keys, SMTP password) are *write-only* in GitHub for security and can't be set from a
+  static page — the panel shows whether each is configured and links to GitHub's secrets form to
+  set/rotate them. Email setup details: `SETUP.md` §3c.
 
-### 9.4 GitHub dispatch token
-A fine-grained PAT (Contents: Read & write) that lets the **⟳ Refresh** button trigger a live scan. See §10.
+Everything you paste here stays in this browser.
 
 ---
 

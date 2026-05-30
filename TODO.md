@@ -78,6 +78,8 @@ Build a provider abstraction (like the LLM one) that tries keyless first, option
 - [ ] **F11** wire manual policy triggers to news/filings
 
 ## UX / onboarding (shipped)
+- [x] **🔐 Admin tool** — one panel for all credentials: browser keys (localStorage) + repo-config status (✅/⬜ for every secret/variable via the GitHub API) + set non-secret repo **variables** (ALERT_EMAIL_TO, SEC_USER_AGENT) directly. Secrets stay write-only in GitHub (linked). `web/admin.mjs` catalog/status TDD-tested.
+
 - [x] **⚙ Settings/onboarding** — per-account holdings editor + dry-powder cash + API keys/token (localStorage only); live "Your holdings" panel; export/import `positions.local.json`; in-browser Gemini digest.
 - [x] **Options check** tab — Black-Scholes fair-value (IV vs realized vol) + greeks; regime-linked defined-risk suggestion.
 - [x] **Site-wide help (`?`)** — contextual explainers on every section. **Convention: all future features ship with a `?` help entry** (ARCHITECTURE §5).

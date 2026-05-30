@@ -343,11 +343,15 @@ function importPositions(file) {
   r.readAsText(file);
 }
 
+const ADMIN_TOKEN_KEY = "puck_admin_token";
 function loadKeyFields() {
   const k = getKeys();
   $("#kGemini").value = k.gemini || ""; $("#kGroq").value = k.groq || "";
   $("#kFinnhub").value = k.finnhub || ""; $("#kTwelve").value = k.twelvedata || ""; $("#kAlpha").value = k.alphavantage || "";
   $("#kDispatch").value = localStorage.getItem(TOKEN_KEY) || "";
+  $("#kAdmin").value = localStorage.getItem(ADMIN_TOKEN_KEY) || "";
+  $("#vAlertEmail").value = localStorage.getItem("puck_var_ALERT_EMAIL_TO") || "";
+  $("#vSecUA").value = localStorage.getItem("puck_var_SEC_USER_AGENT") || "";
 }
 function saveKeys() {
   setMsg("");
@@ -467,9 +471,73 @@ $("#hCash").onchange = saveCash;
 $("#hExport").onclick = exportPositions;
 $("#hImport").onchange = (e) => e.target.files[0] && importPositions(e.target.files[0]);
 $("#hClear").onclick = () => { if (confirm("Clear all your stored holdings from this browser?")) { localStorage.removeItem(POS_KEY); renderHoldEditor(); render(); } };
+// --- Admin: read repo config status + set non-secret variables via the GitHub API ---
+function adminToken() { const t = $("#kAdmin").value.trim(); if (t) localStorage.setItem(ADMIN_TOKEN_KEY, t); return t; }
+const ghHeaders = (t) => ({ accept: "application/vnd.github+json", authorization: `Bearer ${t}`, "x-github-api-version": "2022-11-28" });
+
+async function checkConfig() {
+  const t = adminToken();
+  if (!t) return setMsg("Paste an admin GitHub token (fine-grained: Secrets read, Variables read/write).");
+  setMsg("Reading repo configuration…");
+  try {
+    const [secR, varR] = await Promise.all([
+      fetch(`https://api.github.com/repos/${REPO}/actions/secrets?per_page=100`, { headers: ghHeaders(t) }),
+      fetch(`https://api.github.com/repos/${REPO}/actions/variables?per_page=100`, { headers: ghHeaders(t) }),
+    ]);
+    if (!secR.ok) { if ([401,403,404].includes(secR.status)) localStorage.removeItem(ADMIN_TOKEN_KEY); return setMsg(`GitHub rejected the admin token (HTTP ${secR.status}). Needs Secrets: read + Variables: read/write on ${REPO}.`); }
+    const secrets = (await secR.json()).secrets?.map((s) => s.name) || [];
+    const vars = varR.ok ? (await varR.json()).variables || [] : [];
+    const varNames = vars.map((v) => v.name);
+    // prefill variable fields from GitHub (variables are not secret)
+    const ae = vars.find((v) => v.name === "ALERT_EMAIL_TO"); if (ae) $("#vAlertEmail").value = ae.value;
+    const ua = vars.find((v) => v.name === "SEC_USER_AGENT"); if (ua) $("#vSecUA").value = ua.value;
+    renderAdminStatus(secrets, varNames);
+    setMsg("Configuration loaded.");
+  } catch (e) { setMsg("Config check failed: " + e.message); }
+}
+
+function renderAdminStatus(secrets, variables) {
+  const A = window.PuckAdmin; if (!A) return;
+  const st = A.configStatus(secrets, variables);
+  const bk = A.browserKeyStatus(getKeys(), !!localStorage.getItem(TOKEN_KEY));
+  const row = (x) => `<tr><td>${x.configured ? "✅" : "⬜"}</td><td><code>${x.name || x.key}</code></td><td>${x.label}</td></tr>`;
+  $("#adminStatus").innerHTML = `
+    <table class="cfg"><tbody>
+      <tr><th colspan="3">Repo secrets (scanner) — set in GitHub → Settings → Secrets</th></tr>
+      ${st.secrets.map(row).join("")}
+      <tr><th colspan="3">Repo variables (settable below)</th></tr>
+      ${st.variables.map(row).join("")}
+      <tr><th colspan="3">Browser keys (this device)</th></tr>
+      ${bk.map(row).join("")}
+    </tbody></table>
+    <p class="modal-note">Secrets are write-only in GitHub (values never shown). Set/rotate them at
+      <a href="https://github.com/${REPO}/settings/secrets/actions" target="_blank" rel="noopener">github.com/${REPO}/settings/secrets/actions</a>.</p>`;
+}
+
+async function saveVariables() {
+  const t = adminToken();
+  if (!t) return setMsg("Paste an admin token first.");
+  const items = [["ALERT_EMAIL_TO", $("#vAlertEmail").value.trim()], ["SEC_USER_AGENT", $("#vSecUA").value.trim()]].filter(([, v]) => v);
+  if (!items.length) return setMsg("Enter a value to save.");
+  setMsg("Saving variables to GitHub…");
+  try {
+    for (const [name, value] of items) {
+      localStorage.setItem(`puck_var_${name}`, value);
+      // upsert: PATCH existing, else POST new
+      let r = await fetch(`https://api.github.com/repos/${REPO}/actions/variables/${name}`, { method: "PATCH", headers: { ...ghHeaders(t), "content-type": "application/json" }, body: JSON.stringify({ name, value }) });
+      if (r.status === 404) r = await fetch(`https://api.github.com/repos/${REPO}/actions/variables`, { method: "POST", headers: { ...ghHeaders(t), "content-type": "application/json" }, body: JSON.stringify({ name, value }) });
+      if (!r.ok && r.status !== 204) return setMsg(`Failed to set ${name} (HTTP ${r.status}). Token needs Variables: read/write.`);
+    }
+    setMsg(`Saved ${items.map(([n]) => n).join(", ")} to the repo. ✓`);
+    checkConfig();
+  } catch (e) { setMsg("Save failed: " + e.message); }
+}
+
 $("#kSave").onclick = saveKeys;
 $("#kDigest").onclick = browserDigest;
 $("#kCheck").onclick = checkLivePrices;
+$("#cfgCheck").onclick = checkConfig;
+$("#cfgSaveVars").onclick = saveVariables;
 
 // ---------- Site-wide contextual help (every feature ships with a "?") ----------
 const HELP = {
@@ -531,6 +599,11 @@ const HELP = {
   dataquality: { title: "Data quality &amp; integrity", body: `
     <p>Every quote is fetched over HTTPS and must be a plausible number, or it's marked errored (never silently filled). The scanner <strong>cross-checks</strong> prices across sources (Yahoo/Stooq + any free keys), flags <strong>⚠</strong> on source divergence &gt;3%, big jumps vs the last scan (&gt;35%), or stale/halted bars.</p>
     <p><strong>Fail-safe:</strong> on a degraded run (too many errors/flags) the auto-triggers (drawdown, sleeve cap) are <em>held</em> — they won't fire on bad data. Add free market-data keys (Settings §3) for stronger corroboration.</p>` },
+  admin: { title: "Admin — credentials &amp; configuration", body: `
+    <p>One place for every credential. Two tiers:</p>
+    <ul><li><strong>Browser keys</strong> (Gemini/Groq/Finnhub/… + dispatch token) — stored only in this browser; power the in-browser digest, live price check, and Refresh.</li>
+    <li><strong>Repo configuration</strong> — what the automated GitHub Actions scanner uses. Paste an <strong>admin GitHub token</strong> (fine-grained: Secrets <em>read</em>, Variables <em>read/write</em>) and click <strong>Check configuration</strong> to see a ✅/⬜ status for every secret and variable.</li></ul>
+    <p><strong>Variables</strong> (alert email, SEC user-agent) are non-secret — you can <strong>save them to GitHub right here</strong>. <strong>Secrets</strong> (API keys, SMTP password) are write-only in GitHub for security and can't be set from a static page — the panel shows whether each is configured and links you to GitHub's secrets form to set/rotate them. Everything you paste stays in this browser.</p>` },
   settings: { title: "Settings &amp; onboarding", body: `
     <p>Everything here lives <strong>only in this browser</strong> (localStorage) — never committed. Add your holdings per account (ticker/shares/cost basis), your dry-powder cash, and free API keys. Export your positions to <code>positions.local.json</code> for the scanner's trim/sleeve math. Keys: Gemini (aistudio.google.com) and Groq (console.groq.com) are free.</p>` },
 };

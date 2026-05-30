@@ -50,21 +50,31 @@
         <button id="hClear" class="danger">Clear holdings</button>
       </div>
 
-      <h4>2 · API keys &amp; token</h4>
-      <p class="modal-note">For the <em>automated</em> scanner, set these as GitHub repo secrets (Settings → Secrets → Actions). Keys entered here power the optional <em>in-browser</em> digest and the Refresh button.</p>
-      <label>Gemini API key <input id="kGemini" type="password" placeholder="AIza… (aistudio.google.com)" /></label>
-      <label>Groq API key <input id="kGroq" type="password" placeholder="gsk_… (console.groq.com) — browser CORS-limited" /></label>
-      <label>GitHub dispatch token <input id="kDispatch" type="password" placeholder="fine-grained PAT, Contents: R/W" /></label>
+      <h4>2 · 🔐 Admin — credentials &amp; configuration <button class="help" data-help="admin">?</button></h4>
 
-      <h4>3 · Market-data keys (optional, free) <button class="help" data-help="datakeys">?</button></h4>
-      <p class="modal-note">Keyless Yahoo + Stooq always run. These free keys add independent <em>cross-check</em> sources (catch bad/synthetic prints). For the <em>automated scanner</em>, also add each as a GitHub repo secret with the name shown.</p>
-      <label>Finnhub key <input id="kFinnhub" type="password" placeholder="free at finnhub.io" /> <span class="foot">secret: FINNHUB_API_KEY</span></label>
-      <label>Twelve Data key <input id="kTwelve" type="password" placeholder="free at twelvedata.com" /> <span class="foot">secret: TWELVE_DATA_API_KEY</span></label>
-      <label>Alpha Vantage key <input id="kAlpha" type="password" placeholder="free at alphavantage.co" /> <span class="foot">secret: ALPHAVANTAGE_API_KEY</span></label>
+      <p class="modal-note"><strong>Browser keys</strong> (this device only — power the in-browser digest, live price check, and Refresh):</p>
+      <label>Gemini key <input id="kGemini" type="password" placeholder="AIza… (aistudio.google.com)" /></label>
+      <label>Groq key <input id="kGroq" type="password" placeholder="gsk_… (console.groq.com)" /></label>
+      <label>Finnhub key <input id="kFinnhub" type="password" placeholder="finnhub.io" /></label>
+      <label>Twelve Data key <input id="kTwelve" type="password" placeholder="twelvedata.com" /></label>
+      <label>Alpha Vantage key <input id="kAlpha" type="password" placeholder="alphavantage.co" /></label>
+      <label>GitHub dispatch token <input id="kDispatch" type="password" placeholder="fine-grained PAT, Contents: R/W" /></label>
       <div class="modal-actions">
-        <button id="kSave">Save keys</button>
-        <button id="kDigest">✦ Generate digest in browser (Gemini)</button>
-        <button id="kCheck">✓ Check live prices (Finnhub)</button>
+        <button id="kSave">Save browser keys</button>
+        <button id="kDigest">✦ Digest in browser</button>
+        <button id="kCheck">✓ Check live prices</button>
+      </div>
+
+      <p class="modal-note" style="margin-top:12px"><strong>Repo configuration</strong> (the GitHub Actions scanner). Paste an admin token to see what's configured and to set non-secret variables. Token + everything here stays in this browser.</p>
+      <label>Admin GitHub token <input id="kAdmin" type="password" placeholder="fine-grained PAT: Secrets read, Variables read/write" /></label>
+      <div class="modal-actions">
+        <button id="cfgCheck">⟲ Check configuration</button>
+      </div>
+      <div id="adminStatus"></div>
+      <label>Alert email (ALERT_EMAIL_TO) <input id="vAlertEmail" type="email" placeholder="you@email.com" /></label>
+      <label>SEC User-Agent (SEC_USER_AGENT) <input id="vSecUA" type="text" placeholder="Your Name you@email.com" /></label>
+      <div class="modal-actions">
+        <button id="cfgSaveVars">Save variables to GitHub</button>
       </div>
       <p id="settingsMsg" class="modal-note"></p>
     </div>
@@ -156,5 +166,6 @@
   <script src="app.js"></script>
   <script type="module" src="options-ui.js"></script>
   <script type="module">import { rebalanceFlags } from "./rebalance.mjs"; window.rebalanceFlags = rebalanceFlags;</script>
+  <script type="module">import { configStatus, browserKeyStatus } from "./admin.mjs"; window.PuckAdmin = { configStatus, browserKeyStatus };</script>
 </body>
 </html>
