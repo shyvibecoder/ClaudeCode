@@ -8,3 +8,10 @@ export function newlyFired(current = {}, previous = {}) {
   }
   return out;
 }
+
+// Two-consecutive-scans confirmation: a trigger is only "fired" when its raw
+// condition (`met`) holds NOW and held in the previous scan — avoids single-scan
+// false fires. The first time the condition is met it is "pending" (met && !fired).
+export function confirmFired(metNow, metPrev) {
+  return !!metNow && !!metPrev;
+}

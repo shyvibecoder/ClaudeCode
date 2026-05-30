@@ -11,7 +11,7 @@ import { isTradeable, fetchYahoo } from "./lib/quotes.mjs";
 import { getQuotes, providerKeys } from "./lib/marketdata.mjs";
 import { macroStress } from "./lib/macro.mjs";
 import { toUsd, fetchRates } from "./lib/fx.mjs";
-import { newlyFired } from "./lib/alerts.mjs";
+import { newlyFired, confirmFired } from "./lib/alerts.mjs";
 import { analystRedteamDigest, llmAvailable } from "./lib/llm.mjs";
 import { validateInputs, validateSignals, validatePositions, assertValid, SCHEMA_VERSION } from "./lib/schema.mjs";
 import { watchFilings } from "./lib/edgar.mjs";
@@ -145,16 +145,20 @@ try {
 }
 
 // --- Auto triggers ---
+// prevMet: was this trigger's raw condition met last scan? (fallback to fired for old files)
+const prevMet = (id) => { const p = prevSig.trigger_status?.[id]; return p?.met ?? p?.fired ?? false; };
 const avgDrawdown = drops.length ? drops.reduce((a, b) => a + b, 0) / drops.length : null;
 const dd = triggers.triggers.find((x) => x.id === "drawdown");
-// Fail-safe: never fire auto-triggers on a degraded/low-quality data run.
-const drawdownFired = !degraded && avgDrawdown != null && Math.abs(avgDrawdown) >= (dd?.threshold ?? 0.2);
+// Fail-safe: `met` is only true on a good (non-degraded) data run. Two-scan
+// confirmation: a trigger only FIRES when met now AND met last scan.
+const drawdownMet = !degraded && avgDrawdown != null && Math.abs(avgDrawdown) >= (dd?.threshold ?? 0.2);
+const drawdownFired = confirmFired(drawdownMet, prevMet("drawdown"));
 
 // Sleeve-cap + cost-basis trim rule (need positions.local.json for live values).
 const sleeveCapUsd = triggers.triggers.find((x) => x.id === "sleeve_cap")?.threshold ?? 1720000;
-let sleeveValue = null, sleeveFired = false;
+let sleeveValue = null, sleeveMet = false, sleeveFired = false;
 let sleeveNote = "add web/data/positions.local.json (gitignored) for the live sleeve value";
-let trimHits = [], trimNote = "add positions.local.json with cost basis to evaluate";
+let trimHits = [], trimMet = false, trimFired = false, trimNote = "add positions.local.json with cost basis to evaluate";
 
 // F2b: fetch FX rates (free, keyless) for any non-USD position currencies.
 let fxRates = { USD: 1 };
@@ -177,7 +181,8 @@ if (positions?.positions) {
   if (typeof positions.cash_usd === "number") sum += positions.cash_usd;
   if (priced) {
     sleeveValue = Math.round(sum);
-    sleeveFired = !degraded && sleeveValue >= sleeveCapUsd;
+    sleeveMet = !degraded && sleeveValue >= sleeveCapUsd;
+    sleeveFired = confirmFired(sleeveMet, prevMet("sleeve_cap"));
     sleeveNote = `sleeve ≈ $${(sleeveValue / 1e6).toFixed(2)}mm vs $${(sleeveCapUsd / 1e6).toFixed(2)}mm cap` +
       (missing.length ? ` (no price for ${missing.join(", ")})` : "") +
       (noFx.length ? ` (no FX rate for ${noFx.join(", ")} — excluded)` : "");
@@ -192,17 +197,21 @@ if (positions?.positions) {
       trimHits.push({ ticker: h.ticker, gain: +gain.toFixed(2), forward_pe: +Number(fpe).toFixed(1), action: "trim ~1/3 (tax-free in IRA)" });
     }
   }
+  trimMet = !degraded && trimHits.length > 0;
+  trimFired = confirmFired(trimMet, prevMet("trim_rule"));
   trimNote = trimHits.length ? `${trimHits.length} name(s) > 2x cost AND > 50x forward` : "no name > 2x cost AND > 50x forward";
 }
 
+// A trigger is "pending" the first scan its condition is met (awaiting confirmation).
+const pend = (met, fired) => (met && !fired ? " (pending — needs a 2nd confirming scan)" : "");
 const trigger_status = {
   drawdown: {
-    fired: drawdownFired,
+    met: drawdownMet, fired: drawdownFired,
     value: avgDrawdown == null ? null : +(avgDrawdown * 100).toFixed(1),
-    note: avgDrawdown == null ? "no data" : `avg ${(avgDrawdown * 100).toFixed(1)}% from 52w highs`,
+    note: (avgDrawdown == null ? "no data" : `avg ${(avgDrawdown * 100).toFixed(1)}% from 52w highs`) + pend(drawdownMet, drawdownFired),
   },
-  sleeve_cap: { fired: sleeveFired, value: sleeveValue, note: sleeveNote },
-  trim_rule: { fired: trimHits.length > 0, hits: trimHits, note: trimNote },
+  sleeve_cap: { met: sleeveMet, fired: sleeveFired, value: sleeveValue, note: sleeveNote + pend(sleeveMet, sleeveFired) },
+  trim_rule: { met: trimMet, fired: trimFired, hits: trimHits, note: trimNote + pend(trimMet, trimFired) },
 };
 
 // Alerts: which triggers are fired, and which are NEWLY fired vs the last scan

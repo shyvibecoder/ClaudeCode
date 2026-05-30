@@ -113,7 +113,9 @@ see §11).
 
 ### 5.3 Triggers
 Rules that tell you to act. Each shows a state — **armed** (active), **monitor** (manual watch), or
-**fired** (condition met):
+**fired** (condition met). Auto triggers require **two consecutive scans** to confirm before they fire
+(the first time a condition is met it shows *pending — needs a 2nd confirming scan*), so a single bad
+print or one-day spike can't fire an action:
 - **Drawdown** (auto): complex down ≥20–25% from highs → deploy dry powder.
 - **Trim rule** (auto): a name >2× cost basis **and** >50× forward P/E → trim ⅓ (needs your cost basis
   from Settings).
