@@ -60,10 +60,20 @@ deleveraging all create selling by holders who *must* sell for reasons unrelated
 - **Where the mispricing lives:** a *thesis-intact* name that has been mechanically de-rated — price
   down, below trend, off its highs — while the structural thesis is **not** broken. Retail can be
   the patient liquidity provider buying what someone else is forced to sell.
-- **Puck computes this (partially):** the **de-rating vs. inflecting** signal already separates
-  "crowded thesis rolling over" (avoid) from "under-priced thesis gaining" (accumulate); the
-  drawdown trigger and DCA-into-weakness encode "deploy into forced selling, don't chase."
-  *Gap:* explicit forced-flow events (index deletions, tax-loss seasonality) are not yet ingested.
+- **Puck computes this:** the **forced-flow signal** detects the *footprint* of mechanical selling
+  from the tape (deeply off highs + below 200-DMA trend + negative 1-month momentum) and — crucially
+  — separates a **thesis-intact dislocation** (high Opportunity → `✚ accumulate`, buy what others
+  must sell) from a genuinely **broken** thesis (low Opportunity → `⚠ broken`, real deterioration,
+  avoid). Not every dip is a gift. A **tax-loss-selling seasonal overlay** (Nov–Dec harvesting →
+  January rebound) is computed free from the calendar. The de-rating/inflecting signal and the
+  drawdown-deploy trigger encode the same "deploy into forced selling, don't chase" discipline.
+  - **Overlay composition (the v2.x concern):** forced-flow governs **selection** (*what* to deploy
+    into); the regime/timing overlay governs **pace** (*whether* to deploy now). They are explicitly
+    reconciled so they never contradict: in a crash the brakes are on **and** many intact names are
+    dislocated, so `accumulate` is reframed as `⏳ accumulate on trigger` — a deploy-WHEN-the-
+    drawdown-trigger-fires priority, not a buy-now call. Selection + timing stay one system.
+  - *Remaining gap:* explicit forced-flow **events** (index add/delete, thematic-ETF flow) need a
+    feed that isn't cleanly free yet; the footprint proxy + seasonality cover most of the value now.
 
 ### 4. Behavioral discipline — the edge that is yours to lose
 **The constraint it exploits:** your own and others' biases. The premia above (value, momentum,

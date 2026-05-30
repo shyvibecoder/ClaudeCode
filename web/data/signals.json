@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "scanned_at": "2026-05-30T20:12:17.026Z",
+  "scanned_at": "2026-05-30T20:18:30.372Z",
   "source": "offline run",
   "universe_count": 52,
   "quotes": {
@@ -435,6 +435,12 @@
         "bind_proximity": 1,
         "durability": 1,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "transformers": {
@@ -450,6 +456,12 @@
         "bind_proximity": 1,
         "durability": 1,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "turbines": {
@@ -465,6 +477,12 @@
         "bind_proximity": 1,
         "durability": 0.75,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "electricians": {
@@ -480,6 +498,12 @@
         "bind_proximity": 1,
         "durability": 1,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "hvdc": {
@@ -495,6 +519,12 @@
         "bind_proximity": 1,
         "durability": 0.75,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "enrichment": {
@@ -510,6 +540,12 @@
         "bind_proximity": 0.65,
         "durability": 1,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "uranium": {
@@ -525,6 +561,12 @@
         "bind_proximity": 1,
         "durability": 0.75,
         "defensibility": 0.5
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "copper": {
@@ -540,6 +582,12 @@
         "bind_proximity": 0.45,
         "durability": 1,
         "defensibility": 0.5
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "rare-earth-magnets": {
@@ -555,6 +603,12 @@
         "bind_proximity": 1,
         "durability": 1,
         "defensibility": 0.5
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "gallium": {
@@ -570,6 +624,12 @@
         "bind_proximity": 1,
         "durability": 1,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "graphite": {
@@ -585,6 +645,12 @@
         "bind_proximity": 0.85,
         "durability": 0.75,
         "defensibility": 0.5
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "hbm": {
@@ -600,6 +666,12 @@
         "bind_proximity": 1,
         "durability": 0.5,
         "defensibility": 0
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "advanced-packaging": {
@@ -615,6 +687,12 @@
         "bind_proximity": 1,
         "durability": 0.75,
         "defensibility": 0
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "semicap": {
@@ -630,6 +708,12 @@
         "bind_proximity": 1,
         "durability": 1,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "optical": {
@@ -645,6 +729,12 @@
         "bind_proximity": 0.85,
         "durability": 0.75,
         "defensibility": 0
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "specialty-materials": {
@@ -660,6 +750,12 @@
         "bind_proximity": 1,
         "durability": 1,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "cooling": {
@@ -675,6 +771,12 @@
         "bind_proximity": 1,
         "durability": 0.5,
         "defensibility": 0.5
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "manipulation-data": {
@@ -690,6 +792,12 @@
         "bind_proximity": 0.85,
         "durability": 0.75,
         "defensibility": 0.5
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "reducers": {
@@ -705,6 +813,12 @@
         "bind_proximity": 0.85,
         "durability": 0.5,
         "defensibility": 0
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "space-power": {
@@ -720,6 +834,12 @@
         "bind_proximity": 0.65,
         "durability": 0.75,
         "defensibility": 0.5
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "thermal-rejection": {
@@ -735,6 +855,12 @@
         "bind_proximity": 0.6,
         "durability": 1,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "cryogenics": {
@@ -750,6 +876,12 @@
         "bind_proximity": 0.65,
         "durability": 1,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "bio-data": {
@@ -765,6 +897,12 @@
         "bind_proximity": 1,
         "durability": 0.75,
         "defensibility": 1
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     },
     "rl-data": {
@@ -780,6 +918,12 @@
         "bind_proximity": 0.85,
         "durability": 0.75,
         "defensibility": 0.5
+      },
+      "forced_flow": {
+        "dislocation": null,
+        "window": null,
+        "intact": null,
+        "flag": "none"
       }
     }
   },

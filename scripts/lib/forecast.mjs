@@ -89,6 +89,9 @@ export function makeScarcityForecasts(scarcities, signals, today, horizon = 42, 
     if (sig.flag === "de-rating" || sig.flag === "inflecting") {
       // The tape is moving: crowded de-rates (underperform), under-priced inflects (outperform).
       out.push({ ...base, id: `${today}:scarcity_rel:${s.id}`, claim: sig.flag === "de-rating" ? "underperform" : "outperform", source: "de-rating" });
+    } else if (sig.forced_flow?.flag === "accumulate") {
+      // Forced/neglect selling INTO an intact thesis (Edge 3) → predict mean-reversion outperformance.
+      out.push({ ...base, id: `${today}:scarcity_rel:ff:${s.id}`, claim: "outperform", source: "forced-flow", dislocation: sig.forced_flow.dislocation });
     } else if (typeof sig.score === "number" && sig.score >= OPPORTUNITY_FORECAST_THRESHOLD) {
       // Structural opportunity the tape hasn't confirmed yet → predict outperformance, and grade it.
       out.push({ ...base, id: `${today}:scarcity_rel:opp:${s.id}`, claim: "outperform", source: "opportunity", opportunity: sig.score });

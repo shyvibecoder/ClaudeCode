@@ -28,6 +28,7 @@ import { relativeStrength, deRatingSignal } from "./lib/derating.mjs";
 import { newsForQuery } from "./lib/news.mjs";
 import { chokepointHeat } from "./lib/chokepoints.mjs";
 import { rankOpportunities, opportunityScore } from "./lib/opportunity.mjs";
+import { forcedFlowSignal, reconcileWithTiming } from "./lib/forced-flow.mjs";
 import { discoverProxies, rankProxies } from "./lib/edgar-fts.mjs";
 
 const OFFLINE = process.argv.includes("--offline");
@@ -328,6 +329,23 @@ const scarcity_signals = {};
 // Where the structural edge is BEFORE the tape moves: binds soon + durable + defensible + NOT
 // yet priced (the human label refined by LIVE crowding). From source fields, not a backtest. ---
 const opportunities = rankOpportunities(scarcities.scarcities, crowdingById);
+
+// --- Forced-flow / neglect (ALPHA.md Edge 3): mechanical de-rating into an INTACT thesis =
+// "buy what others are forced to sell"; into a weak thesis = broken (avoid). Read from the
+// tape's footprint (no paid event feed needed) + a tax-loss-season overlay. ---
+// Overlay composition (philosophy "alpha → timing → cash"): the forced-flow signal governs
+// SELECTION (what to deploy into), the regime/macro overlay governs PACE (whether to deploy
+// now). They must never contradict on screen — so when the timing overlay has the brakes on
+// (defensive/caution or macro-stress), an "accumulate" is reframed as a deploy-on-the-trigger
+// PRIORITY, not a buy-now instruction. This keeps the overlays one coherent system.
+for (const s of scarcities.scarcities) {
+  const ff = forcedFlowSignal({ quotes: enriched, tickers: s.tickers, opportunity: scarcity_signals[s.id]?.score ?? null, today: TODAY });
+  scarcity_signals[s.id].forced_flow = reconcileWithTiming(ff, regime);
+}
+{
+  const acc = Object.values(scarcity_signals).filter((x) => x.forced_flow?.flag === "accumulate").length;
+  if (!OFFLINE) console.log(`Forced-flow: ${acc} thesis-intact dislocation(s) (accumulate)`);
+}
 if (!OFFLINE) console.log(`Opportunity Score: top = ${opportunities.slice(0, 3).map((o) => `${o.id} ${o.score}`).join(", ")}`);
 
 // --- Inaccessible-chokepoint tracker: DISCOVER public proxies (EDGAR full-text

@@ -113,12 +113,18 @@ function renderRadar() {
           : `<span class="oppbar" title="gate(not-priced) ${sig.gate} [label ${sig.static_gate}${sig.live_gate != null ? ` · live ${sig.live_gate}` : ""}] × quality ${sig.quality}${sig.contrarian ? " · contrarian +" : ""}"><span style="width:${opp}%"></span></span> <strong>${opp}</strong>${diverge}`;
         const alphaMark = sig && sig.flag !== "none"
           ? `<span class="alpha ${sig.flag}" title="relative strength vs complex ${sig.rs}">${sig.flag === "de-rating" ? "↓ de-rating" : "↑ inflecting"}</span>` : "";
+        // Forced-flow (Edge 3): accumulate is regime-aware — a deploy-on-trigger PRIORITY when the
+        // timing overlay has the brakes on, an accumulate-now when it permits (overlays compose).
+        const ff = sig?.forced_flow;
+        const ffMark = ff?.flag === "accumulate"
+          ? `<span class="ff ${ff.subordinate_to_timing ? "ff-wait" : "ff-go"}" title="${esc(ff.guidance || "")}${ff.window === "selling" ? " · tax-loss-selling window" : ff.window === "rebound" ? " · Jan rebound window" : ""}">${ff.subordinate_to_timing ? "⏳ accumulate on trigger" : "✚ accumulate"}</span>`
+          : ff?.flag === "broken" ? `<span class="ff ff-broken" title="dislocated AND thesis weak — not forced flow, real deterioration">⚠ broken</span>` : "";
         const dr = DATA.sig?.scarcity_drift?.[s.id];
         const driftMark = dr
           ? `<span class="drift" title="since ${dr.since}">▲ drift: priced-in ${dr.priced_in[0]}→${dr.priced_in[1]}</span>`
           : "";
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td><strong>${esc(s.scarcity)}</strong>${s.non_consensus ? '<span class="nc">◆ non-consensus</span>' : ""}${alphaMark}${driftMark}<br><span style="color:var(--mut)">${esc(s.thesis)}</span></td>
+        tr.innerHTML = `<td><strong>${esc(s.scarcity)}</strong>${s.non_consensus ? '<span class="nc">◆ non-consensus</span>' : ""}${alphaMark}${ffMark}${driftMark}<br><span style="color:var(--mut)">${esc(s.thesis)}</span></td>
           <td class="opp-cell">${oppCell}</td>
           <td>${esc(s.sector)}</td><td><span class="pill ${cls}">${lbl}</span></td>
           <td class="pi-${esc(s.priced_in)}">${esc(s.priced_in)}</td><td>${esc(s.durability)}</td><td>${esc(s.substitution_risk)}</td>
@@ -667,7 +673,8 @@ const HELP = {
     <li><strong>Priced-in</strong> — how much the market already reflects it (low → crowded). High/crowded = less edge left.</li>
     <li><strong>Durability</strong> — how long the moat lasts; <strong>Subst. risk</strong> — chance a substitute relieves it.</li>
     <li><strong>Crowding*</strong> — a <em>live</em> 0–100 proxy from price action (YTD + distance to 52-week high). Higher = more already-priced.</li>
-    <li><strong>◆ non-consensus</strong> = under-appreciated (lifts Opportunity); <strong>↓ de-rating / ↑ inflecting</strong> = the tape confirming/denying; <strong>▲ drift</strong> = priced-in changed since first tracked.</li></ul>
+    <li><strong>◆ non-consensus</strong> = under-appreciated (lifts Opportunity); <strong>↓ de-rating / ↑ inflecting</strong> = the tape confirming/denying; <strong>▲ drift</strong> = priced-in changed since first tracked.</li>
+    <li><strong>✚ accumulate / ⏳ accumulate on trigger</strong> (forced-flow, Edge 3) = the name is mechanically de-rated (off highs, below trend) <em>while the thesis is intact</em> — the footprint of forced/neglect selling you can buy. It's <strong>regime-aware</strong>: when the timing dial has the brakes on it shows <em>⏳ on trigger</em> (a deploy-WHEN-the-drawdown-trigger-fires priority, not buy-now) so selection and timing never contradict. <strong>⚠ broken</strong> = de-rated AND thesis weak → real deterioration, not a gift.</li></ul>
     <p>Filter by sector or to non-consensus only. The four structural sources of retail alpha — duration mispricing, inaccessibility, forced-flow, and discipline — are documented in <strong>ALPHA.md</strong>.</p>` },
   triggers: { title: "Deploy / exit triggers", body: `
     <p>Rules that tell you to act. Each shows a state: <strong>armed</strong> (active, watching), <strong>monitor</strong> (manual watch), or <strong>fired</strong> (condition met).</p>

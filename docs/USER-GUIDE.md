@@ -66,6 +66,13 @@ Each row is a structural scarcity, **ranked by Opportunity Score — where the r
 
 Each scarcity may also carry an **alpha flag**: **↓ de-rating** (a crowded thesis losing relative strength vs the AI-capex complex → reduce) or **↑ inflecting** (an under-priced thesis gaining → accumulate). This operationalizes the thesis's core claim and is graded by the Track record over time.
 
+It may also carry a **forced-flow flag** (ALPHA.md Edge 3 — buying what others are *forced* to sell):
+**✚ accumulate** = the name is mechanically de-rated (off highs, below trend, falling) *while its
+structural thesis is intact* — the footprint of forced/neglect selling. This flag is **regime-aware**:
+when the timing dial has the brakes on it shows **⏳ accumulate on trigger** — a *deploy-when-the-
+drawdown-trigger-fires* priority, **not** a buy-now call — so selection (what) and timing (when) never
+contradict. **⚠ broken** = de-rated *and* the thesis is weak → real deterioration, not an opportunity.
+
 > **Where does the alpha actually come from?** See **`ALPHA.md`** — the research foundation. In short, a
 > retail investor can only beat the market where a *structural constraint* stops institutions from
 > doing so: **(1) time-horizon arbitrage** (you can wait 10 years; a quarterly-judged PM can't),
