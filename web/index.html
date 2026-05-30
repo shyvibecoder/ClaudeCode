@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Puck — Structural-Scarcity Radar</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>🏒 Puck — Structural-Scarcity Radar</h1>
+      <p class="sub">Where the puck is going, not where it has been. <span id="scanned"></span></p>
+    </div>
+    <button id="refresh" title="Triggers the GitHub Action scan (needs a configured dispatch token)">⟳ Refresh</button>
+  </header>
+
+  <p class="disclaim">Illustrative research — <strong>not personalized financial advice.</strong> Every name is cyclical and would fall together in a recession or rate shock.</p>
+
+  <nav class="tabs">
+    <button data-tab="radar" class="active">Scarcity radar</button>
+    <button data-tab="timeline">Timeline</button>
+    <button data-tab="portfolio">Portfolio &amp; triggers</button>
+    <button data-tab="digest">Agent digest</button>
+  </nav>
+
+  <section id="radar" class="tab active">
+    <div class="controls">
+      <label>Sector <select id="sectorFilter"><option value="">all</option></select></label>
+      <label><input type="checkbox" id="ncOnly" /> non-consensus only</label>
+    </div>
+    <table id="radarTable"><thead><tr>
+      <th>Scarcity</th><th>Sector</th><th>Binds</th><th>Priced-in</th><th>Durability</th><th>Subst. risk</th><th>Crowding*</th><th>Tickers</th>
+    </tr></thead><tbody></tbody></table>
+    <p class="foot">*Crowding = live proxy from YTD return + distance to 52-week high (higher = more already-priced). Populated by the scanner.</p>
+  </section>
+
+  <section id="timeline" class="tab">
+    <div id="timelineGrid"></div>
+  </section>
+
+  <section id="portfolio" class="tab">
+    <div id="portSummary" class="cards"></div>
+    <h3>Triggers</h3>
+    <div id="triggers"></div>
+    <h3>Holdings</h3>
+    <table id="holdings"><thead><tr>
+      <th>Ticker</th><th>Name</th><th>Acct</th><th>Target $</th><th>Wt</th><th>Tier</th><th>Price</th><th>YTD</th><th>% off high</th><th>Role</th>
+    </tr></thead><tbody></tbody></table>
+  </section>
+
+  <section id="digest" class="tab">
+    <pre id="digestBox"></pre>
+  </section>
+
+  <footer>
+    <a href="https://github.com/shyvibecoder/claudecode" target="_blank">Research &amp; docs on GitHub</a>
+    · scanner: <code>scripts/scan.mjs</code> (GitHub Actions, free data + free LLM)
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>

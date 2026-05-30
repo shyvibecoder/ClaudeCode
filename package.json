@@ -1,0 +1,13 @@
+{
+  "name": "puck-scarcity-radar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Structural-scarcity radar: free-data + free-LLM scanner that keeps the tech-scarcity thesis and portfolio triggers up to date.",
+  "scripts": {
+    "scan": "node scripts/scan.mjs",
+    "scan:offline": "node scripts/scan.mjs --offline",
+    "serve": "node --watch-path=web -e \"import('node:http').then(({default:h})=>import('node:fs').then(({default:f})=>h.createServer((q,s)=>{let p=q.url==='/'?'/index.html':q.url.split('?')[0];try{const b=f.readFileSync('web'+p);s.writeHead(200,{'content-type':p.endsWith('.js')?'text/javascript':p.endsWith('.json')?'application/json':p.endsWith('.css')?'text/css':'text/html'});s.end(b)}catch(e){s.writeHead(404);s.end('404')}}).listen(3000,()=>console.log('http://localhost:3000')))\")"
+  },
+  "engines": { "node": ">=20" }
+}

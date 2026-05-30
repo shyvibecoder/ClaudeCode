@@ -1,0 +1,45 @@
+name: scan
+# The "agent worker": runs the free-data + free-LLM scarcity scan on a schedule
+# and commits the refreshed web/data/signals.json that the Vercel dashboard reads.
+
+on:
+  schedule:
+    - cron: "0 13 * * 1-5"   # weekdays 13:00 UTC (after US pre-market)
+  workflow_dispatch: {}       # manual "Run workflow" button
+  repository_dispatch:        # lets the dashboard's Refresh button trigger via a token
+    types: [scan]
+
+permissions:
+  contents: write             # to commit signals.json
+  issues: write               # to open an alert issue when a trigger fires
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Run scanner (free data + optional free LLM)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}   # optional free key
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}       # optional free key
+        run: node scripts/scan.mjs
+      - name: Commit refreshed signals
+        run: |
+          git config user.name "puck-bot"
+          git config user.email "puck-bot@users.noreply.github.com"
+          git add web/data/signals.json
+          git commit -m "scan: refresh signals [skip ci]" || echo "no changes"
+          git push
+      - name: Open alert issue if a trigger fired
+        if: success()
+        env: { GH_TOKEN: ${{ github.token }} }
+        run: |
+          fired=$(node -e "const s=require('./web/data/signals.json');const f=Object.entries(s.trigger_status||{}).filter(([k,v])=>v&&v.fired).map(([k])=>k);process.stdout.write(f.join(','))")
+          if [ -n "$fired" ]; then
+            gh issue create --title "⚠️ Scarcity trigger fired: $fired" \
+              --body "Auto-detected by the scan workflow on $(date -u). Triggers fired: **$fired**. Review the dashboard and POSITION-SIZING.md actions." || echo "issue create skipped"
+          else
+            echo "no triggers fired"
+          fi

@@ -12,6 +12,13 @@ A multi-agent, adversarially-reviewed deep-research study of how the major techn
 - **[`research/PORTFOLIO.md`](research/PORTFOLIO.md)** — the tailored **$1.5mm model allocation** ($800k IRA + $700k taxable, ~29% of a $5.2mm portfolio) with taxable-vs-IRA asset location and ETF-only / single-stock-enhanced versions.
 - **[`research/POSITION-SIZING.md`](research/POSITION-SIZING.md)** — concrete per-name dollar targets, a 9-month dollar-cost-averaging deployment calendar, position caps, rebalancing bands, trim discipline, and the dry-powder deployment triggers.
 
+## The app — "Puck" scarcity radar (stay on top of it)
+A **$0-to-run** dashboard + scanning engine that keeps this thesis and your portfolio triggers live. See **[`APP.md`](APP.md)** for the full architecture and setup.
+- **`web/`** — static dashboard (deploys on Vercel, zero build): scarcity radar, timeline, portfolio & live trigger status, agent digest.
+- **`scripts/scan.mjs`** — the scanner: pulls **free** quotes (Stooq/Yahoo, no key), computes crowding scores + auto-triggers, and runs an optional **free-LLM** ("analyst + red-team") digest (Gemini/Groq free tier).
+- **`.github/workflows/scan.yml`** — the "agent worker": a cron GitHub Action (free) that runs the scan, commits results, and opens an alert issue when a trigger fires. *(This is how the long agent runs happen — Vercel hosts the UI; GitHub Actions runs the agents.)*
+- Run locally: `node scripts/scan.mjs` (or `--offline`), then `npm run serve`.
+
 ## Evidence base
 - **[`research/SYNTHESIS.md`](research/SYNTHESIS.md)** — the working cross-cutting synthesis with the adversarial-loop annotations.
 - **`research/deepdives/01–08`** — full, sourced per-sector research:
