@@ -93,3 +93,20 @@ value + rebalance bands (>±25% from target weight) from `positions.local.json` 
 GitHub-issue channel; resolve currency (F2) before summing foreign lots.
 
 *These are recommendations, not yet built. Implement per phase; keep the tiering invariant.*
+
+---
+
+## 5. UI & feature conventions (REQUIRED for all future features)
+
+1. **Every feature ships with contextual help.** Add a `<button class="help" data-help="KEY">?</button>`
+   next to the feature's heading/control, and a matching `HELP.KEY = { title, body }` entry in
+   `web/app.js`. Help text must say *what it is, what it means, and how to use it* — plainly, with the
+   "not advice" caveat where relevant. A delegated click handler renders it in the shared `#helpModal`.
+2. **Privacy tiering holds:** personal data (real holdings, keys, tokens) lives in **localStorage only**
+   (Settings) or the gitignored `positions.local.json` — never committed.
+3. **Options are defined-risk only — assume NO naked options** (both accounts). Any options suggestion
+   or tool must restrict to long calls/puts, debit spreads, collars, covered calls, cash-secured puts,
+   and should fair-value-check the premium (Options tab / `web/options.mjs`) before recommending a buy.
+4. **Free-tier / keyless / degrade-gracefully** for all data + LLM (unchanged).
+5. **Shared math is single-source:** browser-served modules under `web/` (e.g. `web/options.mjs`),
+   re-exported for Node/tests via `scripts/lib/*` — don't duplicate.

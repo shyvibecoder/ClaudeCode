@@ -26,7 +26,7 @@
   <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Settings">
     <div class="modal-card">
       <div class="modal-head">
-        <strong>⚙ Settings &amp; onboarding</strong>
+        <strong>⚙ Settings &amp; onboarding <button class="help" data-help="settings">?</button></strong>
         <button id="settingsClose" aria-label="Close">✕</button>
       </div>
       <p class="modal-note">Everything here is stored <strong>only in this browser</strong> (localStorage) and never committed. Use free/restricted keys.</p>
@@ -68,13 +68,23 @@
     <button data-tab="timeline">Timeline</button>
     <button data-tab="portfolio">Portfolio &amp; triggers</button>
     <button data-tab="catalysts">Filings &amp; news</button>
+    <button data-tab="options">Options check</button>
     <button data-tab="digest">Agent digest</button>
+    <button class="help" data-help="overview" title="What is this app?">?</button>
   </nav>
+
+  <div id="helpModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Help">
+    <div class="modal-card">
+      <div class="modal-head"><strong id="helpTitle">Help</strong><button id="helpClose" aria-label="Close">✕</button></div>
+      <div id="helpBody" class="help-body"></div>
+    </div>
+  </div>
 
   <section id="radar" class="tab active">
     <div class="controls">
       <label>Sector <select id="sectorFilter"><option value="">all</option></select></label>
       <label><input type="checkbox" id="ncOnly" /> non-consensus only</label>
+      <button class="help" data-help="radar">?</button>
     </div>
     <table id="radarTable"><thead><tr>
       <th>Scarcity</th><th>Sector</th><th>Binds</th><th>Priced-in</th><th>Durability</th><th>Subst. risk</th><th>Crowding*</th><th>Tickers</th>
@@ -90,16 +100,16 @@
     <div id="regimeBox"></div>
     <div id="myHoldings"></div>
     <div id="portSummary" class="cards"></div>
-    <h3>Triggers</h3>
+    <h3>Triggers <button class="help" data-help="triggers">?</button></h3>
     <div id="triggers"></div>
-    <h3>Holdings</h3>
+    <h3>Holdings <button class="help" data-help="holdings">?</button></h3>
     <table id="holdings"><thead><tr>
       <th>Ticker</th><th>Name</th><th>Acct</th><th>Target $</th><th>Wt</th><th>Tier</th><th>Price</th><th>YTD</th><th>% off high</th><th>vs 200-DMA</th><th>Fwd P/E</th><th>Role</th>
     </tr></thead><tbody></tbody></table>
   </section>
 
   <section id="catalysts" class="tab">
-    <h3>Recent SEC filings <span class="foot">— 8-K / 10-Q / 10-K / 6-K / 20-F per holding, last ~21 days (free, via SEC EDGAR)</span></h3>
+    <h3>Recent SEC filings <span class="foot">— 8-K / 10-Q / 10-K / 6-K / 20-F per holding, last ~21 days (free, via SEC EDGAR)</span> <button class="help" data-help="filings">?</button></h3>
     <table id="filings"><thead><tr>
       <th>Date</th><th>Ticker</th><th>Form</th><th>Items / topic</th><th></th>
     </tr></thead><tbody></tbody></table>
@@ -109,7 +119,26 @@
     <p id="newsEmpty" class="foot"></p>
   </section>
 
+  <section id="options" class="tab">
+    <h3>Options fair-value check <button class="help" data-help="options">?</button>
+      <span class="foot">— before paying for an option, confirm the price is fair (implied vs realized vol). Defined-risk only — no naked options.</span></h3>
+    <div id="optForm" class="optgrid">
+      <label>Underlying <input id="oTicker" list="oTickers" placeholder="e.g. GEV" /></label>
+      <datalist id="oTickers"></datalist>
+      <label>Type <select id="oType"><option value="call">call</option><option value="put">put</option></select></label>
+      <label>Underlying $ <input id="oS" type="number" step="any" placeholder="auto" /></label>
+      <label>Strike $ <input id="oK" type="number" step="any" /></label>
+      <label>Days to expiry <input id="oDays" type="number" step="1" /></label>
+      <label>Option price $ <input id="oPx" type="number" step="any" /></label>
+      <label>Realized vol % <input id="oVol" type="number" step="any" placeholder="auto" /></label>
+      <label>Risk-free % <input id="oR" type="number" step="any" value="4.5" /></label>
+      <button id="oEval">Evaluate</button>
+    </div>
+    <div id="optResult"></div>
+  </section>
+
   <section id="digest" class="tab">
+    <h3>Agent digest <button class="help" data-help="digest">?</button></h3>
     <pre id="digestBox"></pre>
   </section>
 
@@ -118,5 +147,6 @@
     · scanner: <code>scripts/scan.mjs</code> (GitHub Actions, free data + free LLM)
   </footer>
   <script src="app.js"></script>
+  <script type="module" src="options-ui.js"></script>
 </body>
 </html>

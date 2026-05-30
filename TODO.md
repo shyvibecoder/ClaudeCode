@@ -16,7 +16,9 @@ all-in vs. apply the brakes into cash. See `REGIME.md` for the evidence base.
   - [ ] **Fast re-entry override** (e.g., 20-DMA reclaim / breadth thrust) — re-risk quickly after defensive (Daniel-Moskowitz fix).
   - [ ] Compute regime on a **clean composite underlying**, not an average of 19 noisy names.
   - [ ] **Account-aware posture**: timing drives the IRA/Roth sleeve; taxable = buy-and-hold anchors.
-  - [ ] **Options-based execution (available in BOTH IRA & taxable)** — map regime states to defined-risk options: risk-on → long LEAPS calls (GEV/ASML/index) for capped-downside leverage; defensive/macro-stress → protective puts / put spreads / collars on the most correlated cyclicals. Prefer active rolling in the IRA (tax-free); long-dated catastrophe hedges in taxable (mind holding-period/constructive-sale/wash-sale). No naked/margin in IRA. See POSITION-SIZING §3a. *(Not advice.)*
+  - [x] **Options fair-value module** — Black-Scholes IV vs realized-vol "cheap/fair/rich" verdict + greeks (`web/options.mjs`, **Options check** tab; CI-tested via parity + IV round-trip).
+  - [~] **Options-based action suggestions** — Options tab already suggests a defined-risk structure from the live regime (defensive→put/put-spread; risk-on→LEAPS call). *Full Timing-v2: have the regime engine emit the suggestion + a suggested strike/expiry band.*
+  - [ ] **Options execution rules (DEFINED-RISK ONLY — assume NO naked options, both accounts)** — risk-on → long LEAPS calls (GEV/ASML/index); defensive/macro-stress → protective puts / debit put spreads / collars on correlated cyclicals. Active rolling in IRA (tax-free); long-dated catastrophe hedges in taxable (mind holding-period/constructive-sale/wash-sale). See POSITION-SIZING §3a.
   - [ ] Version the regime engine (v1→v2) + keep thresholds coarse/economically-motivated (anti-overfit); do NOT port QQQ-tuned params onto short-history single names; no leverage.
 
 ## Audit fixes (ARCHITECTURE.md F1–F11)
@@ -37,6 +39,11 @@ all-in vs. apply the brakes into cash. See `REGIME.md` for the evidence base.
 - [ ] **F6 view** — DCA planned-vs-deployed dashboard (pairs with v4; data layer done)
 - [ ] **F2b** FX conversion for foreign lots
 - [ ] **F11** wire manual policy triggers to news/filings
+
+## UX / onboarding (shipped)
+- [x] **⚙ Settings/onboarding** — per-account holdings editor + dry-powder cash + API keys/token (localStorage only); live "Your holdings" panel; export/import `positions.local.json`; in-browser Gemini digest.
+- [x] **Options check** tab — Black-Scholes fair-value (IV vs realized vol) + greeks; regime-linked defined-risk suggestion.
+- [x] **Site-wide help (`?`)** — contextual explainers on every section. **Convention: all future features ship with a `?` help entry** (ARCHITECTURE §5).
 
 ## v2 status — complete
 - [x] SEC EDGAR 8-K/10-Q watch

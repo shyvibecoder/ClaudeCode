@@ -114,7 +114,7 @@ function renderRegime() {
   }
   const [, lbl] = POSTURE[r.posture] || POSTURE.unknown;
   box.className = `regime ${r.posture}`;
-  box.innerHTML = `<div><strong>Timing posture: ${lbl}${r.risk_score != null ? ` · risk ${r.risk_score}/100` : ""}</strong>
+  box.innerHTML = `<div><strong>Timing posture: ${lbl}${r.risk_score != null ? ` · risk ${r.risk_score}/100` : ""} <button class="help" data-help="regime">?</button></strong>
       <span>${r.action || ""}</span></div>
     <div class="rnote">${r.note || ""}<br><em>Alpha = scarcity thesis · timing = trend(200-DMA)+12m momentum+vol+drawdown. ${r.basis || ""}. Not advice.</em></div>`;
 }
@@ -371,7 +371,7 @@ function renderMyHoldings() {
       <td>${tgt ? Math.round((mv||0)/tgt*100)+"% of target" : "—"}</td></tr>`);
   }
   const capPct = Math.round(total / cap * 100);
-  box.innerHTML = `<h3>Your holdings (live) <span class="foot">— from your browser-stored positions × latest scan prices</span></h3>
+  box.innerHTML = `<h3>Your holdings (live) <button class="help" data-help="myholdings">?</button> <span class="foot">— from your browser-stored positions × latest scan prices</span></h3>
     <div class="cards">
       <div class="card"><b>${fmtUsd(total)}</b><span>sleeve value (${capPct}% of $${(cap/1e6).toFixed(2)}mm cap)</span></div>
       <div class="card"><b>${fmtUsd(acc.ira)}</b><span>IRA/Roth</span></div>
@@ -432,6 +432,69 @@ $("#hImport").onchange = (e) => e.target.files[0] && importPositions(e.target.fi
 $("#hClear").onclick = () => { if (confirm("Clear all your stored holdings from this browser?")) { localStorage.removeItem(POS_KEY); renderHoldEditor(); render(); } };
 $("#kSave").onclick = saveKeys;
 $("#kDigest").onclick = browserDigest;
+
+// ---------- Site-wide contextual help (every feature ships with a "?") ----------
+const HELP = {
+  overview: { title: "What is Puck?", body: `
+    <p><strong>Puck</strong> tracks structural technology <em>scarcities</em> (chokepoints that bind over 2026–2036) and turns them into a live portfolio view. The philosophy: <strong>alpha from the scarcity research, timing from the tape.</strong></p>
+    <ul><li><strong>Scarcity radar / Timeline</strong> — what's scarce, when it binds, and how priced-in it already is.</li>
+    <li><strong>Portfolio &amp; triggers</strong> — your sleeve, the <em>timing posture</em> (when to deploy vs. raise cash), and deploy/exit triggers.</li>
+    <li><strong>Filings &amp; news</strong> — free SEC EDGAR + news per holding/scarcity.</li>
+    <li><strong>Options check</strong> — confirm an option's price is fair before you buy.</li>
+    <li><strong>⚙ Settings</strong> — add your holdings per account and free API keys (stored only in your browser).</li></ul>
+    <p>Not financial advice. Every name is cyclical and would fall together in a shock.</p>` },
+  radar: { title: "Scarcity radar", body: `
+    <p>Each row is a structural scarcity. Columns:</p>
+    <ul><li><strong>Binds</strong> — when the chokepoint starts biting (now → 2030+ → physics floor).</li>
+    <li><strong>Priced-in</strong> — how much the market already reflects it (low → crowded). High/crowded = less edge left.</li>
+    <li><strong>Durability</strong> — how long the moat lasts; <strong>Subst. risk</strong> — chance a substitute relieves it.</li>
+    <li><strong>Crowding*</strong> — a <em>live</em> 0–100 proxy from price action (YTD + distance to 52-week high). Higher = more already-priced.</li>
+    <li><strong>◆ non-consensus</strong> = under-appreciated; <strong>▲ drift</strong> = the priced-in level has changed since first tracked.</li></ul>
+    <p>Filter by sector or to non-consensus only. The edge is in <em>low priced-in + high durability</em>.</p>` },
+  triggers: { title: "Deploy / exit triggers", body: `
+    <p>Rules that tell you to act. Each shows a state: <strong>armed</strong> (active, watching), <strong>monitor</strong> (manual watch), or <strong>fired</strong> (condition met).</p>
+    <ul><li><strong>Drawdown</strong> (auto) — complex down ≥20–25% from highs → deploy dry powder.</li>
+    <li><strong>Trim rule</strong> (auto) — a name &gt;2× cost basis AND &gt;50× forward P/E → trim ⅓ (needs your cost basis from Settings).</li>
+    <li><strong>Sleeve cap</strong> (auto) — sleeve value &gt; ~$1.72mm → trim back (needs your holdings from Settings).</li>
+    <li><strong>Policy triggers</strong> (manual) — e.g. rare-earth/uranium policy shifts.</li></ul>
+    <p>When a trigger fires, the scanner opens a GitHub issue (deduped).</p>` },
+  holdings: { title: "Holdings table", body: `
+    <p>Your <em>target</em> plan per holding. <strong>Tier</strong> = deployment pace (A=100% now; B=50% now+months 1–3; C=25% now+DCA to month 9; D=small option; DRY=cash).</p>
+    <ul><li><strong>YTD / % off high</strong> — momentum &amp; drawdown.</li>
+    <li><strong>vs 200-DMA</strong> — trend filter; positive = above the 200-day average (healthier trend).</li>
+    <li><strong>Fwd P/E</strong> — forward earnings multiple (skipped for ETFs). Reminds you "went up a lot" ≠ "expensive".</li></ul>
+    <p>Add your <em>actual</em> holdings in ⚙ Settings to see live market value vs target.</p>` },
+  regime: { title: "Timing posture (regime)", body: `
+    <p>The <strong>alpha</strong> is the scarcity thesis; this is the <strong>timing</strong> overlay — when to deploy/go-all-in vs. apply the brakes into cash. It is built on <em>independent, replicated research</em> (Faber 200-DMA trend; Moskowitz-Ooi-Pedersen time-series momentum; Moreira-Muir volatility; Hurst-Ooi-Pedersen trend), <strong>not</strong> a curve-fit backtest.</p>
+    <ul><li>🟢 <strong>risk-on</strong> — uptrend + momentum, contained vol → deploy / accelerate.</li>
+    <li>⚪ <strong>neutral</strong> — stick to the DCA calendar.</li>
+    <li>🟠 <strong>caution</strong> — tap the brakes, build dry powder.</li>
+    <li>🔴 <strong>defensive</strong> — favor cash; deploy only into the drawdown trigger.</li></ul>
+    <p>It's a risk dial that paces your DCA, not an all-in/all-out switch. Full detail: REGIME.md.</p>` },
+  myholdings: { title: "Your holdings (live)", body: `
+    <p>Computed from the positions you entered in ⚙ Settings × the latest scan prices — stored only in your browser. Shows market value, gain vs cost, % of target, per-account subtotals, and your sleeve value vs the ~$1.72mm cap. Export to <code>positions.local.json</code> to also enable the server-side trim/sleeve triggers.</p>` },
+  filings: { title: "Filings &amp; news", body: `
+    <p>Free, keyless. <strong>SEC EDGAR</strong> lists each holding's recent material filings (8-K/10-Q/10-K/6-K/20-F); 8-K <em>items</em> are decoded into topics (Results/guidance, Material agreement, etc.). <strong>NEW</strong> = unseen since the last scan. <strong>News</strong> is Google-News RSS keyed to each scarcity's thesis terms, deduped. Both feed the Agent digest.</p>` },
+  options: { title: "Options fair-value check", body: `
+    <p>Before paying for an option, check the price is <em>fair</em>. We back out the option's <strong>implied volatility (IV)</strong> from its market price (Black-Scholes) and compare it to the underlying's recent <strong>realized volatility</strong> (from the scan).</p>
+    <ul><li><strong>cheap</strong> — IV below realized vol.</li>
+    <li><strong>fair</strong> — IV within a normal variance-risk premium (≈0.95–1.35× realized).</li>
+    <li><strong>rich</strong> — IV well above realized; you're paying up.</li></ul>
+    <p><strong>How to use:</strong> pick the underlying (S &amp; realized vol auto-fill), enter type/strike/days-to-expiry/option price → Evaluate. You get IV, fair value at realized vol, the edge vs that, a verdict, and greeks (delta/vega/theta).</p>
+    <p><strong>Defined-risk only — no naked options.</strong> Use long calls/puts, debit spreads, collars, covered calls, cash-secured puts. Caveats: realized vol is backward-looking and options also carry event/skew premia, so treat this as a sanity check, not a price oracle. Not advice.</p>` },
+  digest: { title: "Agent digest", body: `
+    <p>An optional LLM "analyst + red-team" summary of what changed (quotes, filings, news, regime). With <strong>two</strong> free keys it's <em>cross-model</em> — the analyst runs on one model and the red-team on another, so it isn't a model grading itself. Set keys in ⚙ Settings (in-browser, Gemini) or as GitHub repo secrets (automated scanner).</p>` },
+  settings: { title: "Settings &amp; onboarding", body: `
+    <p>Everything here lives <strong>only in this browser</strong> (localStorage) — never committed. Add your holdings per account (ticker/shares/cost basis), your dry-powder cash, and free API keys. Export your positions to <code>positions.local.json</code> for the scanner's trim/sleeve math. Keys: Gemini (aistudio.google.com) and Groq (console.groq.com) are free.</p>` },
+};
+function openHelp(key) {
+  const h = HELP[key]; if (!h) return;
+  $("#helpTitle").innerHTML = h.title; $("#helpBody").innerHTML = h.body;
+  $("#helpModal").classList.remove("hidden");
+}
+$("#helpClose").onclick = () => $("#helpModal").classList.add("hidden");
+$("#helpModal").onclick = (e) => { if (e.target.id === "helpModal") $("#helpModal").classList.add("hidden"); };
+document.addEventListener("click", (e) => { const b = e.target.closest(".help[data-help]"); if (b) openHelp(b.dataset.help); });
 
 maybeOnboard();
 load();

@@ -80,7 +80,9 @@ Options can be used in either sleeve, which widens how the timing/regime layer's
 - **"Go all-in" accelerator** (regime risk-on / confirmation trigger): long **LEAPS calls** on highest-conviction names (GEV, ASML) or an index proxy give leveraged upside with *capped, known* downside — instead of borrowing or adding 2× ETFs.
 - **"Apply the brakes" hedge** (regime defensive / macro-stress overlay): **protective puts, put spreads, or collars** on the most correlated cyclicals to cut left-tail risk without selling the thesis (and triggering tax in taxable).
 - **Tax-location preference:** run *active, frequently-rolled* options in the **IRA/Roth** (tax-free turnover — ideal for rolling hedges); use **taxable** for longer-dated, low-churn catastrophe hedges (mind option holding-period, collar/constructive-sale, and wash-sale rules there).
-- **Caveats (verify with broker; not advice):** IRAs allow long calls/puts, covered calls, cash-secured puts, and (at higher approval tiers) defined-risk spreads — but **no naked/short-margin** positions since IRAs can't be margined. Confirm your approval level before relying on any of these.
+- **Defined-risk only — assume NO naked options** (both accounts). Use long calls/puts, debit spreads, collars, covered calls, cash-secured puts — never naked/short-margin (IRAs can't be margined anyway). Every option suggestion the app makes respects this.
+- **Check the price is fair first.** Use the app's **Options check** (Black-Scholes implied vol vs the underlying's realized vol) before paying — avoid buying "rich" premium (IV ≫ realized).
+- *(Verify your broker options-approval level; not advice.)*
 
 ## 4. Rebalancing & trim discipline (most of it tax-free in the IRA)
 - **Rebalance** annually, or when any position drifts **±25% from target weight**. Direct new cash/dividends to underweight names first; do actual *selling* inside the IRA (tax-free).

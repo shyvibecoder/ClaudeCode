@@ -62,5 +62,14 @@ button.sm{padding:2px 7px;font-size:12px}button.danger{border-color:#5a2a32}butt
 .modal-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
 .modal-actions .imp{cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px}
 #holdEdit,table.mine{font-size:13px}#myHoldings{margin:8px 0 4px}
-.verdict{font-weight:700}.verdict.cheap{color:var(--good)}.verdict.rich{color:var(--now)}.verdict.fair{color:var(--y28)}
+.verdict{font-weight:700}.verdict.cheap{color:var(--good)}.verdict.rich{color:var(--now)}.verdict.fair{color:var(--y28)}.verdict.unknown{color:var(--mut)}
+button.help{width:20px;height:20px;padding:0;border-radius:50%;font-size:12px;line-height:1;color:var(--y30);border-color:var(--line)}
+button.help:hover{border-color:var(--y30)}
+.help-body{font-size:13.5px;line-height:1.6}.help-body ul{padding-left:18px;margin:8px 0}.help-body li{margin:4px 0}.help-body code{font-size:12px}
+.optgrid{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin:10px 0}
+.optgrid label{display:flex;flex-direction:column;color:var(--mut);font-size:12px;gap:3px}
+.optgrid input,.optgrid select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;width:120px}
+.optcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;max-width:560px}
+table.kv{width:auto;font-size:13px}table.kv td{padding:4px 10px;border-bottom:1px solid var(--line)}
+table.kv td:nth-child(odd){color:var(--mut)}
 @media(max-width:800px){.tcol{grid-template-columns:1fr}}
