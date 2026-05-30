@@ -1,45 +1,132 @@
-// V2.3 cross-check + dislocation-entry timing.
+// V2.3 "F+C Thrust" cross-check — a FAITHFUL REPLICA of the owner's canonical production rule
+// (web/src/lib/strategy/faber-crash-thrust.ts + FABER-CRASH-STRATEGY.md), recomputed here on
+// QQQ as an independent cross-check for Puck's regime. Checked once daily; always holds exactly
+// one instrument (QLD 2× or SGOV). Pure.
 //
-// The owner runs a separate production strategy ("V2.3"): a LEVERAGED trend-follower —
-// F+C Thrust on QLD (2× QQQ) ↔ SGOV — with a Faber 200-DMA trend filter, Daniel-Moskowitz
-// crash break, 20-DMA fast re-entry override, and an EXIT-ONLY composite-stress overlay
-// (VIX term-structure AND HY-velocity elevated). Puck is unleveraged and graded, but its
-// regime layer is built from the SAME academic parts, so it can compute a faithful
-// APPROXIMATION of the V2.3 state on QQQ as an independent cross-check. This is NOT the
-// proprietary production rule — divergences between the two are the useful signal. Pure.
+// Signals (QQQ daily closes):
+//   TREND     = close > 200-day SMA                                   (Faber 2007)
+//   CRASH_OFF = trailing 252-day return < 0  AND  60-day annualized vol > 25%  (Daniel-Moskowitz 2016)
+//   THRUST    = close > 20-day SMA  AND  20-day SMA today > 20-day SMA 10 trading days ago
+// Ladder (first match wins): CRASH_OFF→SGOV ; else TREND→QLD ; else THRUST→QLD ; else SGOV.
+// V2.3 overlay (exit-only): if the ladder picked QLD AND COMPOSITE_STRESS → force SGOV.
+//   COMPOSITE_STRESS = VIX/VIX3M ≥ 1.0 for 3 consecutive days  AND  HY-velocity (20-day change in
+//   −log(HYG)) in the top 5% of its trailing 252-day distribution. Missing/synthetic inputs ⇒ overlay
+//   suppressed (refuses to act on fake data); the underlying V2.2 ladder decision stands.
 //
-// Hard design rule carried from that strategy: any leveraged (QLD) sleeve must be gated by
-// FULL EXIT to cash (SGOV), never merely de-risked a notch — 2× QQQ draws down 50–70% and
-// would blow Puck's −35% maxDD objective otherwise. (Documented; Puck adds no leverage here.)
+// NOTE: Thrust's 20d/10d-slope params are not from a published paper (unlike 200-DMA / 252-day /
+// 60-day-25%-vol), so it is the most parameter-exposed variant — plain Faber+Crash is the
+// production default; F+C Thrust + this overlay is what's forward-tracked. Puck adds NO leverage:
+// a 2× QLD sleeve would breach the −35% maxDD objective unless gated by full exit to cash.
 
-export function v23State(qqq, { macroStressed = false } = {}) {
-  if (!qqq || qqq.error || qqq.above_ma200 == null) {
-    return { state: "UNAVAILABLE", reasons: ["no QQQ trend data this run"], basis: "needs live QQQ quote" };
-  }
-  const reasons = [];
-  // Exit-only composite-stress overlay ALWAYS wins (rare combined-signal days).
-  if (macroStressed) {
-    return { state: "DEFENSIVE", reasons: ["composite-stress overlay ON (VIX-term AND HY-velocity) — exit-only brake"], basis: "overlay" };
-  }
-  if (qqq.above_ma200) { reasons.push("QQQ above 200-DMA — Faber trend confirmed"); return { state: "FULL", reasons, basis: "trend" }; }
-  // Below the 200-DMA: the 20-DMA fast re-entry override can keep it risk-on (Daniel-Moskowitz fix).
-  if (qqq.above_ma20) { reasons.push("below 200-DMA but reclaimed 20-DMA — fast re-entry override"); return { state: "FULL", reasons, basis: "fast-reentry" }; }
-  reasons.push("below 200-DMA and 20-DMA — crash break, rotate to SGOV");
-  return { state: "DEFENSIVE", reasons, basis: "crash-break" };
+const sma = (a, n) => (a.length >= n ? a.slice(-n).reduce((x, y) => x + y, 0) / n : null);
+
+// Realized annualized volatility over the last `n` daily log-returns.
+function annVol(closes, n) {
+  if (!closes || closes.length < n + 1) return null;
+  const w = closes.slice(-(n + 1)), rets = [];
+  for (let i = 1; i < w.length; i++) rets.push(Math.log(w[i] / w[i - 1]));
+  const m = rets.reduce((a, b) => a + b, 0) / rets.length;
+  const v = rets.reduce((a, b) => a + (b - m) ** 2, 0) / (rets.length - 1);
+  return Math.sqrt(v * 252);
 }
 
-// WHEN to take advantage of a dislocation: a thesis-intact dislocation must EXIST *and*
-// timing must have turned constructive — otherwise you're catching a falling knife. The
-// constructive triggers (any one): V2.3-style trend re-confirmed (FULL), Puck's 20-DMA fast
-// re-entry firing, or the drawdown trigger releasing dry powder.
+export function v23Signals(closes) {
+  if (!Array.isArray(closes) || closes.length < 211) return null; // 200-SMA + a 10-day slope lookback
+  const price = closes[closes.length - 1];
+  const sma200 = sma(closes, 200);
+  const sma20 = sma(closes, 20);
+  const sma20_10ago = sma(closes.slice(0, closes.length - 10), 20);
+  const ret252 = closes.length >= 253 ? price / closes[closes.length - 253] - 1 : price / closes[0] - 1;
+  const vol60 = annVol(closes, 60);
+  return {
+    trend: price > sma200,
+    crash_off: ret252 < 0 && vol60 != null && vol60 > 0.25,
+    thrust: price > sma20 && sma20_10ago != null && sma20 > sma20_10ago,
+    detail: { price, sma200: +sma200.toFixed(2), sma20: +sma20.toFixed(2), ret252: +ret252.toFixed(4), vol60: vol60 == null ? null : +vol60.toFixed(3) },
+  };
+}
+
+// The base F+C Thrust ladder (first match wins) — exactly the canonical decision order.
+export function fcThrustLadder({ trend, crash_off, thrust }) {
+  if (crash_off) return { instrument: "SGOV", rule: "crash" };
+  if (trend) return { instrument: "QLD", rule: "trend" };
+  if (thrust) return { instrument: "QLD", rule: "thrust" };
+  return { instrument: "SGOV", rule: "cash" };
+}
+
+// --- V2.3 composite-stress overlay inputs (exit-only) ---
+// VIX/VIX3M ≥ 1.0 for `days` consecutive sessions (term-structure backwardation).
+export function termBackwardation(vixCloses, vix3mCloses, days = 3) {
+  if (!vixCloses || !vix3mCloses) return null;
+  const n = Math.min(vixCloses.length, vix3mCloses.length);
+  if (n < days) return null;
+  for (let i = 0; i < days; i++) {
+    const v = vixCloses[n - 1 - i], v3 = vix3mCloses[n - 1 - i];
+    if (v == null || v3 == null || !(v3 > 0)) return null;
+    if (v / v3 < 1.0) return false;
+  }
+  return true;
+}
+
+// HY-velocity = 20-day change in −log(HYG); elevated when today is in the top 5% of its trailing
+// 252-day distribution. v_t = −log(HYG_t) − (−log(HYG_{t−win})) = log(HYG_{t−win} / HYG_t) > 0 when HYG falls.
+export function hyVelocityElevated(hygCloses, { win = 20, lookback = 252, pct = 0.95 } = {}) {
+  if (!hygCloses || hygCloses.length < win + lookback + 1) return null;
+  const vel = [];
+  for (let t = win; t < hygCloses.length; t++) {
+    if (!(hygCloses[t] > 0) || !(hygCloses[t - win] > 0)) return null;
+    vel.push(Math.log(hygCloses[t - win] / hygCloses[t]));
+  }
+  if (vel.length < lookback) return null;
+  const today = vel[vel.length - 1];
+  const sorted = vel.slice(-lookback).sort((a, b) => a - b);
+  const threshold = sorted[Math.floor(sorted.length * pct)];
+  return today >= threshold;
+}
+
+// Composite stress: BOTH conditions. Returns null (suppressed) if either input is uncomputable.
+export function compositeStress({ vixCloses, vix3mCloses, hygCloses } = {}) {
+  const term = termBackwardation(vixCloses, vix3mCloses);
+  const hy = hyVelocityElevated(hygCloses);
+  if (term == null || hy == null) return null;
+  return term && hy;
+}
+
+// Full V2.3 state on QQQ. `compositeStress` is true/false/null (null ⇒ overlay suppressed).
+export function v23State(closes, { compositeStress = null } = {}) {
+  const sig = v23Signals(closes);
+  if (!sig) return { state: "UNAVAILABLE", instrument: null, reasons: ["no/short QQQ series this run"], basis: "needs ~1y of QQQ closes" };
+  const base = fcThrustLadder(sig);
+  const reasons = [];
+  if (base.rule === "crash") reasons.push("CRASH_OFF: 252-day return negative AND 60-day vol > 25% — to SGOV");
+  else if (base.rule === "trend") reasons.push("TREND: QQQ above its 200-DMA — QLD (2×)");
+  else if (base.rule === "thrust") reasons.push("THRUST: above a rising 20-DMA — fast re-entry, QLD (2×)");
+  else reasons.push("no trend / no thrust / no crash — SGOV (cash)");
+
+  let instrument = base.instrument, overlay_applied = false;
+  if (base.instrument === "QLD" && compositeStress === true) {
+    instrument = "SGOV"; overlay_applied = true;
+    reasons.push("V2.3 composite-stress overlay ON (VIX-term 3d backwardation AND HY-velocity top-5%) — exit-only, force SGOV");
+  } else if (base.instrument === "QLD" && compositeStress == null) {
+    reasons.push("overlay suppressed (VIX/VIX3M/HYG inputs incomplete) — V2.2 ladder stands");
+  }
+  return {
+    state: instrument === "QLD" ? "FULL" : "DEFENSIVE",
+    instrument, rule: base.rule, overlay_applied,
+    signals: { trend: sig.trend, crash_off: sig.crash_off, thrust: sig.thrust },
+    detail: sig.detail, reasons, basis: "faithful F+C Thrust replica on QQQ",
+  };
+}
+
+// WHEN to take advantage of a dislocation: a thesis-intact dislocation must EXIST *and* timing must
+// have turned constructive — else you're catching a falling knife. Constructive triggers (any one):
+// V2.3 trend re-confirmed (FULL), Puck's 20-DMA fast re-entry, or the drawdown trigger firing.
 export function dislocationEntryWindow({ v23 = {}, regime = {}, drawdownFired = false, anyDislocation = false } = {}) {
   if (!anyDislocation) return { window: "none", reason: "nothing dislocated into an intact thesis right now." };
   const turns = [];
   if (drawdownFired) turns.push("the drawdown trigger fired — deploy dry powder");
-  if (v23.state === "FULL") turns.push("V2.3-style trend re-confirmed (FULL)");
+  if (v23.state === "FULL") turns.push("V2.3 trend re-confirmed (FULL)");
   if (regime.fast_reentry) turns.push("Puck's 20-DMA fast re-entry is firing");
-  if (turns.length) {
-    return { window: "open", reason: `Act: a thesis-intact dislocation is present AND timing has turned — ${turns.join("; ")}.`, triggers: turns };
-  }
+  if (turns.length) return { window: "open", reason: `Act: a thesis-intact dislocation is present AND timing has turned — ${turns.join("; ")}.`, triggers: turns };
   return { window: "wait", reason: "Hold: the dislocation is real and the thesis intact, but timing is still defensive (below trend, no re-entry, no drawdown trigger) — wait for the turn so you don't catch a falling knife." };
 }

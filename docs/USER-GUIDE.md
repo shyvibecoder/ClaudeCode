@@ -139,12 +139,20 @@ one while it's still falling — a falling knife. So the verdict is:
 - **⏳ WAIT** — the dislocation is real but timing is still defensive; wait for the turn.
 - **— none** — nothing dislocated into an intact thesis right now.
 
-The **V2.3 cross-check** independently computes a V2.3-style **FULL/DEFENSIVE** state on **QQQ** (Faber
-200-DMA + 20-DMA fast re-entry + the exit-only composite-stress AND-gate) and compares it to Puck's
-regime posture: **✓ agree** = confirmation, **⚠ diverge** = look closer. It is a faithful
-*approximation* for cross-checking your separate V2.3 strategy — **not** the proprietary production
-rule — and **Puck itself adds no leverage** (a 2× QLD sleeve would breach the −35% max-drawdown
-objective unless gated by a full exit to cash).
+The **V2.3 cross-check** is a **faithful replica** of your F+C Thrust rule, recomputed on **QQQ**, and
+shows which instrument it holds (**QLD** 2× or **SGOV**) next to Puck's regime posture — **✓ agree** =
+confirmation, **⚠ diverge** = look closer. The exact ladder (first match wins):
+
+1. **CRASH_OFF** (trailing 252-day return < 0 **AND** 60-day annualized vol > 25%) → **SGOV**
+2. else **TREND** (close > 200-DMA) → **QLD**
+3. else **THRUST** (close > 20-DMA **AND** the 20-DMA is higher than 10 trading days ago) → **QLD**
+4. else → **SGOV**
+
+…with an **exit-only composite-stress overlay**: if the ladder picked QLD **and** VIX/VIX3M ≥ 1.0 for 3
+consecutive days **and** HY-velocity (20-day change in −log(HYG)) sits in the top 5% of its trailing
+252-day distribution, it forces **SGOV**. If any overlay input (^VIX/^VIX3M/HYG) is missing, the overlay
+is suppressed (it won't act on fake data). **Puck itself adds no leverage** — a 2× QLD sleeve would
+breach the −35% max-drawdown objective unless gated by a full exit to cash.
 
 ### 5.1b Objective scorecard
 The app's goal is **max 10-year return with max drawdown < 35%, and the best Calmar/Sortino.** This card

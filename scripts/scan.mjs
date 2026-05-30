@@ -29,7 +29,7 @@ import { newsForQuery } from "./lib/news.mjs";
 import { chokepointHeat } from "./lib/chokepoints.mjs";
 import { rankOpportunities, opportunityScore } from "./lib/opportunity.mjs";
 import { forcedFlowSignal, reconcileWithTiming } from "./lib/forced-flow.mjs";
-import { v23State, dislocationEntryWindow } from "./lib/v23.mjs";
+import { v23State, dislocationEntryWindow, compositeStress } from "./lib/v23.mjs";
 import { discoverProxies, rankProxies, proxyGraph } from "./lib/edgar-fts.mjs";
 
 const OFFLINE = process.argv.includes("--offline");
@@ -276,16 +276,13 @@ if (!OFFLINE) {
 
 // --- Macro-stress overlay inputs (free, keyless): VIX term-structure + HY credit velocity ---
 let macro = null;
-let qqqQuote = null; // for the V2.3 cross-check (Faber 200-DMA / 20-DMA fast re-entry on QQQ)
 if (!OFFLINE) {
   try {
-    const [vix, vix3m, hyg, qqq] = await Promise.all([
+    const [vix, vix3m, hyg] = await Promise.all([
       fetchYahoo("^VIX").catch(() => null),
       fetchYahoo("^VIX3M").catch(() => null),
       fetchYahoo("HYG").catch(() => null),
-      fetchYahoo("QQQ").catch(() => null),
     ]);
-    qqqQuote = qqq;
     const m = macroStress({ vix: vix?.price, vix3m: vix3m?.price, hygMom1m: hyg?.mom_1m });
     // R1: if the inputs didn't come back, leave macro=null so the regime marks the
     // exit-only brake UNAVAILABLE instead of silently showing "calm".
@@ -350,13 +347,27 @@ const anyDislocation = Object.values(scarcity_signals).some((x) => x.forced_flow
 if (!OFFLINE) console.log(`Forced-flow: ${Object.values(scarcity_signals).filter((x) => x.forced_flow?.flag === "accumulate").length} thesis-intact dislocation(s) (accumulate)`);
 if (!OFFLINE) console.log(`Opportunity Score: top = ${opportunities.slice(0, 3).map((o) => `${o.id} ${o.score}`).join(", ")}`);
 
-// --- V2.3 cross-check + dislocation-entry timing: an INDEPENDENT V2.3-style state on QQQ
-// (Faber 200-DMA + 20-DMA fast re-entry + exit-only composite-stress) to sanity-check Puck's
-// regime, and the answer to "WHEN do I take advantage of a dislocation?" (thesis-intact
-// dislocation present AND timing turned: FULL / fast re-entry / drawdown trigger). ---
-const v23 = v23State(qqqQuote, { macroStressed: !!regime.macro_stressed });
+// --- V2.3 cross-check + dislocation-entry timing: a FAITHFUL REPLICA of the owner's F+C Thrust
+// rule recomputed on QQQ (200-DMA trend, 252-day/60-day-vol crash, rising-20-DMA thrust + exit-only
+// composite-stress overlay), to sanity-check Puck's regime; and the answer to "WHEN do I take
+// advantage of a dislocation?" (thesis-intact dislocation present AND timing turned). ---
+let v23 = { state: "UNAVAILABLE", reasons: ["offline run"], basis: "needs live QQQ/VIX/HYG series" };
+if (!OFFLINE) {
+  try {
+    // 2y of closes: enough for the 200-DMA + a 252-day distribution of the 20-day HY-velocity.
+    const [qqqS, vixS, vix3mS, hygS] = await Promise.all([
+      fetchSeries("QQQ", "2y").catch(() => null),
+      fetchSeries("^VIX", "2y").catch(() => null),
+      fetchSeries("^VIX3M", "2y").catch(() => null),
+      fetchSeries("HYG", "2y").catch(() => null),
+    ]);
+    const stress = compositeStress({ vixCloses: vixS?.closes, vix3mCloses: vix3mS?.closes, hygCloses: hygS?.closes });
+    v23 = v23State(qqqS?.closes || null, { compositeStress: stress });
+    console.log(`V2.3 cross-check: ${v23.state} (${v23.rule}${v23.overlay_applied ? "+overlay" : ""}); composite-stress ${stress == null ? "suppressed" : stress}`);
+  } catch (e) { errors.push(`v23: ${e.message}`); }
+}
 const dislocation_entry = dislocationEntryWindow({ v23, regime, drawdownFired, anyDislocation });
-if (!OFFLINE) console.log(`V2.3 cross-check: ${v23.state}; dislocation entry: ${dislocation_entry.window}`);
+if (!OFFLINE) console.log(`Dislocation entry: ${dislocation_entry.window}`);
 
 // --- Inaccessible-chokepoint tracker: DISCOVER public proxies (EDGAR full-text
 // mentions) + heat (proxy momentum + news) for un-investable bottlenecks ---

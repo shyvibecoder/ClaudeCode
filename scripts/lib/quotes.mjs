@@ -81,8 +81,9 @@ export async function fetchYahoo(ticker) {
 }
 
 // Aligned daily close series (date,close) for building a basket index. Throws on thin data.
-export async function fetchSeries(ticker) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1y&interval=1d`;
+// `range` defaults to 1y; the V2.3 overlay needs 2y (a 252-day distribution of a 20-day-lagged series).
+export async function fetchSeries(ticker, range = "1y") {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${encodeURIComponent(range)}&interval=1d`;
   const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(10000) });
   const res = (await r.json())?.chart?.result?.[0];
   const closes = res?.indicators?.quote?.[0]?.close || [];

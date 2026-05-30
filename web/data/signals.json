@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "scanned_at": "2026-05-30T20:39:16.305Z",
+  "scanned_at": "2026-05-30T20:49:40.948Z",
   "source": "offline run",
   "universe_count": 52,
   "quotes": {
@@ -1316,9 +1316,9 @@
   "v23": {
     "state": "UNAVAILABLE",
     "reasons": [
-      "no QQQ trend data this run"
+      "offline run"
     ],
-    "basis": "needs live QQQ quote"
+    "basis": "needs live QQQ/VIX/HYG series"
   },
   "dislocation_entry": {
     "window": "none",

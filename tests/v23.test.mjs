@@ -1,53 +1,89 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { v23State, dislocationEntryWindow } from "../scripts/lib/v23.mjs";
+import { v23Signals, fcThrustLadder, termBackwardation, hyVelocityElevated, compositeStress, v23State, dislocationEntryWindow } from "../scripts/lib/v23.mjs";
 
-// A FAITHFUL APPROXIMATION of the V2.3 overlay (Faber 200-DMA + 20-DMA fast re-entry +
-// exit-only composite-stress AND-gate) for CROSS-CHECKING Puck's regime — not the exact
-// production F+C Thrust rule. Same components Puck already uses, applied to QQQ.
-describe("v23: state approximation on QQQ", () => {
-  it("above the 200-DMA, calm → FULL (trend confirmed)", () => {
-    const s = v23State({ above_ma200: true, above_ma20: true }, { macroStressed: false });
-    assert.equal(s.state, "FULL");
+// Build a synthetic QQQ close series with a controllable shape.
+const ramp = (n, start, step) => Array.from({ length: n }, (_, i) => start + i * step);
+
+describe("v23: signals from QQQ closes (faithful to the spec)", () => {
+  it("steady uptrend → TREND true, CRASH_OFF false", () => {
+    const s = v23Signals(ramp(260, 100, 0.5)); // rising, low vol, positive 252-ret
+    assert.equal(s.trend, true); assert.equal(s.crash_off, false); assert.equal(s.thrust, true);
   });
-  it("below the 200-DMA but reclaimed the 20-DMA → FULL via fast re-entry", () => {
-    const s = v23State({ above_ma200: false, above_ma20: true }, { macroStressed: false });
-    assert.equal(s.state, "FULL"); assert.match(s.reasons.join(" "), /re-entry/i);
+  it("THRUST needs a RISING 20-DMA: a series that just turned up below the 200-DMA", () => {
+    // flat-high, then a deep drop, then a sharp recent recovery: price < 200-DMA (the high bulk
+    // keeps the average up) but price > a rising 20-DMA.
+    const closes = [...Array(210).fill(100), ...Array(30).fill(70), ...ramp(10, 71, 1.2)];
+    const s = v23Signals(closes);
+    assert.equal(s.trend, false);        // still below 200-DMA
+    assert.equal(s.thrust, true);        // rising 20-DMA reclaimed
   });
-  it("below both MAs → DEFENSIVE (to SGOV)", () => {
-    assert.equal(v23State({ above_ma200: false, above_ma20: false }, {}).state, "DEFENSIVE");
+  it("returns null on too-short history", () => assert.equal(v23Signals(ramp(50, 100, 1)), null));
+});
+
+describe("v23: F+C Thrust ladder order (first match wins)", () => {
+  it("CRASH_OFF beats TREND (defensive even if above 200-DMA)", () => {
+    assert.equal(fcThrustLadder({ crash_off: true, trend: true, thrust: true }).instrument, "SGOV");
   });
-  it("composite-stress overlay is exit-only and ALWAYS wins (even in an uptrend)", () => {
-    const s = v23State({ above_ma200: true, above_ma20: true }, { macroStressed: true });
-    assert.equal(s.state, "DEFENSIVE"); assert.match(s.reasons.join(" "), /composite-stress|overlay/i);
-  });
-  it("no QQQ data → UNAVAILABLE (honest, not a guess)", () => {
-    assert.equal(v23State(null, {}).state, "UNAVAILABLE");
-    assert.equal(v23State({ error: "x" }, {}).state, "UNAVAILABLE");
+  it("TREND → QLD; THRUST-only → QLD; nothing → SGOV", () => {
+    assert.equal(fcThrustLadder({ crash_off: false, trend: true, thrust: false }).instrument, "QLD");
+    assert.equal(fcThrustLadder({ crash_off: false, trend: false, thrust: true }).instrument, "QLD");
+    assert.equal(fcThrustLadder({ crash_off: false, trend: false, thrust: false }).instrument, "SGOV");
   });
 });
 
-// The headline ask: WHEN should I take advantage of a dislocation? Answer = a thesis-intact
-// dislocation EXISTS *and* timing has turned constructive (don't catch a falling knife).
+describe("v23: composite-stress overlay inputs", () => {
+  it("term backwardation requires VIX/VIX3M ≥ 1.0 for 3 consecutive days", () => {
+    assert.equal(termBackwardation([1.1, 1.1, 1.1], [1, 1, 1]), true);
+    assert.equal(termBackwardation([1.1, 0.9, 1.1], [1, 1, 1]), false); // a sub-1 day breaks it
+    assert.equal(termBackwardation([1.1], [1]), null);                  // not enough days
+  });
+  it("HY-velocity elevated = today in the top 5% of the trailing 252-day distribution", () => {
+    // flat HYG for ~300 days (≥ win+lookback+1=273), then a sharp recent drop → today's 20-day
+    // −log change is an extreme of the trailing distribution.
+    const flat = Array(300).fill(100);
+    const dropped = [...flat.slice(0, 299), 80];
+    assert.equal(hyVelocityElevated(dropped), true);
+    // past stress (an old drop) but a CALM recent window → today's velocity is NOT in the top 5%.
+    const calmNow = [...Array(60).fill(100), ...ramp(20, 100, -1), ...Array(220).fill(80)];
+    assert.equal(hyVelocityElevated(calmNow), false);
+    assert.equal(hyVelocityElevated(ramp(50, 100, 0)), null); // insufficient history
+  });
+  it("composite is suppressed (null) if EITHER input is uncomputable", () => {
+    assert.equal(compositeStress({ vixCloses: [1.1, 1.1, 1.1], vix3mCloses: [1, 1, 1], hygCloses: ramp(30, 100, 0) }), null);
+  });
+});
+
+describe("v23: full state + exit-only overlay", () => {
+  const up = ramp(260, 100, 0.5);
+  it("uptrend, no stress → FULL / QLD", () => {
+    const s = v23State(up, { compositeStress: false });
+    assert.equal(s.state, "FULL"); assert.equal(s.instrument, "QLD"); assert.equal(s.overlay_applied, false);
+  });
+  it("overlay is EXIT-ONLY: stress forces QLD→SGOV, never the reverse", () => {
+    const stressed = v23State(up, { compositeStress: true });
+    assert.equal(stressed.instrument, "SGOV"); assert.equal(stressed.overlay_applied, true);
+    // a cash ladder + stress stays cash (overlay can't add risk)
+    const down = [...ramp(230, 200, -0.5), ...ramp(30, 85, -1)]; // below everything, falling
+    assert.equal(v23State(down, { compositeStress: true }).instrument, "SGOV");
+  });
+  it("suppressed overlay (null) leaves the ladder decision untouched", () => {
+    assert.equal(v23State(up, { compositeStress: null }).instrument, "QLD");
+  });
+  it("no series → UNAVAILABLE (refuses to guess)", () => assert.equal(v23State(null, {}).state, "UNAVAILABLE"));
+});
+
 describe("v23: dislocation entry window — when to act", () => {
   const FULL = { state: "FULL" }, DEF = { state: "DEFENSIVE" };
-  it("OPEN: dislocation present AND trend re-confirmed (V2.3 FULL)", () => {
-    const w = dislocationEntryWindow({ v23: FULL, regime: { posture: "neutral" }, drawdownFired: false, anyDislocation: true });
-    assert.equal(w.window, "open"); assert.match(w.reason, /trend/i);
+  it("OPEN when a dislocation is present AND timing turned (FULL / fast re-entry / drawdown trigger)", () => {
+    assert.equal(dislocationEntryWindow({ v23: FULL, regime: {}, anyDislocation: true }).window, "open");
+    assert.equal(dislocationEntryWindow({ v23: DEF, regime: { fast_reentry: true }, anyDislocation: true }).window, "open");
+    assert.equal(dislocationEntryWindow({ v23: DEF, regime: {}, drawdownFired: true, anyDislocation: true }).window, "open");
   });
-  it("OPEN: dislocation present AND the drawdown trigger fired (deploy dry powder)", () => {
-    const w = dislocationEntryWindow({ v23: DEF, regime: { posture: "defensive" }, drawdownFired: true, anyDislocation: true });
-    assert.equal(w.window, "open"); assert.match(w.reason, /drawdown trigger/i);
+  it("WAIT when dislocated but still defensive (don't catch the knife)", () => {
+    assert.equal(dislocationEntryWindow({ v23: DEF, regime: { fast_reentry: false }, drawdownFired: false, anyDislocation: true }).window, "wait");
   });
-  it("OPEN: dislocation present AND Puck's 20-DMA fast re-entry firing", () => {
-    const w = dislocationEntryWindow({ v23: DEF, regime: { posture: "caution", fast_reentry: true }, drawdownFired: false, anyDislocation: true });
-    assert.equal(w.window, "open");
-  });
-  it("WAIT: dislocation present but still falling (DEFENSIVE, no re-entry, no trigger) → don't catch the knife", () => {
-    const w = dislocationEntryWindow({ v23: DEF, regime: { posture: "defensive", fast_reentry: false }, drawdownFired: false, anyDislocation: true });
-    assert.equal(w.window, "wait"); assert.match(w.reason, /falling|wait|turn/i);
-  });
-  it("NONE: nothing dislocated enough to act on", () => {
+  it("NONE when nothing is dislocated", () => {
     assert.equal(dislocationEntryWindow({ v23: FULL, regime: {}, anyDislocation: false }).window, "none");
   });
 });
