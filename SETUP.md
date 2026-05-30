@@ -13,8 +13,20 @@ The scanner lives in `.github/workflows/scan.yml` and runs on GitHub Actions (fr
 - **To run it on demand:** repo → **Actions** tab → **scan** → **Run workflow**.
 - **(Optional) LLM "analyst + red-team" digest:** create a free key at **aistudio.google.com** (Gemini), then in the repo → **Settings → Secrets and variables → Actions → New repository secret** → name `GEMINI_API_KEY`, paste the key. (Groq also supported via `GROQ_API_KEY`.) Without a key the scanner still runs; only the written digest is skipped.
 
-## 3. Keeping it current
-- Edit theses/holdings/triggers directly in `web/data/*.json` (GitHub web editor works on iPhone).
+## 3. (Optional) Wire up the dashboard **Refresh** button
+The Refresh button can kick the scan on demand from the dashboard via GitHub's `repository_dispatch`. It needs a token, which is **never committed** — it lives only in your browser's `localStorage`.
+1. GitHub → **Settings → Developer settings → Fine-grained personal access tokens → Generate new token.**
+2. **Resource owner** = your account; **Repository access** = only `deep-tech-market-research`; **Permissions → Repository → Contents = Read and write.** Generate and copy it.
+3. On the dashboard, tap **⟳ Refresh** and paste the token when prompted. It's saved to this browser only and POSTed straight to GitHub; the `scan` workflow runs and commits fresh `signals.json` in ~1–2 min (reload to see it).
+- A bad/expired token is auto-cleared so you can re-paste. No token? Refresh just points you to the manual **Actions → scan → Run workflow**.
+
+## 4. Reliability (already on)
+- A **stale-data banner** appears on the dashboard if the last scan is more than ~3 days old.
+- The **`ci`** GitHub Action runs on every PR/push: it does an offline scan and asserts the data files + generated `signals.json` are schema-valid and that every portfolio ticker resolved or errored. The scanner itself fails loudly on malformed `web/data/*.json`.
+- Run the same checks locally with `npm test`.
+
+## 5. Keeping it current
+- Edit theses/holdings/triggers directly in `web/data/*.json` (GitHub web editor works on iPhone). Schema validation will reject malformed edits on the next scan/CI run.
 - The dashboard re-reads those files on every load; the scanner refreshes `signals.json` on its schedule.
 
 ## Where things are
