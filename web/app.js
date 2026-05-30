@@ -15,7 +15,7 @@ async function load() {
   );
   DATA = { scar, port, trig, sig };
   $("#scanned").textContent = sig?.scanned_at ? `· last scan ${new Date(sig.scanned_at).toLocaleString()}` : "";
-  renderStale(sig); renderRadar(); renderTimeline(); renderPortfolio(); renderDigest();
+  renderStale(sig); renderRadar(); renderTimeline(); renderPortfolio(); renderCatalysts(); renderDigest();
 }
 
 // Warn when the committed signals.json is stale (scanner hasn't run recently).
@@ -107,6 +107,41 @@ function renderPortfolio() {
       <td class="${off<0?'neg':''}">${fmtPct(off)}</td><td style="color:var(--mut)">${h.role}</td>`;
     tb.appendChild(tr);
   });
+}
+
+// Map a scarcity id -> human label, for the news grouping.
+function scarcityLabel(id) {
+  const s = DATA.scar?.scarcities?.find((x) => x.id === id);
+  return s ? s.scarcity : id;
+}
+
+function renderCatalysts() {
+  const filings = DATA.sig?.filings || [];
+  const tb = $("#filings tbody"); tb.innerHTML = "";
+  filings.forEach((f) => {
+    const tr = document.createElement("tr");
+    const topic = (f.items && f.items.length) ? f.items.join(", ") : "—";
+    tr.innerHTML = `<td style="white-space:nowrap">${f.date || "—"}</td><td><strong>${f.ticker}</strong></td>
+      <td><span class="pill y30">${f.form}</span></td><td>${topic}</td>
+      <td>${f.url ? `<a href="${f.url}" target="_blank" rel="noopener">open ↗</a>` : ""}</td>`;
+    tb.appendChild(tr);
+  });
+  $("#filingsEmpty").textContent = filings.length ? "" :
+    "No recent filings in the window (or the scanner hasn't fetched EDGAR yet — runs in GitHub Actions with open network).";
+
+  const news = DATA.sig?.news || [];
+  const wrap = $("#news"); wrap.innerHTML = "";
+  const byScar = {};
+  news.forEach((n) => { (byScar[n.scarcity] ||= []).push(n); });
+  Object.entries(byScar).forEach(([id, items]) => {
+    const d = document.createElement("div"); d.className = "item";
+    d.innerHTML = `<strong>${scarcityLabel(id)}</strong><br>` + items.map((n) =>
+      `<span style="color:var(--mut)">${n.date || ""}</span> <a href="${n.link}" target="_blank" rel="noopener">${n.title}</a>`
+    ).join("<br>");
+    wrap.appendChild(d);
+  });
+  $("#newsEmpty").textContent = news.length ? "" :
+    "No headlines yet (the scanner pulls Google-News RSS in GitHub Actions).";
 }
 
 function renderDigest() {

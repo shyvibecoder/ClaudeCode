@@ -10,6 +10,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { getQuotes, isTradeable } from "./lib/quotes.mjs";
 import { analystRedteamDigest, llmAvailable } from "./lib/llm.mjs";
 import { validateInputs, validateSignals, assertValid } from "./lib/schema.mjs";
+import { watchFilings } from "./lib/edgar.mjs";
+import { watchNews } from "./lib/news.mjs";
 
 const OFFLINE = process.argv.includes("--offline");
 const read = (p) => JSON.parse(readFileSync(new URL(`../web/data/${p}`, import.meta.url)));
@@ -58,6 +60,26 @@ for (const t of universe) {
   }
 }
 
+// --- SEC EDGAR filings watch (free, keyless): recent 8-K/10-Q/etc per holding ---
+let filings = [];
+if (!OFFLINE) {
+  const watchTickers = portfolio.holdings.map((h) => h.ticker).filter(isTradeable);
+  const r = await watchFilings(watchTickers, { sinceDays: 21 });
+  filings = r.filings;
+  errors.push(...r.errors);
+  if (r.skipped.length) console.log(`EDGAR: skipped ${r.skipped.length} non-EDGAR tickers (${r.skipped.join(", ")})`);
+  console.log(`EDGAR: ${filings.length} recent filings across ${watchTickers.length - r.skipped.length} companies`);
+}
+
+// --- News RSS per scarcity (free, keyless), deduped, fed into the digest ---
+let news = [];
+if (!OFFLINE) {
+  const r = await watchNews(scarcities.scarcities, { perScarcity: 2, maxTotal: 24 });
+  news = r.news;
+  errors.push(...r.errors);
+  console.log(`News: ${news.length} deduped headlines`);
+}
+
 // --- Auto triggers ---
 const avgDrawdown = drops.length ? drops.reduce((a, b) => a + b, 0) / drops.length : null;
 const dd = triggers.triggers.find((x) => x.id === "drawdown");
@@ -79,7 +101,9 @@ if (llmAvailable() && !OFFLINE) {
   try {
     const slim = scarcities.scarcities.map((s) => ({ id: s.id, scarcity: s.scarcity, bind: s.bind_window, priced: s.priced_in, tickers: s.tickers }));
     const slimQ = Object.fromEntries(Object.entries(enriched).map(([k, v]) => [k, v?.error ? null : { ytd: v.ytd, off_high: v.pct_off_high, crowding: v.crowding }]));
-    digest = await analystRedteamDigest({ signals: slimQ, headlines: [], scarcities: slim });
+    const slimF = filings.map((f) => ({ ticker: f.ticker, form: f.form, date: f.date, items: f.items }));
+    const slimN = news.map((n) => ({ scarcity: n.scarcity, title: n.title, date: n.date }));
+    digest = await analystRedteamDigest({ signals: slimQ, filings: slimF, headlines: slimN, scarcities: slim });
   } catch (e) { errors.push(`llm: ${e.message}`); }
 }
 
@@ -88,6 +112,8 @@ const out = {
   source: OFFLINE ? "offline run" : "scripts/scan.mjs",
   universe_count: universe.length,
   quotes: enriched,
+  filings,
+  news,
   trigger_status,
   digest,
   errors,

@@ -49,8 +49,8 @@ You are working in **`shyvibecoder/deep-tech-market-research`** (private). It co
 - [x] Add `web/data/schema` validation in the scanner (fail loudly on malformed data files). → `scripts/lib/schema.mjs` (validates inputs + generated output).
 
 **v2 — make the scanner smarter (free sources)**
-- [ ] **SEC EDGAR watch:** poll 8-K/10-Q full-text search for each holding; surface filings that mention backlog, capacity, guidance, pricing. Summarize with the free LLM.
-- [ ] **News RSS per scarcity:** Google-News/Bing RSS queries keyed off `scarcities.json` thesis terms; dedupe; LLM-summarize into the digest.
+- [x] **SEC EDGAR watch:** recent 8-K/10-Q/10-K/6-K/20-F per holding, with 8-K item topics, surfaced in `signals.json` + a "Filings & news" tab and fed to the digest (prioritizing backlog/capacity/guidance/pricing). → `scripts/lib/edgar.mjs`.
+- [x] **News RSS per scarcity:** Google-News RSS keyed off each scarcity's `news_query` thesis terms; deduped; folded into the digest + dashboard. → `scripts/lib/news.mjs`.
 - [ ] **Cost-basis-aware trim trigger:** let the user enter actual buy prices (a gitignored `web/data/positions.local.json`); compute the "2× cost AND >50× forward" trim rule and the sleeve-cap (>~33%) trigger for real.
 - [ ] **Forward-multiple fetch:** pull forward P/E where a free source allows, to make the "went up a lot ≠ expensive" check live (this was the key analytical correction in the thesis).
 

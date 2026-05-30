@@ -6,7 +6,8 @@ A **$0-to-run** dashboard + scanning engine that keeps the tech-scarcity thesis 
 - **Scarcity radar** — every tracked scarcity with its binding window, priced-in level, durability, substitution risk, and a *live crowding score* (from market data).
 - **Timeline** — scarcities bucketed by when they bind (now → 2027 → 2028-29 → 2030+ → physics floor).
 - **Portfolio & triggers** — your $1.5mm sleeve (IRA + taxable), live prices/YTD/% off high per holding, and the deploy/exit **trigger status** (armed / monitor / fired).
-- **Agent digest** — an optional free-LLM "analyst + red-team" summary of what changed.
+- **Filings & news** — recent **SEC EDGAR** filings per holding (8-K/10-Q/10-K/6-K/20-F, with 8-K item topics) and **Google-News RSS** headlines keyed off each scarcity's thesis terms (both free, keyless). These also feed the digest.
+- **Agent digest** — an optional free-LLM "analyst + red-team" summary of what changed, prioritizing filings that touch backlog/capacity/guidance/pricing.
 
 ## Architecture (why it's free and how the agents run)
 ```
@@ -44,7 +45,7 @@ npm run serve                    # static server at http://localhost:3000
 
 ## Roadmap (free-tier friendly)
 - **v1 (now):** static dashboard + scanner (quotes, crowding, auto-triggers) + optional LLM digest + alert issues.
-- **v2:** SEC EDGAR 8-K/earnings watch + Google-News RSS per scarcity, summarized by the free LLM; cost-basis-aware trim-rule trigger.
+- **v2 (now):** SEC EDGAR 8-K/10-Q watch + Google-News RSS per scarcity, summarized by the free LLM. *(Next in v2: cost-basis-aware trim-rule trigger via a gitignored `positions.local.json`; forward-multiple fetch.)*
 - **v3:** scheduled re-run of the full deep-dive + red-team pipeline (the same multi-agent pattern as the research) on the free LLM, versioning each thesis; portfolio tracker with live position values and DCA-progress.
 
 > Not financial advice. The radar reflects the committed research; verify before acting.

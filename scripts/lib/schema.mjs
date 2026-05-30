@@ -97,6 +97,8 @@ export function validateSignals(s, errors = []) {
   check(errors, isObj(s.trigger_status), `${w}: trigger_status must be an object`);
   check(errors, typeof s.digest === "string", `${w}: digest must be a string`);
   check(errors, isArr(s.errors), `${w}: errors must be an array`);
+  if ("filings" in s) check(errors, isArr(s.filings), `${w}: filings must be an array`);
+  if ("news" in s) check(errors, isArr(s.news), `${w}: news must be an array`);
   for (const [t, q] of Object.entries(isObj(s.quotes) ? s.quotes : {})) {
     if (q == null) continue; // null = intentional non-tradeable placeholder
     if (!isObj(q)) { errors.push(`${w}: quotes[${t}] must be an object or null`); continue; }

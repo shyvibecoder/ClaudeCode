@@ -23,6 +23,7 @@
     <button data-tab="radar" class="active">Scarcity radar</button>
     <button data-tab="timeline">Timeline</button>
     <button data-tab="portfolio">Portfolio &amp; triggers</button>
+    <button data-tab="catalysts">Filings &amp; news</button>
     <button data-tab="digest">Agent digest</button>
   </nav>
 
@@ -49,6 +50,17 @@
     <table id="holdings"><thead><tr>
       <th>Ticker</th><th>Name</th><th>Acct</th><th>Target $</th><th>Wt</th><th>Tier</th><th>Price</th><th>YTD</th><th>% off high</th><th>Role</th>
     </tr></thead><tbody></tbody></table>
+  </section>
+
+  <section id="catalysts" class="tab">
+    <h3>Recent SEC filings <span class="foot">— 8-K / 10-Q / 10-K / 6-K / 20-F per holding, last ~21 days (free, via SEC EDGAR)</span></h3>
+    <table id="filings"><thead><tr>
+      <th>Date</th><th>Ticker</th><th>Form</th><th>Items / topic</th><th></th>
+    </tr></thead><tbody></tbody></table>
+    <p id="filingsEmpty" class="foot"></p>
+    <h3>News by scarcity <span class="foot">— Google News RSS keyed off each thesis (free, deduped)</span></h3>
+    <div id="news"></div>
+    <p id="newsEmpty" class="foot"></p>
   </section>
 
   <section id="digest" class="tab">

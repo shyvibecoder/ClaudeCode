@@ -40,15 +40,17 @@ export async function llm(prompt) {
   return ""; // no key -> caller skips LLM features
 }
 
-// Two-pass "analyst + red-team" digest over fresh signals/news, on a free model.
-export async function analystRedteamDigest({ signals, headlines, scarcities }) {
+// Two-pass "analyst + red-team" digest over fresh signals/filings/news, free model.
+export async function analystRedteamDigest({ signals, filings = [], headlines = [], scarcities }) {
   if (!llmAvailable()) return "";
-  const ctx = JSON.stringify({ signals, headlines, scarcities }, null, 0).slice(0, 24000);
+  const ctx = JSON.stringify({ signals, filings, headlines, scarcities }, null, 0).slice(0, 24000);
   const analyst = await llm(
     `You are a markets analyst tracking structural-tech-scarcity theses.\n` +
-    `Given this JSON of fresh quotes, headlines, and the scarcity map, write 6-10 terse bullets: ` +
-    `what materially changed for any scarcity/holding, and whether any deploy/exit trigger looks closer. ` +
-    `Be specific and cite the ticker/scarcity. JSON:\n${ctx}`
+    `Given this JSON of fresh quotes, recent SEC filings (8-K/10-Q items), news headlines, ` +
+    `and the scarcity map, write 6-10 terse bullets: what materially changed for any ` +
+    `scarcity/holding — prioritize SEC filings that touch backlog, capacity, guidance, or ` +
+    `pricing — and whether any deploy/exit trigger looks closer. ` +
+    `Be specific and cite the ticker/scarcity/filing. JSON:\n${ctx}`
   );
   const redteam = await llm(
     `You are a skeptical red-team. Attack this analyst digest: which claims are over-stated, already-priced, ` +
