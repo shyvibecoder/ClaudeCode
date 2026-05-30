@@ -9,6 +9,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { isTradeable, fetchYahoo, fetchSeries } from "./lib/quotes.mjs";
 import { basketIndex, portfolioMetrics } from "./lib/metrics.mjs";
+import { backtestRegime } from "./lib/backtest.mjs";
 import { getQuotes, providerKeys } from "./lib/marketdata.mjs";
 import { macroStress } from "./lib/macro.mjs";
 import { toUsd, fetchRates } from "./lib/fx.mjs";
@@ -255,6 +256,12 @@ if (!OFFLINE) {
     if (idx.values.length > 60) {
       metrics = { ...portfolioMetrics(idx.values), basis: Object.keys(series), window: `${idx.dates[0]}..${idx.dates[idx.dates.length - 1]}`, note: "trailing ~1y, target-weighted strategy basket" };
       console.log(`Metrics: CAGR ${metrics.cagr}, maxDD ${metrics.max_drawdown} (breaches35=${metrics.breaches_35}), Calmar ${metrics.calmar}, Sortino ${metrics.sortino}`);
+      // Falsifiable evidence: does a trend brake cut drawdown on this basket vs buy-and-hold?
+      if (idx.values.length > 120) {
+        const mp = idx.values.length > 220 ? 100 : 50; // ~1y window → shorter trend than the live 200-DMA dial
+        const bt = backtestRegime(idx.values, { maPeriod: mp });
+        if (bt) { metrics.backtest = bt; console.log(`Backtest(ma${mp}): braked maxDD ${bt.braked.max_drawdown} vs ${bt.unbraked.max_drawdown}, dd_reduction ${bt.dd_reduction}, whipsaws ${bt.whipsaws}`); }
+      }
     }
   } catch (e) { errors.push(`metrics: ${e.message}`); }
 }

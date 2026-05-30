@@ -152,7 +152,7 @@ function renderMetrics() {
       <div class="card ${m.breaches_35 ? "dq-bad" : ""}"><b>${pct(m.max_drawdown)}</b><span>max drawdown ${m.breaches_35 ? "⚠ &gt;35%" : "✓ &lt;35%"}</span></div>
       <div class="card"><b>${num(m.calmar)}</b><span>Calmar (CAGR÷maxDD)</span></div>
       <div class="card"><b>${num(m.sortino)}</b><span>Sortino</span></div>
-    </div>`;
+    </div>${m.backtest ? `<p class="foot">Trend-brake backtest (${m.backtest.n}d, ${m.backtest.ma_period}-day MA, no look-ahead): max-DD <strong>${(m.backtest.braked.max_drawdown*100).toFixed(0)}%</strong> braked vs ${(m.backtest.unbraked.max_drawdown*100).toFixed(0)}% buy&amp;hold (−${(m.backtest.dd_reduction*100).toFixed(0)} pts); Calmar ${num(m.backtest.braked.calmar)} vs ${num(m.backtest.unbraked.calmar)}; ${m.backtest.whipsaws} switches, ${Math.round(m.backtest.time_in_market*100)}% in market.</p>` : ""}`;
 }
 
 function renderPortfolio() {
@@ -651,7 +651,7 @@ const HELP = {
     <p>The app's <strong>objective</strong>: maximize 10-year return while keeping <strong>max drawdown &lt; 35%</strong>, with the best <strong>Calmar</strong> (CAGR ÷ maxDD) and <strong>Sortino</strong> (return ÷ downside risk). This card measures the <em>strategy basket</em> (your target-weighted holdings) over the trailing window the scan has history for — a live read on whether the timing/risk layer is actually holding drawdown under 35% and earning a good risk-adjusted return.</p>
     <ul><li><strong>CAGR</strong> — annualized return. <strong>Max drawdown</strong> — worst peak-to-trough (turns ⚠ red if it breaches −35%).</li>
     <li><strong>Calmar</strong> — return per unit of drawdown (higher = better). <strong>Sortino</strong> — return per unit of <em>downside</em> volatility.</li></ul>
-    <p>It's a backward-looking proxy that grows more meaningful as history accumulates; not a forecast. Not advice.</p>` },
+    <p>It's a backward-looking proxy that grows more meaningful as history accumulates; not a forecast. Not advice.</p><p>The <strong>trend-brake backtest</strong> line is on-basket evidence (no look-ahead): it compares max-drawdown and Calmar of a moving-average brake vs. buy-and-hold over the available window — the timing dial's premise, tested rather than asserted.</p>` },
   dca: { title: "DCA progress", body: `
     <p>Tracks how much of each holding's <strong>target</strong> you've actually <strong>deployed</strong> (shares × cost basis from your Settings positions), against the 9-month dollar-cost-averaging calendar. The bar + % shows progress to target; the card shows the sleeve total deployed. Helps you stay on the plan and see where dry powder still needs to go.</p>` },
   settings: { title: "Settings &amp; onboarding", body: `

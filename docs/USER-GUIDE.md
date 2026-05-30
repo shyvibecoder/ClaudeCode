@@ -114,7 +114,7 @@ The app's goal is **max 10-year return with max drawdown < 35%, and the best Cal
 measures your **strategy basket** (target-weighted holdings) over the trailing window: **CAGR**, **max
 drawdown** (turns ⚠ red if it breaches −35%), **Calmar** (CAGR ÷ maxDD), and **Sortino** (return ÷
 downside risk). It's a live check on whether the timing/risk layer is actually holding drawdown under the
-limit while earning a good risk-adjusted return — a backward-looking proxy, not a forecast.
+limit while earning a good risk-adjusted return — a backward-looking proxy, not a forecast. A **trend-brake backtest** line below it shows, on this basket and with no look-ahead, whether a moving-average brake actually cut max-drawdown and improved Calmar vs. buy-and-hold (the dial's premise, tested).
 
 ### 5.2 Summary cards
 Sleeve size, IRA vs taxable split, holding count, and a **data-quality** card (✓ OK or ⚠ degraded —
