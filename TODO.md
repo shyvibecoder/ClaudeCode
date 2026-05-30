@@ -24,19 +24,20 @@ all-in vs. apply the brakes into cash. See `REGIME.md` for the evidence base.
 ## ⚠ Data integrity / anti-injection hardening (next priority)
 Current guards: HTTPS-only sources, fail-loud schema validation (in+out), every ticker "resolved or
 errored explicitly" (never silently filled), errors captured + graceful degrade, single controlled
-writer (Actions → committed `signals.json`). **Gaps to close:**
-- [ ] **Cross-source corroboration** — when Yahoo *and* Stooq both return, compare; flag/error if they diverge >~2–3% (use Stooq as a validator, not just a fallback).
-- [ ] **Plausibility bounds** — reject price≤0/non-finite (Yahoo path lacks the `isFinite` guard Stooq has); flag implausible day-over-day or vs-52w-high moves; bound vol/ytd.
-- [ ] **Anomaly vs last run** — diff new price against the prior committed `signals.json`; flag jumps >~35% (likely bad print / unadjusted split) and withhold from triggers.
-- [ ] **Per-quote freshness** — use Yahoo's last-bar timestamp; flag stale/halted/delisted quotes.
-- [ ] **Fail-safe triggers** — don't fire auto-triggers (drawdown/sleeve) on a degraded run (too many errors/anomalies) or until **two consecutive scans agree**.
-- [ ] **Provenance** — keep `source` per quote (done) + summarize Yahoo/Stooq mix; treat heavy fallback as degraded. Untrusted EDGAR/news text stays read-only (never agentic) to avoid prompt-injection.
+writer (Actions → committed `signals.json`). **Shipped (`scripts/lib/marketdata.mjs`):**
+- [x] **Cross-source corroboration** — Yahoo + Stooq (+ optional free-key sources) compared; quote flagged on >3% divergence (sources/spread recorded in `corroboration`).
+- [x] **Plausibility bounds** — Yahoo path now rejects price≤0/non-finite (matches Stooq); provider parses guard `>0 && finite`.
+- [x] **Anomaly vs last run** — price diffed vs prior committed `signals.json`; >35% jump flagged.
+- [x] **Per-quote freshness** — Yahoo last-bar `asof`; flagged when >6 days stale.
+- [x] **Fail-safe triggers** — `data_quality` summary; drawdown/sleeve auto-triggers **held** on a degraded run.
+- [x] **Provenance** — `source` + `corroboration.sources` per quote; `data_quality` reports ok/flagged/corroborated. EDGAR/news stay read-only (no agentic use) → no prompt-injection path.
+- [ ] **Two-consecutive-scans confirmation** before firing a trigger (extra safety) — still TODO.
 
 ### Free market-data sources (multi-source corroboration — all free)
 Build a provider abstraction (like the LLM one) that tries keyless first, optionally free-key, and cross-checks.
-- **Quotes/history (keyless):** Yahoo chart (primary), Stooq CSV (fallback+validator). Add as corroborators →
-  **Yahoo options endpoint** (`/v7/finance/options/{t}` — real chains + IV, keyless), **exchangerate.host/Frankfurter** (FX).
-- **Quotes (free-key, optional, generous):** Finnhub (60/min), Twelve Data (800/day), Alpha Vantage (25/day), Tiingo, FMP — keys stored as repo secrets / Settings; used to corroborate the keyless feed.
+- [x] **Quotes/history (keyless):** Yahoo chart (primary) + Stooq CSV (now a cross-check validator).
+- [x] **Quotes (free-key corroborators):** Finnhub / Twelve Data / Alpha Vantage — wired in scanner (repo secrets) + a Settings UI to add/store keys; Finnhub powers an in-browser "Check live prices".
+- [ ] **Yahoo options endpoint** (`/v7/finance/options/{t}` — real chains + IV) to auto-fill the Options tab; **exchangerate.host/Frankfurter** FX (F2b).
 - **Fundamentals/forward multiple:** Yahoo quoteSummary (flaky), Finnhub/FMP/Alpha Vantage OVERVIEW, **SEC EDGAR XBRL companyfacts** (keyless, authoritative for *reported* figures).
 - **Options chains + IV:** **Yahoo options endpoint** (keyless) to auto-pull real IV into the Options tab; Tradier sandbox (free key) as alt.
 - **Macro (Timing v2 overlay):** keyless `^VIX`/`^VIX3M`/`^TNX`/`HYG` (Yahoo); FRED `BAMLH0A0HYM2` (free key) for HY OAS.

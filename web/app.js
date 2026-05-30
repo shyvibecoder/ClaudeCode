@@ -127,7 +127,8 @@ function renderPortfolio() {
     <div class="card"><b>${fmtUsd(p.sleeve_usd)}</b><span>sleeve (~${Math.round(p.sleeve_usd / p.total_portfolio_usd * 100)}% of ${fmtUsd(p.total_portfolio_usd)})</span></div>
     <div class="card"><b>${fmtUsd(p.accounts.ira)}</b><span>IRA / 401k</span></div>
     <div class="card"><b>${fmtUsd(p.accounts.taxable)}</b><span>taxable</span></div>
-    <div class="card"><b>${p.holdings.filter(h=>h.tier!=='DRY').length}</b><span>holdings + dry powder</span></div>`;
+    <div class="card"><b>${p.holdings.filter(h=>h.tier!=='DRY').length}</b><span>holdings + dry powder</span></div>
+    ${DATA.sig?.data_quality ? `<div class="card ${DATA.sig.data_quality.ok?'':'dq-bad'}"><b>${DATA.sig.data_quality.ok?'✓ OK':'⚠ degraded'} <button class="help" data-help="dataquality">?</button></b><span>data quality · ${DATA.sig.data_quality.note}</span></div>` : ""}`;
 
   const tg = $("#triggers"); tg.innerHTML = "";
   DATA.trig.triggers.forEach((t) => {
@@ -147,7 +148,8 @@ function renderPortfolio() {
     const Q = q(h.ticker);
     const ytd = Q?.ytd, off = Q?.pct_off_high;
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td><strong>${h.ticker}</strong></td><td>${h.name}</td><td>${h.account}</td>
+    const warn = Q?.flags?.length ? `<span class="dq-warn" title="${Q.flags.join("; ")}">⚠</span>` : "";
+    tr.innerHTML = `<td><strong>${h.ticker}</strong>${warn}</td><td>${h.name}</td><td>${h.account}</td>
       <td>${fmtUsd(h.target_usd)}</td><td>${(h.weight*100).toFixed(1)}%</td><td>${h.tier}</td>
       <td>${Q?.price ? "$" + Q.price.toFixed(2) : "—"}</td>
       <td class="${ytd>=0?'pos':'neg'}">${fmtPct(ytd)}</td>
@@ -341,13 +343,42 @@ function importPositions(file) {
   r.readAsText(file);
 }
 
-function loadKeyFields() { const k = getKeys(); $("#kGemini").value = k.gemini || ""; $("#kGroq").value = k.groq || ""; $("#kDispatch").value = localStorage.getItem(TOKEN_KEY) || ""; }
+function loadKeyFields() {
+  const k = getKeys();
+  $("#kGemini").value = k.gemini || ""; $("#kGroq").value = k.groq || "";
+  $("#kFinnhub").value = k.finnhub || ""; $("#kTwelve").value = k.twelvedata || ""; $("#kAlpha").value = k.alphavantage || "";
+  $("#kDispatch").value = localStorage.getItem(TOKEN_KEY) || "";
+}
 function saveKeys() {
   setMsg("");
-  localStorage.setItem(KEYS_KEY, JSON.stringify({ gemini: $("#kGemini").value.trim(), groq: $("#kGroq").value.trim() }));
+  localStorage.setItem(KEYS_KEY, JSON.stringify({
+    gemini: $("#kGemini").value.trim(), groq: $("#kGroq").value.trim(),
+    finnhub: $("#kFinnhub").value.trim(), twelvedata: $("#kTwelve").value.trim(), alphavantage: $("#kAlpha").value.trim(),
+  }));
   const tok = $("#kDispatch").value.trim();
   if (tok) localStorage.setItem(TOKEN_KEY, tok); else localStorage.removeItem(TOKEN_KEY);
   setMsg("Keys saved to this browser.");
+}
+
+// Browser-side live cross-check using the stored Finnhub key (CORS-friendly): compares
+// live prices for your holdings against the committed scan, flagging divergences.
+async function checkLivePrices() {
+  const k = getKeys();
+  if (!k.finnhub) return setMsg("Add a Finnhub key first (free at finnhub.io) — it's CORS-friendly for browser checks.");
+  const pos = getPositions(); const tickers = Object.keys(pos.positions || {});
+  const list = (tickers.length ? tickers : (DATA.port?.holdings || []).map((h) => h.ticker)).filter((t) => t && !/[.]/.test(t) && !/^CASH/i.test(t)).slice(0, 20);
+  if (!list.length) return setMsg("Add holdings first (or they have no US ticker to check).");
+  setMsg(`Checking ${list.length} tickers live via Finnhub…`);
+  const rows = [];
+  for (const t of list) {
+    try {
+      const j = await (await fetch(`https://finnhub.io/api/v1/quote?symbol=${t}&token=${k.finnhub}`)).json();
+      const live = j?.c, scan = DATA.sig?.quotes?.[t]?.price;
+      const div = live && scan ? (live / scan - 1) * 100 : null;
+      rows.push(`${t}: live $${live ?? "—"} vs scan $${scan ?? "—"}${div != null ? ` (${div >= 0 ? "+" : ""}${div.toFixed(1)}%${Math.abs(div) > 3 ? " ⚠" : ""})` : ""}`);
+    } catch { rows.push(`${t}: live check failed`); }
+  }
+  setMsg("Live vs last scan:\n" + rows.join("\n"));
 }
 
 // Your-holdings live panel (Portfolio tab), computed from localStorage + scan quotes.
@@ -432,6 +463,7 @@ $("#hImport").onchange = (e) => e.target.files[0] && importPositions(e.target.fi
 $("#hClear").onclick = () => { if (confirm("Clear all your stored holdings from this browser?")) { localStorage.removeItem(POS_KEY); renderHoldEditor(); render(); } };
 $("#kSave").onclick = saveKeys;
 $("#kDigest").onclick = browserDigest;
+$("#kCheck").onclick = checkLivePrices;
 
 // ---------- Site-wide contextual help (every feature ships with a "?") ----------
 const HELP = {
@@ -484,6 +516,14 @@ const HELP = {
     <p><strong>Defined-risk only — no naked options.</strong> Use long calls/puts, debit spreads, collars, covered calls, cash-secured puts. Caveats: realized vol is backward-looking and options also carry event/skew premia, so treat this as a sanity check, not a price oracle. Not advice.</p>` },
   digest: { title: "Agent digest", body: `
     <p>An optional LLM "analyst + red-team" summary of what changed (quotes, filings, news, regime). With <strong>two</strong> free keys it's <em>cross-model</em> — the analyst runs on one model and the red-team on another, so it isn't a model grading itself. Set keys in ⚙ Settings (in-browser, Gemini) or as GitHub repo secrets (automated scanner).</p>` },
+  datakeys: { title: "Market-data keys", body: `
+    <p>Keyless <strong>Yahoo</strong> (rich history) + <strong>Stooq</strong> (EOD) always run. Adding free keys gives <em>independent cross-check sources</em> so a single bad or synthetic price can't pass silently — when sources disagree &gt;3% the quote is flagged.</p>
+    <ul><li><strong>Finnhub</strong> (finnhub.io) — also CORS-friendly, powers the "Check live prices" button here.</li>
+    <li><strong>Twelve Data</strong> (twelvedata.com), <strong>Alpha Vantage</strong> (alphavantage.co) — used by the scanner.</li></ul>
+    <p>Keys typed here are stored only in this browser. For the <em>automated</em> scanner, also add each as a GitHub repo secret using the exact name shown (e.g. <code>FINNHUB_API_KEY</code>).</p>` },
+  dataquality: { title: "Data quality &amp; integrity", body: `
+    <p>Every quote is fetched over HTTPS and must be a plausible number, or it's marked errored (never silently filled). The scanner <strong>cross-checks</strong> prices across sources (Yahoo/Stooq + any free keys), flags <strong>⚠</strong> on source divergence &gt;3%, big jumps vs the last scan (&gt;35%), or stale/halted bars.</p>
+    <p><strong>Fail-safe:</strong> on a degraded run (too many errors/flags) the auto-triggers (drawdown, sleeve cap) are <em>held</em> — they won't fire on bad data. Add free market-data keys (Settings §3) for stronger corroboration.</p>` },
   settings: { title: "Settings &amp; onboarding", body: `
     <p>Everything here lives <strong>only in this browser</strong> (localStorage) — never committed. Add your holdings per account (ticker/shares/cost basis), your dry-powder cash, and free API keys. Export your positions to <code>positions.local.json</code> for the scanner's trim/sleeve math. Keys: Gemini (aistudio.google.com) and Groq (console.groq.com) are free.</p>` },
 };

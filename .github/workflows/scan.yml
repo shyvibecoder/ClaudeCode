@@ -22,8 +22,12 @@ jobs:
         with: { node-version: 20 }
       - name: Run scanner (free data + optional free LLM)
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}   # optional free key
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}       # optional free key
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}   # optional free key (LLM digest)
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}       # optional free key (LLM red-team)
+          # Optional free-key market-data corroborators (cross-check the keyless Yahoo/Stooq feed):
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
           # Optional: set repo variable SEC_USER_AGENT to "Your Name you@email.com"
           # (SEC etiquette). A sensible default is used if unset.
           SEC_USER_AGENT: ${{ vars.SEC_USER_AGENT }}

@@ -47,7 +47,9 @@ export async function fetchYahoo(ticker) {
   const ts = res?.timestamp || [];
   if (!closes.length) throw new Error("no closes");
   const price = closes[closes.length - 1];
+  if (!(price > 0) || !isFinite(price)) throw new Error(`implausible price: ${price}`); // plausibility guard
   const high52 = Math.max(...closes);
+  const asof = ts.length ? new Date(ts[ts.length - 1] * 1000).toISOString().slice(0, 10) : null;
   // YTD: first close on/after Jan 1 of current year
   const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime() / 1000;
   let ytdBase = closes[0];
@@ -66,6 +68,7 @@ export async function fetchYahoo(ticker) {
     pct_vs_ma50: ma50 ? (price - ma50) / ma50 : null,
     pct_vs_ma200: ma200 ? (price - ma200) / ma200 : null,
     above_ma200: ma200 != null ? price >= ma200 : null,
+    asof,
     mom_12m,
     vol_3m: realizedVol(closes, 63),
     vol_1y: realizedVol(closes, 252),

@@ -7,7 +7,8 @@
 // Usage: node scripts/scan.mjs [--offline]
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { getQuotes, isTradeable } from "./lib/quotes.mjs";
+import { isTradeable } from "./lib/quotes.mjs";
+import { getQuotes, providerKeys } from "./lib/marketdata.mjs";
 import { analystRedteamDigest, llmAvailable } from "./lib/llm.mjs";
 import { validateInputs, validateSignals, validatePositions, assertValid, SCHEMA_VERSION } from "./lib/schema.mjs";
 import { watchFilings } from "./lib/edgar.mjs";
@@ -39,11 +40,24 @@ console.log(`Scanning ${universe.length} tickers (offline=${OFFLINE})...`);
 
 let quotes = {};
 const errors = [];
+const holdTickers = portfolio.holdings.map((h) => h.ticker).filter(isTradeable);
 if (!OFFLINE) {
-  try { quotes = await getQuotes(universe); }
+  try { quotes = await getQuotes(universe, { keys: providerKeys(), holdings: holdTickers }); }
   catch (e) { errors.push(`getQuotes: ${e.message}`); }
 } else {
   errors.push("offline mode: no live quotes fetched");
+}
+
+// Anomaly guard: compare each new price to the PREVIOUS committed scan; flag big jumps
+// (likely a bad print / unadjusted split) so they don't quietly drive triggers.
+let prevQuotes = {};
+try { prevQuotes = JSON.parse(readFileSync(new URL("../web/data/signals.json", import.meta.url)))?.quotes || {}; } catch { /* first run */ }
+const ANOMALY = 0.35;
+for (const [tk, q] of Object.entries(quotes)) {
+  const prev = prevQuotes[tk]?.price;
+  if (q && !q.error && q.price && prev && Math.abs(q.price / prev - 1) > ANOMALY) {
+    q.flags = [...(q.flags || []), `jump ${((q.price / prev - 1) * 100).toFixed(0)}% vs last scan`];
+  }
 }
 
 // Crowding score 0-100 from YTD + distance from 52w high (higher = more crowded/priced-in).
@@ -66,6 +80,22 @@ for (const t of universe) {
     if (q?.error) errors.push(`${t}: ${q.error}`);
   }
 }
+
+// Data-quality summary across the universe (drives fail-safe trigger gating below).
+const vals = Object.values(enriched);
+const nOk = vals.filter((q) => q && !q.error).length;
+const nErr = vals.filter((q) => q && q.error).length;
+const nFlagged = vals.filter((q) => q && q.flags?.length).length;
+const corr = vals.filter((q) => q?.corroboration);
+const nCorrob = corr.filter((q) => q.corroboration.ok === true).length;
+const errRate = vals.length ? nErr / vals.length : 1;
+const degraded = OFFLINE || errRate > 0.3 || (nOk > 0 && nFlagged / Math.max(nOk, 1) > 0.25);
+const data_quality = {
+  ok: !degraded, ok_quotes: nOk, errored: nErr, flagged: nFlagged,
+  corroborated: nCorrob, corroborated_of: corr.length,
+  note: degraded ? "degraded — auto-triggers held this run" : `${nOk} ok, ${nFlagged} flagged, ${nCorrob}/${corr.length} cross-source-corroborated`,
+};
+if (!OFFLINE) console.log(`Data quality: ${data_quality.note}`);
 
 // --- SEC EDGAR filings watch (free, keyless): recent 8-K/10-Q/etc per holding ---
 let filings = [];
@@ -114,7 +144,8 @@ try {
 // --- Auto triggers ---
 const avgDrawdown = drops.length ? drops.reduce((a, b) => a + b, 0) / drops.length : null;
 const dd = triggers.triggers.find((x) => x.id === "drawdown");
-const drawdownFired = avgDrawdown != null && Math.abs(avgDrawdown) >= (dd?.threshold ?? 0.2);
+// Fail-safe: never fire auto-triggers on a degraded/low-quality data run.
+const drawdownFired = !degraded && avgDrawdown != null && Math.abs(avgDrawdown) >= (dd?.threshold ?? 0.2);
 
 // Sleeve-cap + cost-basis trim rule (need positions.local.json for live values).
 const sleeveCapUsd = triggers.triggers.find((x) => x.id === "sleeve_cap")?.threshold ?? 1720000;
@@ -136,7 +167,7 @@ if (positions?.positions) {
   if (typeof positions.cash_usd === "number") sum += positions.cash_usd;
   if (priced) {
     sleeveValue = Math.round(sum);
-    sleeveFired = sleeveValue >= sleeveCapUsd;
+    sleeveFired = !degraded && sleeveValue >= sleeveCapUsd;
     sleeveNote = `sleeve ≈ $${(sleeveValue / 1e6).toFixed(2)}mm vs $${(sleeveCapUsd / 1e6).toFixed(2)}mm cap` +
       (missing.length ? ` (no price for ${missing.join(", ")})` : "") +
       (nonUsd.length ? ` (excluded non-USD: ${nonUsd.join(", ")} — FX conversion not yet implemented)` : "");
@@ -198,6 +229,7 @@ const out = {
   news,
   trigger_status,
   regime,
+  data_quality,
   scarcity_drift,
   digest,
   errors,

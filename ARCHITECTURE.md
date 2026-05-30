@@ -47,9 +47,9 @@ hand-edit a source-of-truth field without human approval, and never commit local
 - **triggers.json** — `{ updated, triggers[] }`; each trigger:
   `{ id, name, type∈{auto,manual}, metric?, threshold?, action, status∈{armed,monitor,fired}, note? }`.
 - **signals.json** (generated) — `{ schema_version, scanned_at(ISO), source, universe_count, quotes{},
-  filings[], news[], trigger_status{drawdown,sleeve_cap,trim_rule}, regime{}, digest, errors[] }`. Each
-  quote is resolved `{price,high52,pct_off_high,ytd,ma50,ma200,pct_vs_ma200,above_ma200,mom_12m,vol_3m,
-  vol_1y,currency,crowding,forward_pe?}` **or** errored `{ticker,error}` **or** `null`. `regime` = the
+  filings[], news[], trigger_status{}, regime{}, data_quality{}, scarcity_drift{}, digest, errors[] }`. Each
+  quote is resolved `{price,...,asof,corroboration{sources,n,spread,ok},flags?,forward_pe?}` **or** errored
+  `{ticker,error}` **or** `null`. `data_quality` gates the auto-triggers (fail-safe on a degraded run). `regime` = the
   timing posture (see `REGIME.md`). All hand-edited files now carry `schema_version`.
 - **positions.local.json** (gitignored) — `{ as_of, cash_usd?, positions:{ ticker:{shares,cost_basis,forward_pe?} } }`.
 
