@@ -113,3 +113,5 @@ table.cfg code{font-size:11px}#adminStatus a{color:var(--y30)}
 .heatbar{display:inline-block;width:90px;height:8px;background:var(--line);border-radius:4px;overflow:hidden}
 .heatbar span{display:block;height:100%;background:var(--y30)}
 .choke a{color:var(--y30)}
+
+.stress-btn{font-size:12px}

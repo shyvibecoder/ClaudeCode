@@ -175,6 +175,12 @@ proxies** exposed to each by searching **SEC filings** for who mentions the enti
 partners), ranked by mention count, and shows a **heat** (attention + proxy momentum) and the proxies'
 relative strength vs the AI-capex complex. Discovered names are research leads, not recommendations.
 
+### 5.7 Stress test
+Applies the thesis's named shocks to **your** sleeve and shows the drawdown vs the **−35% objective
+limit**: 2027–28 AI-capex digestion, a 2022-style rate shock, a broad recession, and a China
+rare-earth "peace." Coarse, documented high-beta shock vectors (not fitted) — a feel for tail risk.
+Runs entirely in your browser on your stored positions.
+
 ## 6. Filings & news
 
 ![Filings and news](img/catalysts.png)

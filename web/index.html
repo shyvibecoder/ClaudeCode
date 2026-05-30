@@ -119,6 +119,7 @@
     <div id="objMetrics"></div>
     <div id="myHoldings"></div>
     <div id="dcaProgress"></div>
+    <div id="stressTest"></div>
     <div id="portSummary" class="cards"></div>
     <h3>Triggers <button class="help" data-help="triggers">?</button></h3>
     <div id="triggers"></div>
@@ -177,5 +178,6 @@
   <script type="module">import { rebalanceFlags } from "./rebalance.mjs"; window.rebalanceFlags = rebalanceFlags;</script>
   <script type="module">import { configStatus, browserKeyStatus } from "./admin.mjs"; window.PuckAdmin = { configStatus, browserKeyStatus };</script>
   <script type="module">import { dcaProgress } from "./dca-view.mjs"; window.dcaProgress = dcaProgress;</script>
+  <script type="module">import { applyShock, SCENARIOS } from "./stress.mjs"; window.PuckStress = { applyShock, SCENARIOS };</script>
 </body>
 </html>

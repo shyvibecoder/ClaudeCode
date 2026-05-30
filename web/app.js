@@ -178,11 +178,29 @@ function renderMetrics() {
     </div>${m.backtest ? `<p class="foot">Trend-brake backtest (${m.backtest.n}d, ${m.backtest.ma_period}-day MA, no look-ahead): max-DD <strong>${(m.backtest.braked.max_drawdown*100).toFixed(0)}%</strong> braked vs ${(m.backtest.unbraked.max_drawdown*100).toFixed(0)}% buy&amp;hold (−${(m.backtest.dd_reduction*100).toFixed(0)} pts); Calmar ${num(m.backtest.braked.calmar)} vs ${num(m.backtest.unbraked.calmar)}; ${m.backtest.whipsaws} switches, ${Math.round(m.backtest.time_in_market*100)}% in market.</p>` : ""}${scLine}`;
 }
 
+function renderStress() {
+  const box = $("#stressTest"); if (!box) return;
+  const S = window.PuckStress; const pos = getPositions().positions || {};
+  if (!S || !Object.keys(pos).length) { box.innerHTML = ""; return; }
+  const btns = S.SCENARIOS.map((sc) => `<button class="stress-btn" data-sc="${sc.id}">${esc(sc.name)}</button>`).join(" ");
+  box.innerHTML = `<h3>Stress test <button class="help" data-help="stress">?</button> <span class="foot">— shock your sleeve; objective limit is −35% max drawdown</span></h3>
+    <div class="modal-actions">${btns}</div><div class="stress-result"></div>`;
+  const out = box.querySelector(".stress-result");
+  $$("#stressTest .stress-btn").forEach((b) => b.onclick = () => {
+    const sc = S.SCENARIOS.find((x) => x.id === b.dataset.sc);
+    const r = S.applyShock(pos, DATA.sig?.quotes || {}, sc);
+    const rows = r.per_name.map((p) => `<tr><td>${esc(p.ticker)}</td><td>${fmtUsd(p.before)}</td><td>${fmtUsd(p.after)}</td><td class="neg">${(p.change * 100).toFixed(0)}%</td></tr>`).join("");
+    out.innerHTML = `<div class="optcard"><p><strong>${esc(r.scenario)}</strong>: sleeve ${fmtUsd(r.before)} → ${fmtUsd(r.after)} = <span class="${r.breaches_35 ? "neg" : "pos"}">${(r.drawdown * 100).toFixed(0)}% drawdown ${r.breaches_35 ? "⚠ breaches −35%" : "✓ within −35%"}</span></p>${sc.note ? `<p class="foot">${esc(sc.note)}</p>` : ""}
+      <table class="kv"><thead><tr><th>Ticker</th><th>Before</th><th>After</th><th>Δ</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  });
+}
+
 function renderPortfolio() {
   renderRegime();
   renderMetrics();
   renderMyHoldings();
   renderDca();
+  renderStress();
   const p = DATA.port;
   $("#portSummary").innerHTML = `
     <div class="card"><b>${fmtUsd(p.sleeve_usd)}</b><span>sleeve (~${Math.round(p.sleeve_usd / p.total_portfolio_usd * 100)}% of ${fmtUsd(p.total_portfolio_usd)})</span></div>
@@ -685,6 +703,7 @@ const HELP = {
     <li><strong>heat</strong> — market attention + proxy momentum (0–100); <strong>proxy rel</strong> — the seeded proxies' strength vs the AI-capex complex.</li>
     <li><strong>Discovered</strong> — public companies whose SEC filings mention the entity (your tradable exposure), with mention counts.</li></ul>
     <p>This is the differentiated, hard-to-replicate layer — turning "no clean ETF, sorry" into "here's the best obtainable read." Not advice; discovered proxies are leads to research, not recommendations.</p>` },
+  stress: { title: "Stress test", body: `\n    <p>Applies the thesis's named shocks to YOUR sleeve (your positions × latest prices) and shows the drawdown vs the <strong>−35% objective limit</strong>: the 2027–28 AI-capex digestion (the basket's shared failure mode), a 2022-style rate shock, a broad recession, and a China rare-earth 'peace' (subsidy-floor names re-rate). Shock vectors are coarse and documented (high-beta assumptions), not fitted — a feel for tail risk, not a prediction. Runs entirely in your browser. Not advice.</p>` },
   dca: { title: "DCA progress", body: `
     <p>Tracks how much of each holding's <strong>target</strong> you've actually <strong>deployed</strong> (shares × cost basis from your Settings positions), against the 9-month dollar-cost-averaging calendar. The bar + % shows progress to target; the card shows the sleeve total deployed. Helps you stay on the plan and see where dry powder still needs to go.</p>` },
   settings: { title: "Settings &amp; onboarding", body: `
