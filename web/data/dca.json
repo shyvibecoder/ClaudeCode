@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "updated": "2026-05-30",
+  "note": "Planned DCA schedule derived from portfolio tiers (A/D=100% now; B=50% now+m1-3; C=25% now+m1-9; DRY=held). Deployed side comes from positions.local.json (v4 view).",
+  "holdings": {
+    "PAVE": {
+      "tier": "A",
+      "target_usd": 225000,
+      "account": "taxable",
+      "schedule": {
+        "now": 225000
+      }
+    },
+    "GRID": {
+      "tier": "A",
+      "target_usd": 165000,
+      "account": "taxable",
+      "schedule": {
+        "now": 165000
+      }
+    },
+    "FIW": {
+      "tier": "A",
+      "target_usd": 105000,
+      "account": "taxable",
+      "schedule": {
+        "now": 105000
+      }
+    },
+    "SHLD": {
+      "tier": "C",
+      "target_usd": 75000,
+      "account": "taxable",
+      "schedule": {
+        "now": 18750,
+        "m1": 6250,
+        "m2": 6250,
+        "m3": 6250,
+        "m4": 6250,
+        "m5": 6250,
+        "m6": 6250,
+        "m7": 6250,
+        "m8": 6250,
+        "m9": 6250
+      }
+    },
+    "ASML": {
+      "tier": "A",
+      "target_usd": 60000,
+      "account": "taxable",
+      "schedule": {
+        "now": 60000
+      }
+    },
+    "SMNEY": {
+      "tier": "C",
+      "target_usd": 45000,
+      "account": "taxable",
+      "schedule": {
+        "now": 11250,
+        "m1": 3750,
+        "m2": 3750,
+        "m3": 3750,
+        "m4": 3750,
+        "m5": 3750,
+        "m6": 3750,
+        "m7": 3750,
+        "m8": 3750,
+        "m9": 3750
+      }
+    },
+    "CASH-MUNI": {
+      "tier": "DRY",
+      "target_usd": 25000,
+      "account": "taxable",
+      "schedule": {
+        "now": 0
+      }
+    },
+    "SMH": {
+      "tier": "C",
+      "target_usd": 165000,
+      "account": "ira",
+      "schedule": {
+        "now": 41250,
+        "m1": 13750,
+        "m2": 13750,
+        "m3": 13750,
+        "m4": 13750,
+        "m5": 13750,
+        "m6": 13750,
+        "m7": 13750,
+        "m8": 13750,
+        "m9": 13750
+      }
+    },
+    "COPX": {
+      "tier": "C",
+      "target_usd": 150000,
+      "account": "ira",
+      "schedule": {
+        "now": 37500,
+        "m1": 12500,
+        "m2": 12500,
+        "m3": 12500,
+        "m4": 12500,
+        "m5": 12500,
+        "m6": 12500,
+        "m7": 12500,
+        "m8": 12500,
+        "m9": 12500
+      }
+    },
+    "NUKZ": {
+      "tier": "C",
+      "target_usd": 90000,
+      "account": "ira",
+      "schedule": {
+        "now": 22500,
+        "m1": 7500,
+        "m2": 7500,
+        "m3": 7500,
+        "m4": 7500,
+        "m5": 7500,
+        "m6": 7500,
+        "m7": 7500,
+        "m8": 7500,
+        "m9": 7500
+      }
+    },
+    "MU": {
+      "tier": "B",
+      "target_usd": 90000,
+      "account": "ira",
+      "schedule": {
+        "now": 45000,
+        "m1": 15000,
+        "m2": 15000,
+        "m3": 15000
+      }
+    },
+    "GEV": {
+      "tier": "B",
+      "target_usd": 60000,
+      "account": "ira",
+      "schedule": {
+        "now": 30000,
+        "m1": 10000,
+        "m2": 10000,
+        "m3": 10000
+      }
+    },
+    "CEG": {
+      "tier": "A",
+      "target_usd": 60000,
+      "account": "ira",
+      "schedule": {
+        "now": 60000
+      }
+    },
+    "EME": {
+      "tier": "A",
+      "target_usd": 30000,
+      "account": "ira",
+      "schedule": {
+        "now": 30000
+      }
+    },
+    "MP": {
+      "tier": "C",
+      "target_usd": 30000,
+      "account": "ira",
+      "schedule": {
+        "now": 7500,
+        "m1": 2500,
+        "m2": 2500,
+        "m3": 2500,
+        "m4": 2500,
+        "m5": 2500,
+        "m6": 2500,
+        "m7": 2500,
+        "m8": 2500,
+        "m9": 2500
+      }
+    },
+    "LEU": {
+      "tier": "C",
+      "target_usd": 30000,
+      "account": "ira",
+      "schedule": {
+        "now": 7500,
+        "m1": 2500,
+        "m2": 2500,
+        "m3": 2500,
+        "m4": 2500,
+        "m5": 2500,
+        "m6": 2500,
+        "m7": 2500,
+        "m8": 2500,
+        "m9": 2500
+      }
+    },
+    "ROBO": {
+      "tier": "D",
+      "target_usd": 30000,
+      "account": "ira",
+      "schedule": {
+        "now": 30000
+      }
+    },
+    "UFO": {
+      "tier": "D",
+      "target_usd": 15000,
+      "account": "ira",
+      "schedule": {
+        "now": 15000
+      }
+    },
+    "CASH-MMF": {
+      "tier": "DRY",
+      "target_usd": 50000,
+      "account": "ira",
+      "schedule": {
+        "now": 0
+      }
+    }
+  }
+}

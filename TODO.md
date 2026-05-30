@@ -18,7 +18,7 @@ all-in vs. apply the brakes into cash. See `REGIME.md` for the evidence base.
 - [x] **F3** — `securities.json` registry (type/foreign) + validator; wired to skip forward-P/E on ETFs
 - [x] **F4** — `scarcity-history.json` per-run snapshots (change-only) + radar "drift" marker
 - [x] **F5** — `last_reviewed` set on every scarcity + optional `confidence` (0..1) schema support (`confidence` filled by v3)
-- [ ] **F6** — `dca.json` planned schedule + planned-vs-deployed in `signals.json` + dashboard view
+- [x] **F6 (data layer)** — `dca.json` machine-readable plan generated from tier rules (was prose-only). *Planned-vs-deployed VIEW = v4.*
 - [x] **F7** — `seen.state.json` delta tracking → filings/news show **NEW** badges; trigger fire-times recorded
 - [x] **F8** — `schema_version` on all data files + validator errors on unknown version
 - [x] **F9** — ownership model documented (ARCHITECTURE §1: bot-proposable vs human-only fields)
@@ -27,7 +27,7 @@ all-in vs. apply the brakes into cash. See `REGIME.md` for the evidence base.
 - [ ] **F2b** — full FX conversion (fetch `${CUR}USD=X`) so foreign lots count in the sleeve value
 
 ### Remaining audit/back-fill (next)
-- [ ] **F6** dca.json + DCA planned-vs-deployed view (pairs with v4)
+- [ ] **F6 view** — DCA planned-vs-deployed dashboard (pairs with v4; data layer done)
 - [ ] **F2b** FX conversion for foreign lots
 - [ ] **F11** wire manual policy triggers to news/filings
 

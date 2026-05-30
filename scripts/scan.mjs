@@ -15,6 +15,7 @@ import { watchNews } from "./lib/news.mjs";
 import { getForwardPEs } from "./lib/fundamentals.mjs";
 import { computeRegime } from "./lib/regime.mjs";
 import { updateScarcityHistory, applySeenState } from "./lib/history.mjs";
+import { writeDcaPlan } from "./lib/dca.mjs";
 
 const OFFLINE = process.argv.includes("--offline");
 const read = (p) => JSON.parse(readFileSync(new URL(`../web/data/${p}`, import.meta.url)));
@@ -171,6 +172,9 @@ console.log(`Regime: ${regime.posture}${regime.risk_score != null ? ` (risk ${re
 const { drift: scarcity_drift } = updateScarcityHistory(dataUrl("scarcity-history.json"), scarcities.scarcities, TODAY);
 const { newFilings, newNews } = applySeenState(dataUrl("seen.state.json"), { filings, news, triggerStatus: trigger_status, today: TODAY });
 console.log(`History: ${Object.keys(scarcity_drift).length} scarcities drifted; ${newFilings} new filings, ${newNews} new headlines`);
+
+// F6: regenerate the machine-readable DCA plan from the tier rules (deterministic).
+writeDcaPlan(dataUrl("dca.json"), portfolio, TODAY);
 
 // --- Optional free-LLM analyst + red-team digest ---
 let digest = "(no LLM key set — set GEMINI_API_KEY or GROQ_API_KEY in repo secrets to enable the agent digest)";
