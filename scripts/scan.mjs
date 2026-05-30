@@ -268,8 +268,11 @@ if (!OFFLINE) {
       fetchYahoo("^VIX3M").catch(() => null),
       fetchYahoo("HYG").catch(() => null),
     ]);
-    macro = macroStress({ vix: vix?.price, vix3m: vix3m?.price, hygMom1m: hyg?.mom_1m });
-    console.log(`Macro: ${macro.stressed ? "STRESSED" : "calm"} (vix_term ${macro.vix_term}, hy_1m ${macro.hy_mom_1m})`);
+    const m = macroStress({ vix: vix?.price, vix3m: vix3m?.price, hygMom1m: hyg?.mom_1m });
+    // R1: if the inputs didn't come back, leave macro=null so the regime marks the
+    // exit-only brake UNAVAILABLE instead of silently showing "calm".
+    if (m.vix_term == null && m.hy_mom_1m == null) errors.push("macro: VIX/HY feeds unavailable — overlay disabled this run");
+    else { macro = m; console.log(`Macro: ${m.stressed ? "STRESSED" : "calm"} (vix_term ${m.vix_term}, hy_1m ${m.hy_mom_1m})`); }
   } catch (e) { errors.push(`macro: ${e.message}`); }
 }
 

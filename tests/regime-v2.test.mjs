@@ -36,3 +36,15 @@ describe("regime v2: fast re-entry (20-DMA breadth) override", () => {
     assert.equal(r.posture, "defensive");
   });
 });
+
+describe("regime: surfaces a disabled macro overlay (red-team R1)", () => {
+  it("flags macro_available=false and notes it when macro inputs are unavailable", () => {
+    const r = computeRegime(bull, holds(2), { macro: null });
+    assert.equal(r.macro_available, false);
+    assert.match(r.note, /macro.*unavailable/i);
+  });
+  it("macro_available=true when the overlay computed (even if not stressed)", () => {
+    const r = computeRegime(bull, holds(2), { macro: { stressed: false, reasons: [] } });
+    assert.equal(r.macro_available, true);
+  });
+});

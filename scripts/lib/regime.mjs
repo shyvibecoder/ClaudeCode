@@ -118,6 +118,7 @@ export function computeRegime(quotes, holdings, { macro, securities = {} } = {})
     action = `Fast re-entry: ≥60% of names reclaimed their 20-DMA — re-risk one notch. ${action}`;
   }
   const macroStressed = !!macro?.stressed;
+  const macroAvailable = macro != null; // R1: was the exit-only brake actually computed?
   if (macroStressed) {
     posture = "defensive";
     action = `Macro-stress overlay ON (${(macro.reasons || []).join("; ")}) — brakes: raise cash, deploy only into the drawdown trigger.`;
@@ -126,7 +127,7 @@ export function computeRegime(quotes, holdings, { macro, securities = {} } = {})
   const pct = (x) => (x == null ? "n/a" : (x * 100).toFixed(0) + "%");
   return {
     version: REGIME_VERSION,
-    posture, risk_score: risk, fast_reentry, macro_stressed: macroStressed,
+    posture, risk_score: risk, fast_reentry, macro_stressed: macroStressed, macro_available: macroAvailable,
     composite_basis, per_name, account_policy: accountPolicy(posture),
     components: {
       trend_vs_200dma: round1(avgVsMa200), momentum_12m: round1(avgMom),
@@ -138,7 +139,7 @@ export function computeRegime(quotes, holdings, { macro, securities = {} } = {})
     options_suggestion: suggestOptionStructure(posture, { macroStressed }),
     action,
     basis: "trend(200-DMA)+abs-momentum(12m)+vol-state+drawdown, +20-DMA fast re-entry +VIX/HY macro overlay; see REGIME.md",
-    note: `trend ${pct(avgVsMa200)} vs 200-DMA · 12m mom ${pct(avgMom)} · ${pct(avgOffHigh)} from highs · vol ${volState == null ? "n/a" : volState.toFixed(2) + "x"} · breadth200 ${pct(breadth)} · breadth20 ${pct(breadth20)}${macroStressed ? " · MACRO-STRESS" : ""}`,
+    note: `trend ${pct(avgVsMa200)} vs 200-DMA · 12m mom ${pct(avgMom)} · ${pct(avgOffHigh)} from highs · vol ${volState == null ? "n/a" : volState.toFixed(2) + "x"} · breadth200 ${pct(breadth)} · breadth20 ${pct(breadth20)}${macroStressed ? " · MACRO-STRESS" : (macroAvailable ? "" : " · ⚠ macro overlay unavailable")}`,
   };
 }
 
