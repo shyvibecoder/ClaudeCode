@@ -434,12 +434,16 @@ function renderMyHoldings() {
   const posForRebal = Object.fromEntries(entries.map(([t, h]) => [t, { shares: h.shares, price: DATA.sig?.quotes?.[t]?.error ? null : DATA.sig?.quotes?.[t]?.price }]));
   const rebal = (typeof window.rebalanceFlags === "function" ? window.rebalanceFlags(posForRebal, targets, 0.25) : []);
   const rebalMap = Object.fromEntries(rebal.map((r) => [r.ticker, r]));
-  let total = 0; const acc = { ira: 0, taxable: 0 }; const rows = [];
+  let total = 0; const acc = { ira: 0, taxable: 0 }; const rows = []; let excludedFx = 0;
   for (const [t, h] of entries) {
     const Q = DATA.sig?.quotes?.[t];
     const price = Q && !Q.error ? Q.price : null;
     const mv = price && h.shares ? price * h.shares : null;
-    if (mv) { total += mv; if (acc[h.account] != null) acc[h.account] += mv; }
+    // U2: the browser has no FX rates → exclude non-USD lots from the sleeve total
+    // (the scanner's server-side sleeve value FX-converts them). Never mis-sum as USD.
+    const isUsd = !Q?.currency || Q.currency === "USD";
+    if (mv && isUsd) { total += mv; if (acc[h.account] != null) acc[h.account] += mv; }
+    else if (mv && !isUsd) excludedFx++;
     const gain = price && h.cost_basis ? price / h.cost_basis - 1 : null;
     const tgt = targets[t];
     const rb = rebalMap[t];
@@ -452,7 +456,7 @@ function renderMyHoldings() {
   const capPct = Math.round(total / cap * 100);
   box.innerHTML = `<h3>Your holdings (live) <button class="help" data-help="myholdings">?</button> <span class="foot">— from your browser-stored positions × latest scan prices</span></h3>
     <div class="cards">
-      <div class="card"><b>${fmtUsd(total)}</b><span>sleeve value (${capPct}% of $${(cap/1e6).toFixed(2)}mm cap)</span></div>
+      <div class="card"><b>${fmtUsd(total)}</b><span>sleeve value (${capPct}% of $${(cap/1e6).toFixed(2)}mm cap)${excludedFx ? ` · ${excludedFx} foreign lot${excludedFx>1?"s":""} excluded` : ""}</span></div>
       <div class="card"><b>${fmtUsd(acc.ira)}</b><span>IRA/Roth</span></div>
       <div class="card"><b>${fmtUsd(acc.taxable)}</b><span>taxable</span></div>
       ${pos.cash_usd?`<div class="card"><b>${fmtUsd(pos.cash_usd)}</b><span>dry powder</span></div>`:""}
@@ -618,7 +622,7 @@ const HELP = {
     <p><strong>v2</strong> refinements: the signal is computed on the <em>theme ETFs</em> (a cleaner composite than averaging 19 noisy single names); it's <strong>account-aware</strong> — the posture drives your <strong>IRA/Roth</strong> (tactical, tax-free turnover) while <strong>taxable</strong> stays buy-and-hold anchors; and it carries a <strong>per-name TSMOM tilt</strong> (which names to lean into vs. trim).</p>
     <p>It's a risk dial that paces your DCA, not an all-in/all-out switch. Full detail: REGIME.md.</p>` },
   myholdings: { title: "Your holdings (live)", body: `
-    <p>Computed from the positions you entered in ⚙ Settings × the latest scan prices — stored only in your browser. Shows market value, gain vs cost, % of target, per-account subtotals, and your sleeve value vs the ~$1.72mm cap. The <strong>Rebalance</strong> column flags any holding &gt;±25% from its target weight (⚖ trim/add). Foreign lots are FX-converted to USD. Export to <code>positions.local.json</code> to also enable the server-side trim/sleeve triggers.</p>` },
+    <p>Computed from the positions you entered in ⚙ Settings × the latest scan prices — stored only in your browser. Shows market value, gain vs cost, % of target, per-account subtotals, and your sleeve value vs the ~$1.72mm cap. The <strong>Rebalance</strong> column flags any holding &gt;±25% from its target weight (⚖ trim/add). Foreign-currency lots are <em>excluded</em> from this browser total (no FX rates client-side; the scanner's server-side sleeve value FX-converts them). Export to <code>positions.local.json</code> to also enable the server-side trim/sleeve triggers.</p>` },
   filings: { title: "Filings &amp; news", body: `
     <p>Free, keyless. <strong>SEC EDGAR</strong> lists each holding's recent material filings (8-K/10-Q/10-K/6-K/20-F); 8-K <em>items</em> are decoded into topics (Results/guidance, Material agreement, etc.). <strong>NEW</strong> = unseen since the last scan. <strong>News</strong> is Google-News RSS keyed to each scarcity's thesis terms, deduped. Both feed the Agent digest.</p>` },
   options: { title: "Options fair-value check", body: `
