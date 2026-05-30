@@ -498,6 +498,7 @@ function loadKeyFields() {
   $("#kAdmin").value = localStorage.getItem(ADMIN_TOKEN_KEY) || "";
   $("#vAlertEmail").value = localStorage.getItem("puck_var_ALERT_EMAIL_TO") || "";
   $("#vSecUA").value = localStorage.getItem("puck_var_SEC_USER_AGENT") || "";
+  $("#vSupabaseUrl").value = localStorage.getItem("puck_var_SUPABASE_URL") || "";
 }
 function saveKeys() {
   setMsg("");
@@ -641,6 +642,7 @@ async function checkConfig() {
     // prefill variable fields from GitHub (variables are not secret)
     const ae = vars.find((v) => v.name === "ALERT_EMAIL_TO"); if (ae) $("#vAlertEmail").value = ae.value;
     const ua = vars.find((v) => v.name === "SEC_USER_AGENT"); if (ua) $("#vSecUA").value = ua.value;
+    const su = vars.find((v) => v.name === "SUPABASE_URL"); if (su) $("#vSupabaseUrl").value = su.value;
     renderAdminStatus(secrets, varNames);
     setMsg("Configuration loaded.");
   } catch (e) { setMsg("Config check failed: " + e.message); }
@@ -667,7 +669,7 @@ function renderAdminStatus(secrets, variables) {
 async function saveVariables() {
   const t = adminToken();
   if (!t) return setMsg("Paste an admin token first.");
-  const items = [["ALERT_EMAIL_TO", $("#vAlertEmail").value.trim()], ["SEC_USER_AGENT", $("#vSecUA").value.trim()]].filter(([, v]) => v);
+  const items = [["ALERT_EMAIL_TO", $("#vAlertEmail").value.trim()], ["SEC_USER_AGENT", $("#vSecUA").value.trim()], ["SUPABASE_URL", $("#vSupabaseUrl").value.trim()]].filter(([, v]) => v);
   if (!items.length) return setMsg("Enter a value to save.");
   setMsg("Saving variables to GitHub…");
   try {
@@ -756,7 +758,8 @@ const HELP = {
     <p>One place for every credential. Two tiers:</p>
     <ul><li><strong>Browser keys</strong> (Gemini/Groq/Finnhub/… + dispatch token) — stored only in this browser; power the in-browser digest, live price check, and Refresh.</li>
     <li><strong>Repo configuration</strong> — what the automated GitHub Actions scanner uses. Paste an <strong>admin GitHub token</strong> (fine-grained: Secrets <em>read</em>, Variables <em>read/write</em>) and click <strong>Check configuration</strong> to see a ✅/⬜ status for every secret and variable.</li></ul>
-    <p><strong>Variables</strong> (alert email, SEC user-agent) are non-secret — you can <strong>save them to GitHub right here</strong>. <strong>Secrets</strong> (API keys, SMTP password) are write-only in GitHub for security and can't be set from a static page — the panel shows whether each is configured and links you to GitHub's secrets form to set/rotate them. Everything you paste stays in this browser.</p>` },
+    <p><strong>Variables</strong> (alert email, SEC user-agent, Supabase URL) are non-secret — you can <strong>save them to GitHub right here</strong>. <strong>Secrets</strong> (API keys, SMTP password, Supabase service_role key) are write-only in GitHub for security and can't be set from a static page — the panel shows whether each is configured and links you to GitHub's secrets form to set/rotate them. Everything you paste stays in this browser.</p>
+    <p><strong>Price-history DB (optional):</strong> create a Supabase project, run <code>db/schema.sql</code>, set <strong>SUPABASE_URL</strong> here + <strong>SUPABASE_SERVICE_KEY</strong> as a repo secret. The scanner then persists daily price history (used by backtests / metrics / the V2.3 cross-check). The DB is written only by the scanner, never the browser; skip it and nothing else changes.</p>` },
   metrics: { title: "Objective scorecard", body: `
     <p>The app's <strong>objective</strong>: maximize 10-year return while keeping <strong>max drawdown &lt; 35%</strong>, with the best <strong>Calmar</strong> (CAGR ÷ maxDD) and <strong>Sortino</strong> (return ÷ downside risk). This card measures the <em>strategy basket</em> (your target-weighted holdings) over the trailing window the scan has history for — a live read on whether the timing/risk layer is actually holding drawdown under 35% and earning a good risk-adjusted return.</p>
     <ul><li><strong>CAGR</strong> — annualized return. <strong>Max drawdown</strong> — worst peak-to-trough (turns ⚠ red if it breaches −35%).</li>

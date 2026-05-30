@@ -16,12 +16,14 @@ export const REPO_SECRETS = [
   { name: "SMTP_PASS", label: "Email app password" },
   { name: "SMTP_HOST", label: "SMTP host (optional)" },
   { name: "SMTP_PORT", label: "SMTP port (optional)" },
+  { name: "SUPABASE_SERVICE_KEY", label: "Supabase service_role key — price-history DB" },
 ];
 
 // Repo VARIABLES are non-secret — settable directly from the UI via the GitHub API.
 export const REPO_VARIABLES = [
   { name: "ALERT_EMAIL_TO", label: "Alert recipient email" },
   { name: "SEC_USER_AGENT", label: "SEC User-Agent (optional)" },
+  { name: "SUPABASE_URL", label: "Supabase project URL — price-history DB" },
 ];
 
 // BROWSER keys live only in localStorage and power client-side features.

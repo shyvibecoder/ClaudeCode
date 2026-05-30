@@ -30,10 +30,13 @@ import { chokepointHeat } from "./lib/chokepoints.mjs";
 import { rankOpportunities, opportunityScore } from "./lib/opportunity.mjs";
 import { forcedFlowSignal, reconcileWithTiming } from "./lib/forced-flow.mjs";
 import { v23State, dislocationEntryWindow, compositeStress } from "./lib/v23.mjs";
+import { supabaseConfigured, seriesToRows, upsertPriceHistory } from "./lib/supabase.mjs";
 import { discoverProxies, rankProxies, proxyGraph } from "./lib/edgar-fts.mjs";
 
 const OFFLINE = process.argv.includes("--offline");
+const BACKFILL = process.argv.includes("--backfill"); // one-time deep history seed into Supabase
 const read = (p) => JSON.parse(readFileSync(new URL(`../web/data/${p}`, import.meta.url)));
+const priceRows = []; // accumulated daily closes (ticker,d,close) → upserted to Supabase if configured
 
 const dataUrl = (p) => new URL(`../web/data/${p}`, import.meta.url);
 const portfolio = read("portfolio.json");
@@ -260,6 +263,7 @@ if (!OFFLINE) {
     const weights = Object.fromEntries(use.map((h) => [h.ticker, h.weight || h.target_usd || 1]));
     const series = {};
     for (const h of use) { try { series[h.ticker] = await fetchSeries(h.ticker); } catch { /* skip */ } await new Promise((r) => setTimeout(r, 120)); }
+    for (const s of Object.values(series)) priceRows.push(...seriesToRows(s)); // accumulate basket history for the DB
     const idx = basketIndex(series, weights);
     if (idx.values.length > 60) {
       metrics = { ...portfolioMetrics(idx.values), basis: Object.keys(series), window: `${idx.dates[0]}..${idx.dates[idx.dates.length - 1]}`, note: "trailing ~1y, target-weighted strategy basket" };
@@ -361,6 +365,7 @@ if (!OFFLINE) {
       fetchSeries("^VIX3M", "2y").catch(() => null),
       fetchSeries("HYG", "2y").catch(() => null),
     ]);
+    for (const s of [qqqS, vixS, vix3mS, hygS]) priceRows.push(...seriesToRows(s)); // 2y macro history for the DB
     const stress = compositeStress({ vixCloses: vixS?.closes, vix3mCloses: vix3mS?.closes, hygCloses: hygS?.closes });
     v23 = v23State(qqqS?.closes || null, { compositeStress: stress });
     console.log(`V2.3 cross-check: ${v23.state} (${v23.rule}${v23.overlay_applied ? "+overlay" : ""}); composite-stress ${stress == null ? "suppressed" : stress}`);
@@ -462,6 +467,32 @@ const out = {
   digest,
   errors,
 };
+
+// --- Persist price history to Supabase (phase 1) — only when configured (server-side, the
+// scanner's service_role key). Adds today's close for every priced ticker on top of the deep
+// series already fetched above, then upserts idempotently. No-ops silently otherwise so local/
+// offline runs and forks are unaffected. `--backfill` seeds DEEP history (range=max) once. ---
+if (!OFFLINE && supabaseConfigured()) {
+  try {
+    for (const [t, q] of Object.entries(enriched)) {
+      if (q && !q.error && q.price > 0) priceRows.push({ ticker: t, d: TODAY, close: q.price, source: "yahoo" });
+    }
+    if (BACKFILL) {
+      console.log("Backfill: fetching deep history (range=max) for the full universe…");
+      for (const t of universe) {
+        try { priceRows.push(...seriesToRows(await fetchSeries(t, "max"))); } catch { /* skip */ }
+        await new Promise((r) => setTimeout(r, 120));
+      }
+    }
+    // De-dupe (ticker,d) so a backfill row doesn't collide with a same-day fetched row.
+    const seen = new Set(), dedup = [];
+    for (const r of priceRows) { const k = `${r.ticker}|${r.d}`; if (!seen.has(k)) { seen.add(k); dedup.push(r); } }
+    const { written, skipped } = await upsertPriceHistory(dedup);
+    console.log(`Supabase: ${skipped ? "skipped" : `upserted ${written}`} price-history rows (${dedup.length} candidates)`);
+  } catch (e) { errors.push(`supabase: ${e.message}`); console.error(`Supabase upsert failed (non-fatal): ${e.message}`); }
+} else if (!OFFLINE) {
+  console.log("Supabase: not configured (set SUPABASE_URL + SUPABASE_SERVICE_KEY to persist history)");
+}
 
 // Validate our own output before writing — never commit a malformed signals.json.
 assertValid("generated signals.json", validateSignals(out));

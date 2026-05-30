@@ -37,6 +37,11 @@ jobs:
           # Optional: set repo variable SEC_USER_AGENT to "Your Name you@email.com"
           # (SEC etiquette). A sensible default is used if unset.
           SEC_USER_AGENT: ${{ vars.SEC_USER_AGENT }}
+          # Optional: persist price history to Supabase. SUPABASE_URL can be a repo VARIABLE;
+          # SUPABASE_SERVICE_KEY MUST be a repo SECRET (service_role key — server-side only).
+          # When unset, the scanner runs exactly as before (history persistence skipped).
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: node scripts/scan.mjs
       - name: Commit refreshed signals
         run: |

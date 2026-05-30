@@ -337,6 +337,20 @@ One place for every credential, in two tiers:
   static page — the panel shows whether each is configured and links to GitHub's secrets form to
   set/rotate them. Email setup details: `SETUP.md` §3c.
 
+**Optional: price-history database (Supabase).** The app persists daily price history to a Postgres
+database so backtests, the objective metrics, and the V2.3 cross-check can use a growing record
+instead of re-fetching 1–2 years from Yahoo each run. To enable it:
+1. Create a free **Supabase** project; in the SQL Editor, run **`db/schema.sql`** (creates the
+   `price_history` table with row-level security on).
+2. In **Admin**, set **SUPABASE_URL** (your project URL) and **Save variables to GitHub**.
+3. In GitHub repo **Settings → Secrets**, add **SUPABASE_SERVICE_KEY** = your project's *service_role*
+   key (it's a secret, so it can't be set from this page).
+
+That's it — the daily scanner starts accumulating history. The **service_role key is used only by the
+scanner (server-side)**; the dashboard never touches the database, and **nothing breaks if you skip
+this** (history persistence is simply disabled). For a one-time deep backfill, run the scan workflow
+with the `--backfill` argument (fetches each ticker's full available history once).
+
 Everything you paste here stays in this browser.
 
 ---

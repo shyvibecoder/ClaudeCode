@@ -23,10 +23,18 @@ sound for the roadmap (v3 thesis-versioning + auto-research, v4 tracking + alert
 
  The scan runs in GitHub Actions (cron + repository_dispatch from the Refresh button), commits
  signals.json + scarcity-history.json + seen.state.json, and (deduped) opens an Issue on a fire.
+
+ ACCUMULATED-DB (optional, external) — Supabase Postgres, written ONLY by scan.mjs (service_role
+ key, server-side; never the browser). Phase 1: price_history(ticker,d,close). Holds growing
+ longitudinal data that outlives Yahoo's 1–2y window (backtests, metrics, V2.3 distributions).
+ Schema: db/schema.sql (RLS on, no public policy). Fully optional: unset ⇒ scanner behaves as
+ before. The static dashboard still reads only the committed JSON — the DB never fronts the UI.
 ```
 
-**Tiering invariant (keep this):** four ownership classes — *hand-edited source of truth*,
-*generated* (incl. append-only history), *local-private*, *render*. Never let a generator
+**Tiering invariant (keep this):** five ownership classes — *hand-edited source of truth*,
+*generated* (incl. append-only history), *accumulated-DB* (external, generator-written only),
+*local-private*, *render*. The DB holds generated/accumulated data only — never source-of-truth
+(which stays diffable JSON for F9 human review). Never let a generator
 hand-edit a source-of-truth field without human approval, and never commit local-private data.
 
 **Ownership / bot-proposable fields (F9):** when v3 auto-research opens a PR against

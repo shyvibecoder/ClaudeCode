@@ -73,9 +73,11 @@
       <div id="adminStatus"></div>
       <label>Alert email (ALERT_EMAIL_TO) <input id="vAlertEmail" type="email" placeholder="you@email.com" /></label>
       <label>SEC User-Agent (SEC_USER_AGENT) <input id="vSecUA" type="text" placeholder="Your Name you@email.com" /></label>
+      <label>Supabase URL (SUPABASE_URL) <input id="vSupabaseUrl" type="url" placeholder="https://xxxx.supabase.co" /></label>
       <div class="modal-actions">
         <button id="cfgSaveVars">Save variables to GitHub</button>
       </div>
+      <p class="modal-note">Price-history DB (optional): create a Supabase project, run <code>db/schema.sql</code>, set <strong>SUPABASE_URL</strong> above, and add <strong>SUPABASE_SERVICE_KEY</strong> (service_role) as a repo <em>secret</em> in GitHub settings (secrets can't be written from this page). The scanner then persists daily price history; nothing else changes if you skip it.</p>
       <p id="settingsMsg" class="modal-note"></p>
     </div>
   </div>

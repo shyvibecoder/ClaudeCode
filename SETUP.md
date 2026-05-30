@@ -30,6 +30,13 @@ The scanner already opens a GitHub Issue when a deploy/exit trigger fires (and y
 2. **Variable** (same page → *Variables*): `ALERT_EMAIL_TO` = the address to notify.
 That's it — no email is sent unless `SMTP_USER` is set, so this stays off until you opt in. (The email step uses the `dawidd6/action-send-mail` action; pin it to a commit SHA if you prefer.)
 
+## 3d. (Optional) Price-history database (Supabase)
+Persist daily price history to a free Postgres DB so backtests, the objective metrics, and the V2.3 cross-check use a growing record instead of re-fetching 1–2 years from Yahoo each run. Fully optional — leave it off and the scanner behaves exactly as before.
+1. Create a free **[Supabase](https://supabase.com)** project. In the dashboard → **SQL Editor**, paste and run **`db/schema.sql`** (creates `price_history` with row-level security on).
+2. **Variable** (Settings → Secrets and variables → Actions → *Variables*, or via the dashboard's **Admin** panel): `SUPABASE_URL` = your project URL (e.g. `https://xxxx.supabase.co`).
+3. **Secret** (same page → *Secrets*): `SUPABASE_SERVICE_KEY` = your project's **service_role** key (Project Settings → API). It bypasses row-level security, so it's used **only by the scanner (server-side)** and is never exposed to the browser.
+That's it — the next scan starts accumulating history. For a one-time **deep backfill** of each ticker's full available history, run the **scan** workflow manually and (if you maintain a fork) invoke `node scripts/scan.mjs --backfill`, or add a one-off dispatch that passes `--backfill`. The dashboard never reads the DB; it keeps reading the committed JSON.
+
 ## 4. Reliability (already on)
 - A **stale-data banner** appears on the dashboard if the last scan is more than ~3 days old.
 - The **`ci`** GitHub Action runs on every PR/push: it does an offline scan and asserts the data files + generated `signals.json` are schema-valid and that every portfolio ticker resolved or errored. The scanner itself fails loudly on malformed `web/data/*.json`.
