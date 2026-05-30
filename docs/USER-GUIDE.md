@@ -145,6 +145,11 @@ are **FX-converted to USD** for the sleeve total (a lot with no available FX rat
 
 ---
 
+### 5.6 DCA progress
+Once you've entered positions, this shows how much of each holding's **target** you've **deployed**
+(shares × cost basis) against the 9-month dollar-cost-averaging calendar — a progress bar + % per
+holding, and the sleeve total deployed. Use it to stay on the plan and see where dry powder still goes.
+
 ## 6. Filings & news
 
 ![Filings and news](img/catalysts.png)

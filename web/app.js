@@ -12,11 +12,11 @@ let DATA = {};
 const bust = () => `?t=${Date.now()}`; // cache-bust signals.json so reloads see fresh commits
 
 async function fetchData() {
-  const [scar, port, trig, sig] = await Promise.all(
-    ["scarcities", "portfolio", "triggers", "signals"].map((f) =>
+  const [scar, port, trig, sig, dca] = await Promise.all(
+    ["scarcities", "portfolio", "triggers", "signals", "dca"].map((f) =>
       fetch(`data/${f}.json${f === "signals" ? bust() : ""}`).then((r) => r.json()).catch(() => ({})))
   );
-  return { scar, port, trig, sig };
+  return { scar, port, trig, sig, dca };
 }
 
 async function load() {
@@ -122,9 +122,23 @@ function renderRegime() {
     <div class="rnote">${r.note || ""}<br><em>Alpha = scarcity thesis · timing = trend+momentum+vol+drawdown+macro overlay, on the ETF composite${r.composite_basis?.length ? ` (${r.composite_basis.join(", ")})` : ""}. ${r.basis || ""}. Not advice.</em></div>`;
 }
 
+function renderDca() {
+  const box = $("#dcaProgress"); if (!box) return;
+  const pos = getPositions().positions || {};
+  const prog = (typeof window.dcaProgress === "function") ? window.dcaProgress(DATA.dca, pos) : [];
+  if (!prog.length || prog.every((p) => p.deployed === 0)) { box.innerHTML = ""; return; }
+  const totT = prog.reduce((a, b) => a + b.target, 0), totD = prog.reduce((a, b) => a + b.deployed, 0);
+  const rows = prog.map((p) => `<tr><td><strong>${p.ticker}</strong></td><td>${p.tier}</td><td>${fmtUsd(p.target)}</td><td>${fmtUsd(p.deployed)}</td>
+    <td><div class="bar"><span style="width:${p.pct}%"></span></div> ${p.pct}%</td></tr>`).join("");
+  box.innerHTML = `<h3>DCA progress <button class="help" data-help="dca">?</button> <span class="foot">— deployed (shares × cost basis) vs target, per the 9-month calendar</span></h3>
+    <div class="cards"><div class="card"><b>${totT ? Math.round(totD / totT * 100) : 0}%</b><span>${fmtUsd(totD)} of ${fmtUsd(totT)} deployed</span></div></div>
+    <table class="mine"><thead><tr><th>Ticker</th><th>Tier</th><th>Target</th><th>Deployed</th><th>Progress</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
 function renderPortfolio() {
   renderRegime();
   renderMyHoldings();
+  renderDca();
   const p = DATA.port;
   $("#portSummary").innerHTML = `
     <div class="card"><b>${fmtUsd(p.sleeve_usd)}</b><span>sleeve (~${Math.round(p.sleeve_usd / p.total_portfolio_usd * 100)}% of ${fmtUsd(p.total_portfolio_usd)})</span></div>
@@ -608,6 +622,8 @@ const HELP = {
     <ul><li><strong>Browser keys</strong> (Gemini/Groq/Finnhub/… + dispatch token) — stored only in this browser; power the in-browser digest, live price check, and Refresh.</li>
     <li><strong>Repo configuration</strong> — what the automated GitHub Actions scanner uses. Paste an <strong>admin GitHub token</strong> (fine-grained: Secrets <em>read</em>, Variables <em>read/write</em>) and click <strong>Check configuration</strong> to see a ✅/⬜ status for every secret and variable.</li></ul>
     <p><strong>Variables</strong> (alert email, SEC user-agent) are non-secret — you can <strong>save them to GitHub right here</strong>. <strong>Secrets</strong> (API keys, SMTP password) are write-only in GitHub for security and can't be set from a static page — the panel shows whether each is configured and links you to GitHub's secrets form to set/rotate them. Everything you paste stays in this browser.</p>` },
+  dca: { title: "DCA progress", body: `
+    <p>Tracks how much of each holding's <strong>target</strong> you've actually <strong>deployed</strong> (shares × cost basis from your Settings positions), against the 9-month dollar-cost-averaging calendar. The bar + % shows progress to target; the card shows the sleeve total deployed. Helps you stay on the plan and see where dry powder still needs to go.</p>` },
   settings: { title: "Settings &amp; onboarding", body: `
     <p>Everything here lives <strong>only in this browser</strong> (localStorage) — never committed. Add your holdings per account (ticker/shares/cost basis), your dry-powder cash, and free API keys. Export your positions to <code>positions.local.json</code> for the scanner's trim/sleeve math. Keys: Gemini (aistudio.google.com) and Groq (console.groq.com) are free.</p>` },
 };

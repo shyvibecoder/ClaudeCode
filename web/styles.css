@@ -75,6 +75,8 @@ button.help:hover{border-color:var(--y30)}
 table.kv{width:auto;font-size:13px}table.kv td{padding:4px 10px;border-bottom:1px solid var(--line)}
 table.kv td:nth-child(odd){color:var(--mut)}
 .dq-warn{color:var(--y27);margin-left:5px;cursor:help}
+.bar{display:inline-block;width:90px;height:8px;background:var(--line);border-radius:4px;overflow:hidden;vertical-align:middle}
+.bar span{display:block;height:100%;background:var(--good)}
 .card.dq-bad{border-color:#5a3a12}.card.dq-bad b{color:var(--y27)}
 #settingsMsg{white-space:pre-line}
 table.cfg{font-size:12.5px;margin:8px 0}table.cfg td{padding:3px 8px;border-bottom:1px solid var(--line)}
