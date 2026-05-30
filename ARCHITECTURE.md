@@ -110,9 +110,14 @@ GitHub-issue channel; resolve currency (F2) before summing foreign lots.
 4. **Free-tier / keyless / degrade-gracefully** for all data + LLM (unchanged).
 5. **Shared math is single-source:** browser-served modules under `web/` (e.g. `web/options.mjs`),
    re-exported for Node/tests via `scripts/lib/*` — don't duplicate.
-6. **Tests (the pyramid, zero-dep `node:test`, BDD `describe/it`):** `tests/*.test.mjs` = unit
-   (options/regime/marketdata/schema/dca/history), `tests/integration/` = the real offline scan
-   pipeline + selfcheck, `tests/e2e/` = static HTML↔JS contract + serve smoke. Run `npm test`; CI
-   runs it on every PR/push. **Convention going forward: new pure logic ships with a unit test
-   written red-first (TDD); behaviour changes update the integration/e2e specs.** Full browser DOM
-   e2e (Playwright) is queued for CI (needs a browser/install, not available in the sandbox).
+6. **Tests (the pyramid):** `tests/*.test.mjs` = unit (options/regime/marketdata/schema/dca/history),
+   `tests/integration/` = the real offline scan pipeline + selfcheck, `tests/e2e/` = static HTML↔JS
+   contract + serve smoke — all zero-dep `node:test`, BDD `describe/it`, run by `npm test` (CI: `ci.yml`).
+   **Browser DOM e2e:** `tests/e2e-browser/*.spec.mjs` (Playwright) drives the real rendered dashboard in
+   CI (`e2e.yml`). **Convention: new pure logic ships with a red-first unit test; behaviour changes update
+   the integration/e2e/browser specs.**
+7. **User Guide stays in lock-step (`docs/USER-GUIDE.md`):** every UI change must update the guide. The
+   `docs.yml` workflow auto-regenerates the **screenshots** (`docs/img/*.png`, via Playwright) and the
+   **Word** version (`docs/USER-GUIDE.docx`, via pandoc) whenever `web/**` or the guide changes. A
+   `.githooks/pre-commit` (enable: `git config core.hooksPath .githooks`) blocks a UI commit that forgot
+   to touch the guide. **Convention: any new feature ships with a `?` help entry AND a guide section.**

@@ -1,0 +1,39 @@
+name: docs
+# Keeps the User Guide current: regenerates screenshots from the live UI and the Word
+# (.docx) version whenever the dashboard or the guide changes, then commits them.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "docs/USER-GUIDE.md"
+      - "tests/e2e-browser/screenshots.mjs"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Install deps + Chromium
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Regenerate screenshots from the live UI
+        run: npm run screenshots
+      - name: Install pandoc
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+      - name: Build Word version of the guide
+        run: npm run docs:word
+      - name: Commit regenerated docs
+        run: |
+          git config user.name "puck-bot"
+          git config user.email "puck-bot@users.noreply.github.com"
+          git add docs/img docs/USER-GUIDE.docx
+          git commit -m "docs: regenerate User Guide screenshots + Word [skip ci]" || echo "no changes"
+          git push

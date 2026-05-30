@@ -28,8 +28,14 @@ all-in vs. apply the brakes into cash. See `REGIME.md` for the evidence base.
   data-quality + held triggers, ticker resolution, generated files; runs selfcheck. Non-destructive.
 - [x] **E2E** (`tests/e2e/`): static HTML↔JS selector/tab/help contract + static-serve smoke (page+assets+data).
 - [x] `npm test` runs all three; **CI runs the full suite** on every PR/push (replaced the ad-hoc gate).
-- [ ] **Browser DOM e2e (Playwright)** in CI — exercise the real rendered dashboard (needs browser/install).
+- [x] **Browser DOM e2e (Playwright)** — `tests/e2e-browser/dashboard.spec.mjs` (tabs, help, settings add-holding, options evaluate, no console errors); CI `e2e.yml`.
 - [ ] Going forward: **red-first** unit test for each new pure function (convention in ARCHITECTURE §6).
+
+## Docs / User Guide (shipped)
+- [x] **`docs/USER-GUIDE.md`** — deeply detailed, per-feature guide (what it is, what it means, how to use).
+- [x] **Auto-update hook** — `docs.yml` regenerates screenshots (Playwright) + Word `.docx` (pandoc) on any `web/**` or guide change; `.githooks/pre-commit` blocks UI commits that skip the guide.
+- [x] Screenshots wired (`tests/e2e-browser/screenshots.mjs`); placeholder PNGs committed until CI generates real ones.
+- [ ] First CI run of `docs.yml` to replace placeholders with real screenshots + build the `.docx`.
 
 ## ⚠ Data integrity / anti-injection hardening (next priority)
 Current guards: HTTPS-only sources, fail-loud schema validation (in+out), every ticker "resolved or

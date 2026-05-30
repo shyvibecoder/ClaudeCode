@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Keeps the User Guide in lock-step with the UI. If you change web/ (the dashboard)
+# without touching docs/USER-GUIDE.md, this reminds you (screenshots + .docx are
+# regenerated automatically by the `docs` GitHub workflow, but the prose is on you).
+# Enable once:  git config core.hooksPath .githooks
+set -euo pipefail
+
+staged=$(git diff --cached --name-only)
+ui_changed=$(echo "$staged" | grep -E '^web/(index\.html|app\.js|options-ui\.js|styles\.css)$' || true)
+guide_changed=$(echo "$staged" | grep -E '^docs/USER-GUIDE\.md$' || true)
+
+if [ -n "$ui_changed" ] && [ -z "$guide_changed" ]; then
+  echo "⚠  UI changed but docs/USER-GUIDE.md was not updated:"
+  echo "$ui_changed" | sed 's/^/     /'
+  echo "   → Update the guide (the docs workflow will refresh screenshots + Word)."
+  echo "   → To bypass intentionally: git commit --no-verify"
+  exit 1
+fi
+exit 0
