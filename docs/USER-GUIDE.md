@@ -27,6 +27,8 @@ Puck has one philosophy: **alpha from the scarcity research, timing from the tap
 A free scanner runs daily on GitHub Actions, pulls free market data, computes everything, and commits
 it to `web/data/signals.json`. The dashboard (hosted free on Vercel) just renders that file.
 
+**Works on phone and desktop.** The layout is responsive — wide tables scroll horizontally and controls stack on a phone, so everything is reachable on iPhone or a large screen.
+
 **The `?` buttons:** every section has a circular **?** help button that explains it in-app. This guide
 is the long-form version.
 

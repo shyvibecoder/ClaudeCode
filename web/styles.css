@@ -82,4 +82,24 @@ table.kv td:nth-child(odd){color:var(--mut)}
 table.cfg{font-size:12.5px;margin:8px 0}table.cfg td{padding:3px 8px;border-bottom:1px solid var(--line)}
 table.cfg th{text-align:left;color:var(--y30);padding:8px 8px 3px;border-bottom:1px solid var(--line)}
 table.cfg code{font-size:11px}#adminStatus a{color:var(--y30)}
+/* Wide tables scroll horizontally instead of overflowing the page (mobile-safe). */
+.tscroll,#myHoldings,#dcaProgress,#optResult,#adminStatus{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 @media(max-width:800px){.tcol{grid-template-columns:1fr}}
+@media(max-width:760px){
+  body{font-size:14px}
+  header{flex-wrap:wrap;gap:10px;padding:14px}
+  h1{font-size:17px}
+  .hdr-actions{width:100%}.hdr-actions button{flex:1}
+  .tabs{flex-wrap:wrap;gap:6px;padding:10px 14px}
+  .tab{padding:6px 14px 36px}
+  .disclaim,.banner,.controls{padding-left:14px;padding-right:14px}
+  .cards{gap:10px}.card{min-width:0;flex:1 1 44%}
+  .regime{flex-direction:column}
+  .regime .rnote{max-width:100%;text-align:left}
+  button{min-height:40px}/* touch targets */
+  .modal{padding:10px}.modal-card{padding:14px}
+  .modal-card label input[type=password],.modal-card label input[type=text],.modal-card label input[type=email]{width:100%;margin-left:0;display:block;margin-top:4px}
+  .row-add{gap:5px}.row-add input,.row-add #hTicker{width:70px}
+  .optgrid{gap:8px}.optgrid input,.optgrid select{width:46%}
+  table{font-size:12px}
+}

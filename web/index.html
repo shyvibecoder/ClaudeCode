@@ -103,9 +103,9 @@
       <label><input type="checkbox" id="ncOnly" /> non-consensus only</label>
       <button class="help" data-help="radar">?</button>
     </div>
-    <table id="radarTable"><thead><tr>
+    <div class="tscroll"><table id="radarTable"><thead><tr>
       <th>Scarcity</th><th>Sector</th><th>Binds</th><th>Priced-in</th><th>Durability</th><th>Subst. risk</th><th>Crowding*</th><th>Tickers</th>
-    </tr></thead><tbody></tbody></table>
+    </tr></thead><tbody></tbody></table></div>
     <p class="foot">*Crowding = live proxy from YTD return + distance to 52-week high (higher = more already-priced). Populated by the scanner.</p>
   </section>
 
@@ -122,16 +122,16 @@
     <h3>Triggers <button class="help" data-help="triggers">?</button></h3>
     <div id="triggers"></div>
     <h3>Holdings <button class="help" data-help="holdings">?</button></h3>
-    <table id="holdings"><thead><tr>
+    <div class="tscroll"><table id="holdings"><thead><tr>
       <th>Ticker</th><th>Name</th><th>Acct</th><th>Target $</th><th>Wt</th><th>Tier</th><th>Price</th><th>YTD</th><th>% off high</th><th>vs 200-DMA</th><th>Fwd P/E</th><th>Role</th>
-    </tr></thead><tbody></tbody></table>
+    </tr></thead><tbody></tbody></table></div>
   </section>
 
   <section id="catalysts" class="tab">
     <h3>Recent SEC filings <span class="foot">— 8-K / 10-Q / 10-K / 6-K / 20-F per holding, last ~21 days (free, via SEC EDGAR)</span> <button class="help" data-help="filings">?</button></h3>
-    <table id="filings"><thead><tr>
+    <div class="tscroll"><table id="filings"><thead><tr>
       <th>Date</th><th>Ticker</th><th>Form</th><th>Items / topic</th><th></th>
-    </tr></thead><tbody></tbody></table>
+    </tr></thead><tbody></tbody></table></div>
     <p id="filingsEmpty" class="foot"></p>
     <h3>News by scarcity <span class="foot">— Google News RSS keyed off each thesis (free, deduped)</span></h3>
     <div id="news"></div>
