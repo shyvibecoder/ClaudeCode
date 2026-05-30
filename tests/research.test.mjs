@@ -1,6 +1,40 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseProposal, sanitizeEdit, proposeScarcityEdits } from "../scripts/lib/research.mjs";
+import { parseProposal, sanitizeEdit, proposeScarcityEdits, ensembleConsensus } from "../scripts/lib/research.mjs";
+
+describe("research: ensemble consensus across independent models", () => {
+  it("returns the strict-majority priced_in and the agreement ratio", () => {
+    const c = ensembleConsensus([{ priced_in: "crowded" }, { priced_in: "crowded" }, { priced_in: "high" }]);
+    assert.equal(c.priced_in, "crowded"); assert.equal(c.agreement, +(2 / 3).toFixed(2)); assert.equal(c.n, 3);
+  });
+  it("returns no consensus on a split (no strict majority)", () => {
+    assert.equal(ensembleConsensus([{ priced_in: "crowded" }, { priced_in: "high" }]).priced_in, null);
+  });
+  it("ignores invalid/missing values", () => {
+    const c = ensembleConsensus([{ priced_in: "crowded" }, { priced_in: "ULTRA" }, null]);
+    assert.equal(c.priced_in, "crowded"); assert.equal(c.n, 1);
+  });
+});
+
+describe("research: ensemble GATE in proposeScarcityEdits (multi-model)", () => {
+  const scarcities = [{ id: "copper", scarcity: "Copper", priced_in: "high", bind_window: "2030+", non_consensus: false, thesis: "..." }];
+  const mk = (pi, conf) => async (p) => p.includes("Reconcile")
+    ? `{"priced_in":"${pi}","confidence":${conf},"rationale":"r"}`
+    : `{"priced_in":"${pi}","confidence":${conf},"rationale":"r"}`;
+  it("surfaces a change when independent models agree, with confidence scaled by agreement", async () => {
+    const analysts = [mk("crowded", 0.9), mk("crowded", 0.9), mk("high", 0.9)]; // 2/3 agree crowded
+    const { proposals } = await proposeScarcityEdits({ scarcities, analysts, redteam: async () => "", minConfidence: 0.5 });
+    assert.equal(proposals.length, 1);
+    assert.equal(proposals[0].priced_in, "crowded");
+    assert.ok(proposals[0].confidence < 0.9 && proposals[0].confidence > 0.5); // ×(2/3) ≈ 0.6
+    assert.equal(proposals[0].ensemble.agreement, +(2 / 3).toFixed(2));
+  });
+  it("drops the proposal entirely when models split (no robust majority)", async () => {
+    const analysts = [mk("crowded", 0.9), mk("low", 0.9)]; // 1-1 split
+    const { proposals } = await proposeScarcityEdits({ scarcities, analysts, redteam: async () => "", minConfidence: 0.5 });
+    assert.equal(proposals.length, 0);
+  });
+});
 import { deepDivePrompt, RESEARCH_PROMPT_VERSION } from "../scripts/lib/research-prompts.mjs";
 
 describe("research: prompt is calibrated on the MATCHING call type (alpha edge), not just tilts", () => {
