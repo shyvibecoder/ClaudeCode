@@ -1,24 +1,50 @@
-# Frontier & Wildcard Tech — Deep Dive (Wave 1)
+# Deep Dive 08 — Frontier & Wildcard Technologies (2026–2036)
+*Wave-1 research agent output, full version. Covers areas the other agents did not: neurotech/BCI, defense tech, next-gen connectivity, climate/resource tech, AI software/data — plus cross-cutting flags.*
 
-**Core thesis:** Next-binding scarcities are NOT the glamorous endpoints (BCI, fusion, 6G) — they're the boring physical chokepoints gating the glamorous stuff and the AI buildout: rare-earth magnets + gallium, solid rocket motor energetics, cooling/CDU + power, high-quality RL/agentic data. Frontier areas (neurotech, 6G, DAC, green H2) mostly too early — scarcities bind 2030s or never resolve to commercial value.
+## Bottom line
+The next-binding scarcities with highest conviction are **not** the glamorous frontier endpoints (BCI, fusion, 6G) — they are the boring physical chokepoints that gate the glamorous stuff and the AI buildout itself: rare-earth magnets + gallium, solid rocket motor energetics, cooling/CDU + power, and high-quality RL/agentic training data. The genuinely frontier areas (neurotech, 6G, DAC, green H2) are mostly too early — scarcities bind in the 2030s or never resolve into commercial value.
 
-## Structural scarcities
-1. **Rare-earth magnets + heavy RE (Dy/Tb)** — HIGHEST CONVICTION. China ~90% NdFeB, ~98% magnet mfg. HARD DATED CATALYST: Jan 1 2027 Chinese REE banned from US weapons. MP Dy/Tb mid-2026, separation ~2028. Expressions: MP Materials (MP), USA Rare Earth, Lynas (LYC), Noveon (private).
-2. **Gallium/GaN for radar & EW** — HIGH, under-discussed. China 80%+ refined Ga; NO US strategic reserve; domestic supply caps 10–15% of need by 2030. NO RF substitute (SiC won't do high-freq). Expressions: **Wolfspeed (WOLF)**, Navitas (NVTS), Qorvo (QRVO), MACOM (MTSI); buyers RTX/LMT/NOC.
-3. **Solid rocket motors + ammonium perchlorate** — HIGH. Only 2 US SRM primes; AP "quiet chokepoint." Binds now–2028. L3Harris (LHX), Northrop (NOC); disruptors Anduril/Ursa Major/Mach (private).
-4. **AI datacenter cooling (CDU) + power** — HIGH near-term. CDU production is the binding deployment constraint 2026–2030 (secured power+contract, still can't deploy without cooling). **Vertiv (VRT)**, Modine (MOD), nVent (NVT), Parker-Hannifin.
-5. **High-quality RL environments + agentic training data** — "next data puck." Public text (~300T tokens) exhausting 2026–2032. Largely PRIVATE (Scale, Surge, Mercor, Turing); public proxies thin (RDDT, Getty).
-6. **Mid-band spectrum + launch cadence for D2C** — MEDIUM. AST SpaceMobile (ASTS) financing/launch-cadence bind 2026–28 (cash burn). Globalstar (GSAT).
-7. **BCI electrode/packaging + regulatory time** — LOW near-term (2030s option). All private (Neuralink, Synchron, Merge Labs). Don't over-position.
+## 1. 10-Year roadmap (near-certain vs speculative)
+**Neurotech/BCI (2030s+ option):** 2026 Neuralink >20 implanted (4 countries), Gen-2 + R1; Synchron 12 implanted (endovascular); Precision Neuroscience FDA 510(k); Merge Labs (Altman/OpenAI) $252M at $850M; Science Corp $230M. 2027 Neuralink PMA target. 2028 first commercial approval *paralysis only* plausible (medical-device TAM, not consumer). 2030–2036 consumer/augmentation highly speculative; mental-privacy regulation a wildcard.
+**Defense tech (near-certain, strongest area):** 2026 Anduril $61B valuation ($5B Series H May 2026), ~$4.3B revenue guide, Arsenal-1 full production ~July 2026, Army 10-yr/$20B contract; Epirus Leonidas HPM; Navy HELIOS laser 60→150kW. **2027 hard regulatory cliff: Jan 1, 2027 Chinese-origin rare earths effectively banned from US weapons systems.** 2027–2030 directed energy 150→500kW; Golden Dome ($185B program). 2030+ megawatt lasers.
+**Next-gen connectivity (photonics now; 6G 2030):** 2026 silicon photonics/CPO mandatory for AI DCs (NVIDIA CPO up to 409.6 Tb/s); optical interconnect $3.75B (2025)→$18.4B (2033); AST SpaceMobile ~45–60 sats in 2026. 2028 3GPP Release 21 freezes first 6G spec. 2030 6G commercial (sub-THz). 6G not investable as a near scarcity.
+**Climate/resource (mixed):** 2026 1PointFive Stratos commissioning 500kt/yr DAC (~+873% global capacity); Climeworks still €600–800/t; **Fervo Cape Station first large commercial EGS online June 2026 (~28MW net), well costs −75%**; green H2 ~60 projects cancelled 2025 ("speculative tail is dead"). 2027 Fervo two more 53MW EGS; DAC $100/t still aspirational ($230–540/t realistic). 2030+ geothermal giga-scale; desalination grinding cost down ($0.40–0.80/m³ RO); green H2 survives only with captive industrial offtake.
+**AI software/data (binding 2026–2030):** high-quality public text (~300T tokens) exhausted 2026–2032; frontier shifts to **RL environments, agentic trajectories, expensive human-annotated edge-case data** — proprietary, legally encumbered, slow; synthetic data extends but can't replace the human core.
 
-## Defense roadmap highlights
-Anduril $61B val, Arsenal-1 full production ~July 2026, $20B Army contract. Golden Dome $185B. Directed energy 150kW→500kW 2027–2030.
+## 2. Value-chain maps (tight)
+Defense autonomy: RE oxide → **separation/metal → sintered NdFeB (China ~90%)** → motors → airframe → Lattice-class autonomy SW → C2. (magnets + Dy/Tb + gallium = throats.) Munitions: ammonium perchlorate/energetics → **SRM (only 2 US primes)** → nozzles → missile. AI interconnect: laser/EML → silicon-photonics engine → **CPO** → module → **CDU/liquid cooling → power**. D2C satellite: **spectrum (mid-band)** → phased-array ASIC → large-aperture sat → **launch cadence** → MNO. BCI: microelectrode arrays → **hermetic packaging/feedthroughs → low-power ASIC** → surgical robot → FDA pathway. DAC/geothermal: **cheap firm low-carbon energy** → sorbent/contactor or **drilling rigs/downhole tools** → storage/offtake.
 
-## Non-consensus
-GALLIUM > rare earths as harder bind (no RF substitute, no byproduct path to scale). CDU manufacturing the immediate 2026 AI deployment throttle (not GPUs/power). Ammonium perchlorate throttles missile-defense surge. Heavy RE (Dy/Tb) the true single point of failure. Launch cadence as connectivity scarcity.
+## 3. Structural scarcities
 
-## CROSS-CUTTING FLAGS (study may be missing)
-Gallium/GaN distinct from RE magnets. Grid/transformers the real AI ceiling. CDU/liquid cooling the literal 2026 deployment gate. Ammonium perchlorate chemistry layer. LEO launch (SpaceX) shared chokepoint across D2C/defense/EO. Photonics talent + EML/laser supply. Skilled labor recurs everywhere. Mental-privacy/neuro-data regulation.
+### S1 Rare-earth magnets & heavy RE (Dy/Tb) — HIGHEST CONVICTION
+China ~90% sintered NdFeB + ~98% magnet mfg; 80,000+ components across 1,900 US weapons systems depend on it; April 2025 export licensing on 7 heavy REEs. Binds NOW, sharpens hard at **Jan 1, 2027 (US defense procurement ban)**. Eases partially (MP Dy/Tb mid-2026 ~200t/yr; separation circuits ~2028; "10X" plant 2028); structurally tight through ~2030. Moat: geology + capital + 5–7yr permitting/solvent-extraction know-how. Investable: MP Materials (MP), USA Rare Earth, Lynas (LYC); recyclers Noveon (private).
 
-## Confidence
-High: RE/gallium/SRM defense (dated catalysts), CDU, photonics/CPO 2026, data-wall 2026–32. Low (don't over-position): BCI timing, 6G (2030), green H2 (mostly dead).
+### S2 Gallium / GaN for radar & EW — HIGH, under-discussed
+China ~80%+ refined gallium; NO US strategic reserve when China's Dec 2024 ban hit. GaN is the heart of every modern AESA radar & EW amplifier (SPY-6/7, TPS-80). Relief weak — even optimistic domestic supply = 10–15% of US consumption by 2030 (MTM Critical Metals; Kazakhstan ~15t/yr H2 2026; Project Vault $12B stockpile Feb 2026). Byproduct economics + refining know-how = durable. **SiC for some power, but NOT for high-frequency RF/radar — no substitute.** Investable: **Wolfspeed (WOLF)**, **Navitas (NVTS)**, Qorvo (QRVO), MACOM (MTSI); buyers RTX/LMT/NOC.
+
+### S3 Solid rocket motors & energetics (ammonium perchlorate) — HIGH
+30 yrs of consolidation → only **2 US SRM primes** (Aerojet/L3Harris, Northrop); AP is "the quiet chokepoint"; lead times 7–10 months. Binds now through ~2028 (capacity ramping ~6x large / 3x tactical in 2026 but still backfilling stockpiles). Disruptable by new entrants (Anduril $43M SRM push, Mach Industries bought Exquadrum, Ursa Major). Investable: L3Harris (LHX), Northrop (NOC); disruptors Anduril/Ursa Major/Mach (private).
+
+### S4 AI datacenter cooling (CDU) & power — HIGH, near-term
+Racks >100kW breach air-cooling. **CDU production is the binding constraint** — even with signed contracts + secured power, you can't deploy without cooling. US AI DC power 4GW (2024)→potentially 123GW (2035, Deloitte). Binds 2026–2030; power the longer-tail bind. Moat moderate (relievable with capex — Vertiv 45x CDU expansion; Modine). Investable: **Vertiv (VRT)**, Modine (MOD), nVent (NVT), Boyd (private); Parker-Hannifin, CoolIT (private).
+
+### S5 High-quality RL environments & agentic training data — the "next data puck"
+Public text (~300T tokens) exhausting 2026–2032. New scarce input: verifiable RL environments + expert agentic trajectories + edge-case human annotation — proprietary, legally encumbered, slow. Binds 2026–2030. Moat: exclusive data partnerships, annotation labor networks, domain access. Investable: Scale AI, Surge AI, Mercor, Turing, Invisible (all private); **public proxies thin** — watch data-licensing holders (Reddit RDDT, Getty, news/IP owners).
+
+### S6 Mid-band spectrum + launch cadence for direct-to-cell — MEDIUM
+D2C needs scarce lower-mid-band spectrum (AST's Ligado deal up to 45MHz) + large apertures; ASTS burns ~$1.45B/yr vs ~$3.5B cash. Spectrum scarcity durable; financing/launch cadence the 2026–2028 bind. Investable: AST SpaceMobile (ASTS), Globalstar (GSAT, Apple-linked), EchoStar spectrum.
+
+### S7 BCI electrode/packaging + regulatory time — LOW near-term (2030s option)
+Scarcity is regulatory clock + hermetic-packaging/electrode-yield, not market demand (small). No pure-play public. All private (Neuralink ~$9B, Synchron, Precision, Paradromics, Merge Labs, Science Corp); public proxies weak (Inspire, NeuroPace, LivaNova — different business). **Don't over-position.**
+
+## 4. Non-consensus
+1. **Gallium > rare earths as the harder bind** (no RF substitute, no byproduct path to scale fast; domestic caps at 10–15% by 2030 — less-crowded). 2. **CDU manufacturing, not GPUs or even power, is the immediate 2026 AI deployment throttle.** 3. **Ammonium perchlorate** — a single specialty chemical can throttle the US missile-defense surge. 4. **Heavy rare earths (Dy/Tb) specifically** — the *heavy* separation circuits (MP ~2028) are the true single point of failure. 5. **Launch cadence as a connectivity scarcity** (D2C bulls price spectrum/MNO deals; the bind is cash burn + dependence on SpaceX launch slots — a rival).
+
+## 5. Confidence
+High: RE/gallium/SRM defense chokepoints (dated catalysts: Jan 1 2027 ban; MP 2028 circuits); CDU/cooling; photonics/CPO 2026; data-wall 2026–2032. Medium: DAC cost trajectory; ASTS financing; directed-energy power scaling. Low (don't over-position): BCI commercial timing; 6G (2030); green H2 (mostly dead except captive offtake); China GaN/EW counter-advances. Key swing factors: US-China export-control escalation/de-escalation; IRA/45Q durability; defense budget continuity; whether synthetic data breaks the data wall.
+
+## 6. Cross-cutting flags (what the overall study might miss)
+1. **Gallium/GaN** distinct from RE *magnets* — a harder chokepoint. 2. **Grid/transformers/power equipment** — the real ceiling on AI (123GW by 2035). 3. **CDU/liquid cooling** — the literal 2026 deployment gate. 4. **Ammonium perchlorate/energetics** — chemistry layer beneath munitions. 5. **LEO launch (SpaceX)** — shared chokepoint across D2C/defense/EO (concentration risk). 6. **Photonics talent + EML/laser supply.** 7. **Specialized human labor** (RL annotators, drilling crews, nuclear/SRM technicians, hermetic-packaging engineers) recurs everywhere. 8. **Mental-privacy / neuro-data regulation** — a regulatory scarcity that could precede BCI commercialization.
+
+## 7. Sources
+Neurotech: nextwavesinsight.com · nature.com (d41586-025-03849-0) · fiercebiotech.com (Neuralink) · sacra.com/c/neuralink · medtechdive.com (Synchron) · bciintel.com. Defense: cnbc.com/2026/05/13 (Anduril) · techcrunch.com (Anduril $5B; $20B Army) · sacra.com/c/anduril · csis.org (drone chokepoints; gallium) · stripes.com · sfa-oxford.com (MP-DoD) · news.metal.com (MP Dy-Tb) · warontherocks.com (GaN) · breakingdefense.com/2026/01 (SRM) · thedefensepost.com (Epirus) · fortune.com/2026/04/25 (Golden Dome) · congress.gov (DEW). Connectivity: tomshardware.com (NVIDIA CPO) · semiwiki.com (OFC 2026) · sec.gov ASTS 8-K · fool.com (ASTS Q1'26) · ericsson.com + 6g-ai.com (6G timeline). Climate: greenfueljournal.com (DAC) · about.bnef.com (DAC cost) · carbonherald.com ($230–540/t) · fervoenergy.com (Cape) · cleantech.com (Fervo IPO) · chemistryworld.com + decarbonizeweekly.com (H2). AI cooling/data: allaboutcircuits.com (CDU) · lombardodier.com (cooling) · theconversation.com (data wall) · invisibletech.ai.
