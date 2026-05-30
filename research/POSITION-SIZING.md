@@ -75,6 +75,13 @@ Deploy the reserve into the **best crowded chokepoints at better prices** when *
 - **Confirmation trigger:** two consecutive quarters of hyperscaler capex guided **up** → deploy **immediately** into highest-conviction **GEV / ASML**, rather than wait for a dip that may not come.
 - If neither fires within ~18 months, dollar-cost the reserve into PAVE (taxable) / SMH (IRA) so it isn't a permanent cash drag.
 
+### 3a. Execution capability — options available in **both** IRA and taxable
+Options can be used in either sleeve, which widens how the timing/regime layer's two states are implemented (defined-risk, no leverage on the cash basket itself):
+- **"Go all-in" accelerator** (regime risk-on / confirmation trigger): long **LEAPS calls** on highest-conviction names (GEV, ASML) or an index proxy give leveraged upside with *capped, known* downside — instead of borrowing or adding 2× ETFs.
+- **"Apply the brakes" hedge** (regime defensive / macro-stress overlay): **protective puts, put spreads, or collars** on the most correlated cyclicals to cut left-tail risk without selling the thesis (and triggering tax in taxable).
+- **Tax-location preference:** run *active, frequently-rolled* options in the **IRA/Roth** (tax-free turnover — ideal for rolling hedges); use **taxable** for longer-dated, low-churn catastrophe hedges (mind option holding-period, collar/constructive-sale, and wash-sale rules there).
+- **Caveats (verify with broker; not advice):** IRAs allow long calls/puts, covered calls, cash-secured puts, and (at higher approval tiers) defined-risk spreads — but **no naked/short-margin** positions since IRAs can't be margined. Confirm your approval level before relying on any of these.
+
 ## 4. Rebalancing & trim discipline (most of it tax-free in the IRA)
 - **Rebalance** annually, or when any position drifts **±25% from target weight**. Direct new cash/dividends to underweight names first; do actual *selling* inside the IRA (tax-free).
 - **Trim rule:** trim ~1/3 of a name if it (a) exceeds **2× cost basis AND re-rates above ~50× forward earnings**, or (b) breaches the $120k cap. All trimmable names live in the IRA by design.

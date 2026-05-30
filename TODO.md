@@ -16,6 +16,7 @@ all-in vs. apply the brakes into cash. See `REGIME.md` for the evidence base.
   - [ ] **Fast re-entry override** (e.g., 20-DMA reclaim / breadth thrust) — re-risk quickly after defensive (Daniel-Moskowitz fix).
   - [ ] Compute regime on a **clean composite underlying**, not an average of 19 noisy names.
   - [ ] **Account-aware posture**: timing drives the IRA/Roth sleeve; taxable = buy-and-hold anchors.
+  - [ ] **Options-based execution (available in BOTH IRA & taxable)** — map regime states to defined-risk options: risk-on → long LEAPS calls (GEV/ASML/index) for capped-downside leverage; defensive/macro-stress → protective puts / put spreads / collars on the most correlated cyclicals. Prefer active rolling in the IRA (tax-free); long-dated catastrophe hedges in taxable (mind holding-period/constructive-sale/wash-sale). No naked/margin in IRA. See POSITION-SIZING §3a. *(Not advice.)*
   - [ ] Version the regime engine (v1→v2) + keep thresholds coarse/economically-motivated (anti-overfit); do NOT port QQQ-tuned params onto short-history single names; no leverage.
 
 ## Audit fixes (ARCHITECTURE.md F1–F11)
