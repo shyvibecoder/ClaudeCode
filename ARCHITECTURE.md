@@ -41,10 +41,11 @@ auto-PR is for), and never commit local-private data.
   `{ ticker, name, account∈{ira,taxable}, target_usd, weight, tier, role }`.
 - **triggers.json** — `{ updated, triggers[] }`; each trigger:
   `{ id, name, type∈{auto,manual}, metric?, threshold?, action, status∈{armed,monitor,fired}, note? }`.
-- **signals.json** (generated) — `{ scanned_at(ISO), source, universe_count, quotes{}, filings[],
-  news[], trigger_status{drawdown,sleeve_cap,trim_rule}, digest, errors[] }`. Each quote is
-  resolved `{price,high52,pct_off_high,ytd,source,crowding,forward_pe?}` **or** errored `{ticker,error}`
-  **or** `null` (known non-tradeable placeholder).
+- **signals.json** (generated) — `{ schema_version, scanned_at(ISO), source, universe_count, quotes{},
+  filings[], news[], trigger_status{drawdown,sleeve_cap,trim_rule}, regime{}, digest, errors[] }`. Each
+  quote is resolved `{price,high52,pct_off_high,ytd,ma50,ma200,pct_vs_ma200,above_ma200,mom_12m,vol_3m,
+  vol_1y,currency,crowding,forward_pe?}` **or** errored `{ticker,error}` **or** `null`. `regime` = the
+  timing posture (see `REGIME.md`). All hand-edited files now carry `schema_version`.
 - **positions.local.json** (gitignored) — `{ as_of, cash_usd?, positions:{ ticker:{shares,cost_basis,forward_pe?} } }`.
 
 ---
@@ -54,13 +55,13 @@ auto-PR is for), and never commit local-private data.
 | # | Sev | Finding | Recommendation | Phase |
 |---|-----|---------|----------------|-------|
 | F1 | **High (fixed)** | `scan.yml` opened a new Issue **every run** while a trigger stayed fired — alert spam. | **Done:** dedupe — only open if no open "Scarcity trigger fired" issue exists. | now |
-| F2 | **High** | **Currency mixing in sleeve value.** `positions.local.json` sleeve sum is `Σ shares×price`, but quotes for foreign tickers (`PRY.MI`€, `6324.T`¥, `OXIG.L`£, `SYR.AX`A$, `U.UN`C$) are in local currency. Summing into a USD cap is wrong. *Today the user's actual holdings are all US-listed, so it's latent.* | Add `currency` to quotes (Yahoo returns it) and either FX-convert or reject non-USD positions with a loud note. Tag holdings `currency`. | v4 (before foreign lots) |
+| F2 | **High (partly fixed)** | **Currency mixing in sleeve value.** | **Done:** quotes now carry `currency`; the sleeve calc **excludes + flags** non-USD lots. *Still TODO (F2b): actual FX conversion via `${CUR}USD=X` so foreign lots count.* | now / v4 |
 | F3 | **Med** | **No security registry.** `isTradeable` is a regex; ETF-vs-stock, CIK, exchange, currency are inferred ad hoc (forward P/E is fetched even for ETFs; EDGAR guesses CIK each run). | Add `web/data/securities.json` (or fields on holdings): `{ticker:{type:etf|stock|adr, cik, exchange, currency, foreign}}`. Removes guesswork for EDGAR / forward-P/E / FX. | v3–v4 |
 | F4 | **Med** | **No thesis history / versioning.** `scarcities.json` is a single snapshot (`updated` only). The radar can't show drift ("enrichment: non-consensus→crowded"). | Introduce append-only `web/data/history/scarcities-YYYY-MM-DD.json` snapshots **or** a derived `web/data/scarcity-history.json` (`id → [{date,priced_in,bind_window,non_consensus}]`) the scanner appends each run. Git history already preserves raw edits; this makes drift queryable by the UI. | v3 |
-| F5 | **Med** | **No machine-readable confidence** on scarcities → the v3 auto-PR ("propose edits when confidence crosses a threshold") has nothing to threshold on. | Add optional `confidence:0..1` and `last_reviewed` per scarcity; the auto-research writes them. | v3 |
+| F5 | **Med (fixed)** | **No machine-readable confidence** on scarcities → the v3 auto-PR has nothing to threshold on. | **Done:** `last_reviewed` set on every scarcity; optional `confidence:0..1` now schema-supported (v3 auto-research fills the values — not fabricated now). | now |
 | F6 | **Med** | **DCA calendar is prose only** (`POSITION-SIZING.md`), so v4's "planned vs deployed" view has no data to read. | Add `web/data/dca.json`: per-holding `{month_1..9: planned_usd}` derived from the tiers/calendar; deployed comes from `positions.local.json` over time. | v4 |
 | F7 | **Med** | **No "new since last run" state** for filings/news/triggers. Each scan re-lists a rolling 21-day window, so the digest re-summarizes the same items and alerts can't say "newly fired". | Persist a small `web/data/seen.state.json` (last accession #s / title hashes / last-fired timestamps). Lets the digest and alerts focus on deltas; also powers v4 alert dedupe across channels. | v3–v4 |
-| F8 | **Low** | **No `schema_version`** on any file → future migrations are implicit. | Add `schema_version:1` to each data file; have the validator warn on unknown versions. Cheap insurance before the model grows. | v3 |
+| F8 | **Low (fixed)** | **No `schema_version`** on any file → future migrations are implicit. | **Done:** `schema_version:1` on all data files; the validator errors on an unknown version. | now |
 | F9 | **Low** | **Auto-research ↔ source-of-truth ownership** isn't declared. v3 will write to `scarcities.json` via PR — which fields may a bot propose vs. human-only? | Document/enforce: bot may propose `priced_in`,`bind_window`,`non_consensus`,`confidence`; **never** `thesis`/`tickers` without human edit. Keep the human-approves-PR gate. | v3 |
 | F10 | **Low** | **signals.json monolith** will bloat as filings/news/forward-P/E grow. | Keep `signals.json` = *latest snapshot only*; route time-series to `history/` (F4/F7). Don't let history pile into signals.json. | v3+ |
 | F11 | **Low** | **Trigger model split** (auto vs manual) is fine, but manual policy triggers (`mp_policy`, `leu_policy`, …) have no data feed, so they're dashboard-only reminders. | Optional: key manual triggers to news/filing signals so the digest can nudge them. Acceptable as-is. | v3+ |

@@ -25,8 +25,20 @@ export async function fetchStooq(ticker) {
   return { ticker, price, date, source: "stooq" };
 }
 
+const sma = (arr, n) => (arr.length >= n ? arr.slice(-n).reduce((a, b) => a + b, 0) / n : null);
+// Annualized realized volatility from daily log returns over the last n sessions.
+const realizedVol = (closes, n) => {
+  const c = closes.slice(-(n + 1));
+  if (c.length < 20) return null;
+  const rets = [];
+  for (let i = 1; i < c.length; i++) rets.push(Math.log(c[i] / c[i - 1]));
+  const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+  const varr = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / (rets.length - 1);
+  return Math.sqrt(varr) * Math.sqrt(252);
+};
+
 export async function fetchYahoo(ticker) {
-  // 1y daily history -> price + 52w high + YTD return.
+  // 1y daily history -> price + 52w high + YTD + moving averages + currency.
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1y&interval=1d`;
   const r = await fetch(url, { headers: { "user-agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(10000) });
   const j = await r.json();
@@ -40,10 +52,24 @@ export async function fetchYahoo(ticker) {
   const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime() / 1000;
   let ytdBase = closes[0];
   for (let i = 0; i < ts.length; i++) { if (ts[i] >= yearStart) { ytdBase = closes[i]; break; } }
+  // Technicals (literature-grounded; see REGIME.md): 200-DMA trend filter (Faber 2007),
+  // 12-month absolute/time-series momentum (Moskowitz-Ooi-Pedersen 2012), and realized
+  // volatility for vol-state scaling (Moreira-Muir 2017).
+  const ma50 = sma(closes, 50);
+  const ma200 = sma(closes, 200);
+  const mom_12m = closes.length >= 200 ? price / closes[0] - 1 : null; // ~1y total return
   return {
     ticker, price, high52,
     pct_off_high: high52 ? (price - high52) / high52 : null,
     ytd: ytdBase ? (price - ytdBase) / ytdBase : null,
+    ma50, ma200,
+    pct_vs_ma50: ma50 ? (price - ma50) / ma50 : null,
+    pct_vs_ma200: ma200 ? (price - ma200) / ma200 : null,
+    above_ma200: ma200 != null ? price >= ma200 : null,
+    mom_12m,
+    vol_3m: realizedVol(closes, 63),
+    vol_1y: realizedVol(closes, 252),
+    currency: res?.meta?.currency || null,
     source: "yahoo",
   };
 }

@@ -40,6 +40,15 @@ You are working in **`shyvibecoder/deep-tech-market-research`** (private). It co
 
 ---
 
+## NORTH STAR (the app's purpose)
+**Alpha → timing → cash.** The scarcity research is the *alpha* (what to own). On top of it sits a
+**timing/market-regime layer** (`REGIME.md`) — trend (200-DMA), 12-month absolute momentum, volatility
+state, drawdown — that says *when* to deploy / go all-in vs. when to apply the brakes and raise cash.
+The timing layer is grounded in **independent, replicated research** (Faber 2007; Moskowitz-Ooi-Pedersen
+2012; Moreira-Muir 2017; Hurst-Ooi-Pedersen 2017), **not** curve-fit backtests, and is tuned to this
+high-beta, ~1.0-internally-correlated basket (its job is drawdown/risk control, not return prediction).
+Live tracker of what's done/next: **`TODO.md`**.
+
 ## ROADMAP (build in this order; each item is independently shippable)
 
 **v1 — harden what's live (do first)** ✅ _shipped_

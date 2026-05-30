@@ -10,7 +10,7 @@
   <header>
     <div>
       <h1>🏒 Puck — Structural-Scarcity Radar</h1>
-      <p class="sub">Where the puck is going, not where it has been. <span id="scanned"></span></p>
+      <p class="sub">Where the puck is going, not where it has been. <span id="posturePill"></span> <span id="scanned"></span></p>
     </div>
     <button id="refresh" title="Triggers the GitHub Action scan (needs a configured dispatch token)">⟳ Refresh</button>
   </header>
@@ -43,12 +43,13 @@
   </section>
 
   <section id="portfolio" class="tab">
+    <div id="regimeBox"></div>
     <div id="portSummary" class="cards"></div>
     <h3>Triggers</h3>
     <div id="triggers"></div>
     <h3>Holdings</h3>
     <table id="holdings"><thead><tr>
-      <th>Ticker</th><th>Name</th><th>Acct</th><th>Target $</th><th>Wt</th><th>Tier</th><th>Price</th><th>YTD</th><th>% off high</th><th>Fwd P/E</th><th>Role</th>
+      <th>Ticker</th><th>Name</th><th>Acct</th><th>Target $</th><th>Wt</th><th>Tier</th><th>Price</th><th>YTD</th><th>% off high</th><th>vs 200-DMA</th><th>Fwd P/E</th><th>Role</th>
     </tr></thead><tbody></tbody></table>
   </section>
 

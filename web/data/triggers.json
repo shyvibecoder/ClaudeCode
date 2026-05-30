@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "updated": "2026-05-30",
   "triggers": [
     {"id": "drawdown", "name": "Complex drawdown >= 20-25%", "type": "auto", "metric": "avg_drawdown_from_52w_high", "threshold": 0.20, "action": "Deploy dry powder into ASML (taxable) + GEV/COPX/MP (IRA).", "status": "armed"},

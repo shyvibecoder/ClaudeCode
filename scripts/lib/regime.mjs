@@ -1,0 +1,82 @@
+// Market-regime / timing layer  —  "alpha from the thesis, timing from the tape."
+//
+// The scarcity research supplies the ALPHA (what to own). This layer answers the
+// roadmap's timing question — when to deploy/go-all-in vs. "apply the brakes and
+// get into cash" — and is deliberately grounded in INDEPENDENT, replicated academic
+// findings rather than curve-fit backtests. Full rationale + citations: REGIME.md.
+//
+// Signals used (each robust out-of-sample, each a single obvious parameter):
+//   1. Trend filter        price vs 200-DMA            — Faber (2007); Hurst-Ooi-Pedersen (2017)
+//   2. Absolute momentum   trailing 12-month return    — Moskowitz-Ooi-Pedersen (2012)
+//   3. Volatility state    realized 3m vol vs 1y vol   — Moreira & Muir (2017), vol-managed
+//   4. Drawdown gate       distance from 52w high      — tail-risk control
+//
+// Design choices for THIS portfolio (high-beta, cyclical, ~1.0 internally correlated
+// AI-capex/electrification basket — see MASTER-THESIS):
+//   • The job is DRAWDOWN/REGIME RISK CONTROL, which trend & vol rules are empirically
+//     good at — not return prediction.
+//   • Because the names move together, cross-sectional BREADTH is largely redundant, so
+//     it is only a minor confirmation, not a primary input.
+//   • Signals are combined with simple, equal-ish weights and round numbers to avoid
+//     overfitting; whipsaw/"momentum-crash" risk (Daniel-Moskowitz 2016) is acknowledged.
+// Not financial advice; a transparent risk dial, not a market call.
+
+const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+
+export function computeRegime(quotes, holdings) {
+  const qs = holdings.map((h) => quotes[h.ticker]).filter((q) => q && !q.error);
+
+  // Per-name signal components, then portfolio-aggregate them.
+  const vsMa200 = qs.map((q) => q.pct_vs_ma200).filter((x) => x != null);
+  const mom = qs.map((q) => q.mom_12m).filter((x) => x != null);
+  const offs = qs.map((q) => q.pct_off_high).filter((x) => x != null);
+  const breadthArr = qs.map((q) => q.above_ma200).filter((x) => x != null);
+  // Volatility state: median(3m vol / 1y vol) across names; >1 = vol rising (de-risk).
+  const volRatios = qs.map((q) => (q.vol_3m && q.vol_1y ? q.vol_3m / q.vol_1y : null)).filter((x) => x != null);
+
+  const avgVsMa200 = mean(vsMa200);
+  const avgMom = mean(mom);
+  const avgOffHigh = mean(offs);
+  const breadth = breadthArr.length ? breadthArr.filter(Boolean).length / breadthArr.length : null;
+  const volState = volRatios.length ? volRatios.slice().sort((a, b) => a - b)[Math.floor(volRatios.length / 2)] : null;
+
+  if (avgVsMa200 == null && avgMom == null && avgOffHigh == null) {
+    return { posture: "unknown", risk_score: null, components: {},
+      action: "Insufficient price history — fall back to the DCA calendar.",
+      note: "timing layer needs live quotes (runs in GitHub Actions)" };
+  }
+
+  // Each component -> 0..100 (50 = neutral). Round constants on purpose (anti-overfit).
+  const trendScore = avgVsMa200 == null ? 50 : clamp(50 + avgVsMa200 * 250);     // +20% vs 200dma -> 100
+  const momScore = avgMom == null ? 50 : clamp(50 + avgMom * 100);               // +50% 12m -> 100, -50% -> 0
+  const ddScore = avgOffHigh == null ? 50 : clamp(100 + avgOffHigh * 250);       // at highs ->100, -20% ->50
+  const volScore = volState == null ? 50 : clamp(100 - (volState - 1) * 150);    // vol flat ->100ish, +33% ->50
+  const breadthScore = breadth == null ? 50 : breadth * 100;
+
+  // Trend + absolute momentum are the load-bearing, best-evidenced signals (35%/30%);
+  // drawdown + volatility are the brakes (15%/15%); breadth a 5% confirmation.
+  const risk = Math.round(
+    0.35 * trendScore + 0.30 * momScore + 0.15 * ddScore + 0.15 * volScore + 0.05 * breadthScore
+  );
+
+  let posture = "neutral", action = "Stick to the DCA calendar; no acceleration.";
+  if (risk >= 70) { posture = "risk-on"; action = "Uptrend + positive 12m momentum, contained vol — deploy on schedule / accelerate low-regret anchors."; }
+  else if (risk < 25) { posture = "defensive"; action = "Brakes on — favor cash/dry powder; deploy only into the drawdown trigger."; }
+  else if (risk < 45) { posture = "caution"; action = "Tap the brakes — slow deploys, build dry powder, wait for trend/vol to confirm."; }
+
+  const pct = (x) => (x == null ? "n/a" : (x * 100).toFixed(0) + "%");
+  return {
+    posture, risk_score: risk,
+    components: {
+      trend_vs_200dma: round1(avgVsMa200), momentum_12m: round1(avgMom),
+      avg_off_high: round1(avgOffHigh), vol_state: volState == null ? null : +volState.toFixed(2),
+      breadth_above_200dma: breadth == null ? null : +(breadth * 100).toFixed(0),
+    },
+    action,
+    basis: "trend(200-DMA)+abs-momentum(12m)+vol-state+drawdown; see REGIME.md",
+    note: `trend ${pct(avgVsMa200)} vs 200-DMA · 12m mom ${pct(avgMom)} · ${pct(avgOffHigh)} from highs · vol ${volState == null ? "n/a" : volState.toFixed(2) + "x"} · breadth ${pct(breadth)}`,
+  };
+}
+
+const clamp = (x) => Math.max(0, Math.min(100, x));
+const round1 = (x) => (x == null ? null : +(x * 100).toFixed(1));

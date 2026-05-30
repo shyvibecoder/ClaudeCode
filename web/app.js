@@ -24,9 +24,20 @@ async function load() {
   render();
 }
 
+const POSTURE = {
+  "risk-on": ["pos", "🟢 RISK-ON"], neutral: ["", "⚪ NEUTRAL"],
+  caution: ["", "🟠 CAUTION — brakes"], defensive: ["neg", "🔴 DEFENSIVE — cash"], unknown: ["", "POSTURE —"],
+};
+
 function render() {
   const sig = DATA.sig;
   $("#scanned").textContent = sig?.scanned_at ? `· last scan ${new Date(sig.scanned_at).toLocaleString()}` : "";
+  const reg = sig?.regime; const pill = $("#posturePill");
+  if (pill) {
+    const [cls, lbl] = POSTURE[reg?.posture] || POSTURE.unknown;
+    pill.className = `posture ${reg?.posture || "unknown"}`;
+    pill.textContent = reg ? `${lbl}${reg.risk_score != null ? ` ${reg.risk_score}/100` : ""}` : "";
+  }
   renderStale(sig); renderRadar(); renderTimeline(); renderPortfolio(); renderCatalysts(); renderDigest();
 }
 
@@ -89,7 +100,23 @@ function renderTimeline() {
   });
 }
 
+function renderRegime() {
+  const box = $("#regimeBox"); if (!box) return;
+  const r = DATA.sig?.regime;
+  if (!r || !r.posture || r.posture === "unknown") {
+    box.className = "regime unknown";
+    box.innerHTML = `<strong>Timing posture: —</strong><span>${r?.note || "awaiting first live scan"}</span>`;
+    return;
+  }
+  const [, lbl] = POSTURE[r.posture] || POSTURE.unknown;
+  box.className = `regime ${r.posture}`;
+  box.innerHTML = `<div><strong>Timing posture: ${lbl}${r.risk_score != null ? ` · risk ${r.risk_score}/100` : ""}</strong>
+      <span>${r.action || ""}</span></div>
+    <div class="rnote">${r.note || ""}<br><em>Alpha = scarcity thesis · timing = trend(200-DMA)+12m momentum+vol+drawdown. ${r.basis || ""}. Not advice.</em></div>`;
+}
+
 function renderPortfolio() {
+  renderRegime();
   const p = DATA.port;
   $("#portSummary").innerHTML = `
     <div class="card"><b>${fmtUsd(p.sleeve_usd)}</b><span>sleeve (~${Math.round(p.sleeve_usd / p.total_portfolio_usd * 100)}% of ${fmtUsd(p.total_portfolio_usd)})</span></div>
@@ -120,6 +147,7 @@ function renderPortfolio() {
       <td>${Q?.price ? "$" + Q.price.toFixed(2) : "—"}</td>
       <td class="${ytd>=0?'pos':'neg'}">${fmtPct(ytd)}</td>
       <td class="${off<0?'neg':''}">${fmtPct(off)}</td>
+      <td class="${Q?.pct_vs_ma200>=0?'pos':'neg'}">${fmtPct(Q?.pct_vs_ma200)}</td>
       <td>${Q?.forward_pe ? Q.forward_pe.toFixed(1) + "x" : "—"}</td><td style="color:var(--mut)">${h.role}</td>`;
     tb.appendChild(tr);
   });

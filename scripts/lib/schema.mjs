@@ -19,13 +19,23 @@ const ACCOUNTS = ["ira", "taxable"];
 const TRIGGER_TYPES = ["auto", "manual"];
 const TRIGGER_STATUS = ["armed", "monitor", "fired"];
 
+export const SCHEMA_VERSION = 1;
+
 const check = (errors, cond, msg) => { if (!cond) errors.push(msg); };
+// schema_version is optional today; if present it must match the known version.
+const checkVersion = (errors, obj, where) => {
+  if (obj && "schema_version" in obj) {
+    check(errors, obj.schema_version === SCHEMA_VERSION,
+      `${where}: schema_version ${JSON.stringify(obj.schema_version)} != supported ${SCHEMA_VERSION}`);
+  }
+};
 const oneOf = (errors, v, allowed, msg) =>
   check(errors, allowed.includes(v), `${msg} (got ${JSON.stringify(v)}, expected one of ${allowed.join("/")})`);
 
 export function validatePortfolio(p, errors = []) {
   const w = "portfolio.json";
   if (!isObj(p)) { errors.push(`${w}: root must be an object`); return errors; }
+  checkVersion(errors, p, w);
   check(errors, isNum(p.sleeve_usd), `${w}: sleeve_usd must be a number`);
   check(errors, isNum(p.total_portfolio_usd), `${w}: total_portfolio_usd must be a number`);
   check(errors, isObj(p.accounts) && isNum(p.accounts?.ira) && isNum(p.accounts?.taxable),
@@ -48,6 +58,7 @@ export function validatePortfolio(p, errors = []) {
 export function validateScarcities(s, errors = []) {
   const w = "scarcities.json";
   if (!isObj(s)) { errors.push(`${w}: root must be an object`); return errors; }
+  checkVersion(errors, s, w);
   check(errors, isArr(s.scarcities) && s.scarcities.length > 0, `${w}: scarcities must be a non-empty array`);
   const ids = new Set();
   (s.scarcities || []).forEach((x, i) => {
@@ -64,6 +75,8 @@ export function validateScarcities(s, errors = []) {
     check(errors, isArr(x.tickers), `${at}: tickers must be an array`);
     check(errors, isBool(x.non_consensus), `${at}: non_consensus must be a boolean`);
     check(errors, isStr(x.thesis), `${at}: thesis required`);
+    if ("confidence" in x && x.confidence != null) check(errors, isNum(x.confidence) && x.confidence >= 0 && x.confidence <= 1, `${at}: confidence must be 0..1`);
+    if ("last_reviewed" in x) check(errors, isStr(x.last_reviewed) && !Number.isNaN(Date.parse(x.last_reviewed)), `${at}: last_reviewed must be a date string`);
   });
   return errors;
 }
@@ -71,6 +84,7 @@ export function validateScarcities(s, errors = []) {
 export function validateTriggers(t, errors = []) {
   const w = "triggers.json";
   if (!isObj(t)) { errors.push(`${w}: root must be an object`); return errors; }
+  checkVersion(errors, t, w);
   check(errors, isArr(t.triggers) && t.triggers.length > 0, `${w}: triggers must be a non-empty array`);
   const ids = new Set();
   (t.triggers || []).forEach((x, i) => {
@@ -91,6 +105,7 @@ export function validateTriggers(t, errors = []) {
 export function validateSignals(s, errors = []) {
   const w = "signals.json";
   if (!isObj(s)) { errors.push(`${w}: root must be an object`); return errors; }
+  checkVersion(errors, s, w);
   check(errors, isStr(s.scanned_at) && !Number.isNaN(Date.parse(s.scanned_at)),
     `${w}: scanned_at must be an ISO date string`);
   check(errors, isObj(s.quotes), `${w}: quotes must be an object`);
@@ -99,6 +114,8 @@ export function validateSignals(s, errors = []) {
   check(errors, isArr(s.errors), `${w}: errors must be an array`);
   if ("filings" in s) check(errors, isArr(s.filings), `${w}: filings must be an array`);
   if ("news" in s) check(errors, isArr(s.news), `${w}: news must be an array`);
+  if ("regime" in s) check(errors, isObj(s.regime), `${w}: regime must be an object`);
+  if ("dca" in s) check(errors, isObj(s.dca), `${w}: dca must be an object`);
   for (const [t, q] of Object.entries(isObj(s.quotes) ? s.quotes : {})) {
     if (q == null) continue; // null = intentional non-tradeable placeholder
     if (!isObj(q)) { errors.push(`${w}: quotes[${t}] must be an object or null`); continue; }

@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "scanned_at": "2026-05-30T00:00:00Z",
   "source": "seed (replaced by scripts/scan.mjs in CI)",
   "quotes": {},
@@ -9,6 +10,7 @@
     "trim_rule": {"fired": false, "hits": []},
     "sleeve_cap": {"fired": false, "value": null}
   },
+  "regime": {"posture": "unknown", "risk_score": null, "note": "awaiting first scan"},
   "digest": "Run the scanner (GitHub Action or `node scripts/scan.mjs`) to populate live quotes, crowding scores, trigger status, and an optional LLM news digest.",
   "errors": []
 }

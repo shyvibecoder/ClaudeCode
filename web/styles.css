@@ -36,4 +36,10 @@ footer a{color:var(--y30)}code{background:#0d1117;padding:1px 5px;border-radius:
 #catalysts a{color:var(--y30);text-decoration:none}#catalysts a:hover{text-decoration:underline}
 #news .item{margin-bottom:10px;line-height:1.7}#news{margin-top:6px}
 #catalysts h3 .foot{font-weight:400}
+.posture{font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;border:1px solid var(--line)}
+.posture.risk-on{color:var(--good)}.posture.caution{color:var(--y27)}.posture.defensive{color:var(--now)}
+.regime{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--mut);border-radius:10px;padding:12px 16px;margin:10px 0}
+.regime.risk-on{border-left-color:var(--good)}.regime.caution{border-left-color:var(--y27)}.regime.defensive{border-left-color:var(--now)}.regime.neutral{border-left-color:var(--y30)}
+.regime strong{display:block}.regime span{color:var(--mut);font-size:13px}
+.regime .rnote{color:var(--mut);font-size:11px;text-align:right;max-width:48%}
 @media(max-width:800px){.tcol{grid-template-columns:1fr}}

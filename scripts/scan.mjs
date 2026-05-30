@@ -9,10 +9,11 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { getQuotes, isTradeable } from "./lib/quotes.mjs";
 import { analystRedteamDigest, llmAvailable } from "./lib/llm.mjs";
-import { validateInputs, validateSignals, validatePositions, assertValid } from "./lib/schema.mjs";
+import { validateInputs, validateSignals, validatePositions, assertValid, SCHEMA_VERSION } from "./lib/schema.mjs";
 import { watchFilings } from "./lib/edgar.mjs";
 import { watchNews } from "./lib/news.mjs";
 import { getForwardPEs } from "./lib/fundamentals.mjs";
+import { computeRegime } from "./lib/regime.mjs";
 
 const OFFLINE = process.argv.includes("--offline");
 const read = (p) => JSON.parse(readFileSync(new URL(`../web/data/${p}`, import.meta.url)));
@@ -115,18 +116,23 @@ let sleeveNote = "add web/data/positions.local.json (gitignored) for the live sl
 let trimHits = [], trimNote = "add positions.local.json with cost basis to evaluate";
 
 if (positions?.positions) {
-  let sum = 0, priced = 0; const missing = [];
+  let sum = 0, priced = 0; const missing = [], nonUsd = [];
   for (const [t, p] of Object.entries(positions.positions)) {
-    const price = enriched[t]?.price;
-    if (price && p.shares) { sum += price * p.shares; priced++; }
-    else if (p.shares) missing.push(t);
+    const q = enriched[t];
+    const price = q?.price;
+    if (price && p.shares) {
+      // F2: don't sum non-USD-denominated quotes into a USD cap (no FX yet).
+      if (q.currency && q.currency !== "USD") { nonUsd.push(`${t}(${q.currency})`); continue; }
+      sum += price * p.shares; priced++;
+    } else if (p.shares) missing.push(t);
   }
   if (typeof positions.cash_usd === "number") sum += positions.cash_usd;
   if (priced) {
     sleeveValue = Math.round(sum);
     sleeveFired = sleeveValue >= sleeveCapUsd;
     sleeveNote = `sleeve ≈ $${(sleeveValue / 1e6).toFixed(2)}mm vs $${(sleeveCapUsd / 1e6).toFixed(2)}mm cap` +
-      (missing.length ? ` (no price for ${missing.join(", ")})` : "");
+      (missing.length ? ` (no price for ${missing.join(", ")})` : "") +
+      (nonUsd.length ? ` (excluded non-USD: ${nonUsd.join(", ")} — FX conversion not yet implemented)` : "");
   }
   for (const h of portfolio.holdings) {
     const p = positions.positions[h.ticker];
@@ -151,6 +157,10 @@ const trigger_status = {
   trim_rule: { fired: trimHits.length > 0, hits: trimHits, note: trimNote },
 };
 
+// --- Timing layer: trend/breadth/drawdown -> risk posture (when to deploy vs. brake) ---
+const regime = computeRegime(enriched, portfolio.holdings);
+console.log(`Regime: ${regime.posture}${regime.risk_score != null ? ` (risk ${regime.risk_score}/100)` : ""}`);
+
 // --- Optional free-LLM analyst + red-team digest ---
 let digest = "(no LLM key set — set GEMINI_API_KEY or GROQ_API_KEY in repo secrets to enable the agent digest)";
 if (llmAvailable() && !OFFLINE) {
@@ -164,6 +174,7 @@ if (llmAvailable() && !OFFLINE) {
 }
 
 const out = {
+  schema_version: SCHEMA_VERSION,
   scanned_at: new Date().toISOString(),
   source: OFFLINE ? "offline run" : "scripts/scan.mjs",
   universe_count: universe.length,
@@ -171,6 +182,7 @@ const out = {
   filings,
   news,
   trigger_status,
+  regime,
   digest,
   errors,
 };
