@@ -153,9 +153,16 @@ export async function runCommittee({ scarcity, evidence = {}, seats, scorecard =
   }));
   if (!Object.keys(out.seats).length) return out;   // every seat failed → caller records no-response
   out.dispersion = dispersion(reads);
-  const cioFn = pool[0];
-  try { out.cio = parseProposal(await cioFn(cioPrompt(scarcity, out.seats, out.dispersion))) || null; }
-  catch (e) { if (!out.errors.includes(e.message)) out.errors.push(e.message); }
+  // CIO call with FAIL-OVER: try the lead model first, then walk the rest of the pool. A dead or
+  // unfunded FRONTIER lead key can't tank the run — it degrades to a free model's CIO instead of
+  // returning cio:null (zero proposals). Every distinct failure is still surfaced in out.errors.
+  const prompt = cioPrompt(scarcity, out.seats, out.dispersion);
+  for (const fn of pool) {
+    try {
+      const cio = parseProposal(await fn(prompt)) || null;
+      if (cio) { out.cio = cio; break; }
+    } catch (e) { if (!out.errors.includes(e.message)) out.errors.push(e.message); }
+  }
   return out;
 }
 

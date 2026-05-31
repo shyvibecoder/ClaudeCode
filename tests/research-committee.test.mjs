@@ -81,6 +81,48 @@ describe("research-committee: runCommittee (bull/bear/skeptic → CIO)", () => {
   });
 });
 
+describe("research-committee: CIO fail-over (a dead lead/frontier key can't tank the run)", () => {
+  const cioJson = '{"priced_in":"crowded","confidence":0.8,"rationale":"r","variant_view":"v"}';
+  // pool[0] is the lead (e.g. an unfunded frontier key). It answers its SEAT fine but the CIO call
+  // throws — historically that meant cio:null → zero proposal. Now it must fail over to pool[1].
+  it("falls over to the next provider when the lead CIO call throws, still producing a CIO edit", async () => {
+    let leadCioCalls = 0, backupCioCalls = 0;
+    const lead = async (prompt) => {
+      if (/CIO chairing/.test(prompt)) { leadCioCalls++; throw new Error("anthropic 400 credit balance too low"); }
+      return '{"priced_read":"crowded","confidence":0.8}';
+    };
+    const backup = async (prompt) => {
+      if (/CIO chairing/.test(prompt)) { backupCioCalls++; return cioJson; }
+      return '{"priced_read":"high","confidence":0.6}';
+    };
+    const memo = await runCommittee({ scarcity: copper, evidence: {}, seats: [lead, backup, backup] });
+    assert.ok(memo.cio, "expected a CIO edit via fail-over, got null");
+    assert.equal(memo.cio.priced_in, "crowded");
+    assert.equal(leadCioCalls, 1);          // tried the lead first
+    assert.equal(backupCioCalls, 1);        // then failed over to the backup
+    assert.ok(memo.errors.some((e) => /credit balance/.test(e)), "the lead failure is still surfaced");
+  });
+
+  it("returns cio:null only when EVERY provider's CIO call fails (true no-response)", async () => {
+    const seatOk = (p) => /CIO chairing/.test(p) ? Promise.reject(new Error("529 overloaded")) : Promise.resolve('{"priced_read":"high","confidence":0.6}');
+    const memo = await runCommittee({ scarcity: copper, evidence: {}, seats: [seatOk, seatOk] });
+    assert.equal(memo.cio, null);
+    assert.ok(memo.errors.some((e) => /529/.test(e)));
+  });
+
+  it("does not double-call when the lead CIO succeeds (fail-over only on failure)", async () => {
+    let cioCalls = 0;
+    const lead = async (prompt) => {
+      if (/CIO chairing/.test(prompt)) { cioCalls++; return cioJson; }
+      return '{"priced_read":"crowded","confidence":0.8}';
+    };
+    const backup = async (prompt) => /CIO chairing/.test(prompt) ? '{"priced_in":"low","confidence":0.5}' : '{"priced_read":"high","confidence":0.6}';
+    const memo = await runCommittee({ scarcity: copper, evidence: {}, seats: [lead, backup] });
+    assert.equal(cioCalls, 1);
+    assert.equal(memo.cio.priced_in, "crowded");   // the lead's call, not the backup's
+  });
+});
+
 describe("research-committee: deterministic verification gate (trust layer)", () => {
   // optical-style momentum trap: crowded thesis, basket up huge, model says "cheaper" → hard-fail.
   const optical = { id: "optical", scarcity: "Optical", priced_in: "crowded", bind_window: "2027", non_consensus: false, thesis: "ran 5x", tickers: ["COHR", "LITE"] };
