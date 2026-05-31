@@ -10,7 +10,12 @@
 //        the de-rating/inflecting (relative) signal, so the prior now uses the alpha-edge
 //        hit-rate (by_signal) when it exists — the accuracy of the exact judgment it's
 //        making — instead of the per-name tilt hit-rate it has no control over.
-export const RESEARCH_PROMPT_VERSION = 2;
+//   v3 — DEEP, comprehensive evidence: the bundle now carries multi-angle news ARTICLE
+//        excerpts (not just headlines) + SEC FILING PASSAGES read via full-text search, plus
+//        the live de-rating/forced-flow/opportunity signals. The prompt commands grounding in
+//        those excerpts/passages with explicit citations, forbids inventing facts/sources, and
+//        the evidence cap is widened so the substance survives. Substance over a headline skim.
+export const RESEARCH_PROMPT_VERSION = 3;
 
 const OBJECTIVE = "Objective: maximize 10-year return while keeping max drawdown < 35% (best Calmar/Sortino).";
 const OWNERSHIP = "You may ONLY propose: priced_in (low|medium|high|crowded), bind_window (now|2027|2028-29|2030+|physics-floor), non_consensus (bool), confidence (0..1), rationale, sources[]. NEVER change thesis, tickers, id, or sector.";
@@ -32,12 +37,14 @@ const calib = (sc) => {
 };
 
 export function deepDivePrompt(scarcity, evidence = {}, scorecard = null) {
+  const ec = evidence?.evidence_count || {};
   return [
     `You are a structural-tech-scarcity research analyst. ${OBJECTIVE}`,
-    `Reassess ONE scarcity from current evidence and propose updated fields as STRICT JSON only.`,
+    `Reassess ONE scarcity from the EVIDENCE BELOW and propose updated fields as STRICT JSON only.`,
     OWNERSHIP, calib(scorecard),
+    `Ground every claim in the supplied evidence: cite the NEWS excerpts and SEC FILING passages (by ticker/form/date and source link) in "sources". The evidence bundle contains ${ec.news_with_excerpt || 0} article excerpts and ${ec.filing_passages || 0} filing passages — read them, don't rely on prior knowledge. If the evidence is thin or doesn't support a change, keep confidence low and leave fields unchanged. Do NOT invent facts, numbers, or sources not present below.`,
     `Current state: ${JSON.stringify({ id: scarcity.id, scarcity: scarcity.scarcity, priced_in: scarcity.priced_in, bind_window: scarcity.bind_window, non_consensus: scarcity.non_consensus, thesis: scarcity.thesis })}`,
-    `Evidence (quotes/de-rating/news/filings): ${JSON.stringify(evidence).slice(0, 8000)}`,
+    `EVIDENCE (live signals + news excerpts + SEC filing passages + quotes): ${JSON.stringify(evidence).slice(0, 24000)}`,
     `Output JSON: {"priced_in":...,"bind_window":...,"non_consensus":...,"confidence":0..1,"rationale":"...","sources":["..."]}`,
   ].join("\n");
 }

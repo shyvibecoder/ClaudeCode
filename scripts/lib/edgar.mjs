@@ -88,3 +88,58 @@ export async function watchFilings(tickers, opts = {}) {
   filings.sort((a, b) => (a.date < b.date ? 1 : -1));
   return { filings, skipped, errors };
 }
+
+// ── CONTENT layer: read filing SUBSTANCE for thesis research (not just a recency list) ──
+import { extractExcerpt, extractPassages } from "./research-sources.mjs";
+
+// Expanded form set for thesis evidence: core periodic/8-K + new-entrant (S-1/424B),
+// activism (13D/G), and proxy (DEF 14A) forms that signal structural change.
+export const WATCH_FORMS_WIDE = new Set([
+  "8-K", "8-K/A", "10-Q", "10-Q/A", "10-K", "10-K/A", "6-K", "20-F", "20-F/A",
+  "S-1", "S-1/A", "424B4", "424B5", "SC 13D", "SC 13D/A", "SC 13G", "SC 13G/A", "DEF 14A",
+]);
+
+// Parse EDGAR full-text-search hits into filing references (ticker/form/date/accession/url),
+// newest-first. The FTS _id is "<accession-with-dashes>:<primary-doc>".
+export function parseFtsFilings(json) {
+  const hits = json?.hits?.hits || [];
+  const out = [];
+  for (const h of hits) {
+    const dn = (h?._source?.display_names || [])[0] || "";
+    const m = dn.match(/^(.*?)\s+\(([A-Z0-9.\-]+)\)\s+\(CIK\s*(\d+)/);
+    if (!m) continue;
+    const [accNoDash = "", doc = ""] = String(h._id || "").split(":");
+    const cikNum = Number(m[3] || h._source?.cik || 0);
+    const accClean = accNoDash.replace(/-/g, "");
+    out.push({
+      ticker: m[2], company: m[1].trim(), form: h._source?.form || null,
+      date: h._source?.file_date || null, cik: cikNum, accession: accNoDash,
+      url: cikNum && accClean ? `https://www.sec.gov/Archives/edgar/data/${cikNum}/${accClean}/${doc}` : null,
+    });
+  }
+  return out.sort((a, b) => (String(a.date) < String(b.date) ? 1 : -1));
+}
+
+// Filing text → the relevant thesis passages (delegates to the tested passage extractor).
+export function filingTextToPassages(text, keywords, opts = {}) {
+  return extractPassages(text, keywords, opts);
+}
+
+// Thin fetchers (network; the parsers above are pure + tested).
+// Full-text search for a thesis phrase, restricted to substantive forms.
+export async function searchFilings(query, { forms = "10-K,10-Q,8-K,S-1,DEF 14A", limit = 10 } = {}) {
+  const url = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(`"${query}"`)}&forms=${encodeURIComponent(forms)}`;
+  const r = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(15000) });
+  if (!r.ok) throw new Error(`fts ${r.status}`);
+  return parseFtsFilings(await r.json()).slice(0, limit);
+}
+
+// Fetch a filing document and extract the thesis passages from its text.
+export async function fetchFilingPassages(filing, keywords, { window = 240, max = 3, maxChars = 400000 } = {}) {
+  if (!filing?.url) return [];
+  const r = await fetch(filing.url, { headers: { "user-agent": UA, accept: "text/html" }, signal: AbortSignal.timeout(20000) });
+  if (!r.ok) throw new Error(`filing ${r.status}`);
+  const html = (await r.text()).slice(0, maxChars); // cap pathological 10-Ks
+  const text = extractExcerpt(html, { maxChars: Number.MAX_SAFE_INTEGER }); // strip HTML, keep full text
+  return extractPassages(text, keywords, { window, max });
+}

@@ -53,7 +53,15 @@ describe("research: prompt is calibrated on the MATCHING call type (alpha edge),
     assert.match(deepDivePrompt({ id: "x", scarcity: "X" }, {}, null), /modest|0\.6/i);
   });
   it("prompt version advanced past 1 (prompts improve over time)", () => {
-    assert.ok(RESEARCH_PROMPT_VERSION >= 2);
+    assert.ok(RESEARCH_PROMPT_VERSION >= 3);
+  });
+  it("v3 commands grounding in excerpts/filing passages, reports counts, and forbids invention", () => {
+    const ev = { evidence_count: { news_with_excerpt: 5, filing_passages: 3 } };
+    const p = deepDivePrompt({ id: "x", scarcity: "X" }, ev, null);
+    assert.match(p, /5 article excerpts/);
+    assert.match(p, /3 filing passages/);
+    assert.match(p, /do not invent facts/i);
+    assert.match(p, /cite/i);
   });
 });
 

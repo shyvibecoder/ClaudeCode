@@ -6,6 +6,17 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { llm, availableProviders } from "./lib/llm.mjs";
 import { proposeScarcityEdits } from "./lib/research.mjs";
+import { newsForQuery } from "./lib/news.mjs";
+import { thesisQueries, extractExcerpt, dedupeByDomain, buildEvidenceBundle } from "./lib/research-sources.mjs";
+import { searchFilings, fetchFilingPassages } from "./lib/edgar.mjs";
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Thesis keywords for filing full-text search + passage extraction (multi-word phrases first).
+const thesisKeywords = (s) => {
+  const subj = (s.news_query || s.scarcity || "").toLowerCase();
+  const words = subj.split(/\s+/).filter((w) => w.length > 3);
+  return [...new Set([subj.split(/\s+/).slice(0, 2).join(" "), ...words])].filter(Boolean).slice(0, 6);
+};
 
 const read = (p) => { try { return JSON.parse(readFileSync(new URL(`../web/data/${p}`, import.meta.url))); } catch { return null; } };
 const date = new Date().toISOString().slice(0, 10);
@@ -20,17 +31,60 @@ if (!scar || !providers.length) {
   console.log("research: skipped (no key or data)"); process.exit(0);
 }
 
-// Evidence per scarcity from the latest scan (de-rating signal, its news, quote snapshot).
-const newsBy = {}; for (const n of sig.news || []) (newsBy[n.scarcity] ||= []).push({ title: n.title, date: n.date });
+// DEEP multi-source evidence per scarcity: multi-angle news WITH article excerpts (domain-
+// deduped for source diversity), SEC filing PASSAGES read from full-text search, the live
+// signals (de-rating / forced-flow / opportunity) the LLM previously couldn't see, and the
+// quote snapshot — all real, cited, never fabricated. Best-effort: each fetch degrades to the
+// committed signals.json data on failure, so the loop still runs offline / rate-limited.
+const OFFLINE = process.argv.includes("--offline") || process.env.RESEARCH_OFFLINE === "1";
 const evidence = {};
 for (const s of scar.scarcities) {
-  evidence[s.id] = {
-    de_rating: sig.scarcity_signals?.[s.id] || null,
-    news: (newsBy[s.id] || []).slice(0, 4),
+  // 1) Multi-angle news + excerpts (fall back to the scan's committed headlines on failure).
+  let news = [];
+  if (!OFFLINE) {
+    for (const q of thesisQueries(s).slice(0, 4)) {
+      try {
+        const items = await newsForQuery(q, { limit: 4 });
+        for (const it of items) {
+          let excerpt = null;
+          try { const r = await fetch(it.link, { headers: { "user-agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(10000) }); if (r.ok) excerpt = extractExcerpt(await r.text(), { maxChars: 500 }); } catch { /* headline only */ }
+          news.push({ ...it, excerpt });
+          await sleep(120);
+        }
+      } catch { /* skip angle */ }
+      await sleep(150);
+    }
+    news = dedupeByDomain(news, { perDomain: 2 }).slice(0, 10);
+  }
+  if (!news.length) news = (sig.news || []).filter((n) => n.scarcity === s.id).map((n) => ({ title: n.title, date: n.date, link: n.link }));
+
+  // 2) SEC filing passages from thesis full-text search.
+  const filings = [];
+  if (!OFFLINE) {
+    const kws = thesisKeywords(s);
+    try {
+      const hits = await searchFilings(s.news_query || s.scarcity, { limit: 4 });
+      for (const f of hits) {
+        try { const passages = await fetchFilingPassages(f, kws, { window: 240, max: 2 }); if (passages.length) filings.push({ ticker: f.ticker, form: f.form, date: f.date, url: f.url, passages }); }
+        catch { /* skip filing */ }
+        await sleep(200);
+      }
+    } catch { /* fts unavailable */ }
+  }
+
+  // 3) Signals the LLM previously couldn't see + quotes.
+  const ss = sig.scarcity_signals?.[s.id] || {};
+  evidence[s.id] = buildEvidenceBundle({
+    scarcity: s,
+    signals: { de_rating: ss.flag || null, rs: ss.rs ?? null, opportunity: ss.score ?? null, forced_flow: ss.forced_flow?.flag || null },
+    news, filings,
     quotes: Object.fromEntries(s.tickers.filter((t) => sig.quotes?.[t] && !sig.quotes[t].error)
       .map((t) => [t, { ytd: sig.quotes[t].ytd, vs200: sig.quotes[t].pct_vs_ma200, mom_1m: sig.quotes[t].mom_1m }])),
-  };
+  });
 }
+const totalPassages = Object.values(evidence).reduce((a, e) => a + (e.evidence_count?.filing_passages || 0), 0);
+const totalExcerpts = Object.values(evidence).reduce((a, e) => a + (e.evidence_count?.news_with_excerpt || 0), 0);
+console.log(`research evidence: ${totalExcerpts} news excerpts, ${totalPassages} filing passages across ${scar.scarcities.length} scarcities`);
 
 const analyst = (p) => llm(p, providers[0]);
 const redteam = (p) => llm(p, providers[1] || providers[0]); // cross-model when 2 keys
