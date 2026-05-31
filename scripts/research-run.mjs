@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { llm, availableProviders } from "./lib/llm.mjs";
 import { proposeScarcityEdits } from "./lib/research.mjs";
-import { committeeRoster } from "./lib/admin.mjs";
+import { committeeRoster, researchPreflight } from "./lib/admin.mjs";
 import { newsForQuery } from "./lib/news.mjs";
 import { thesisQueries, extractExcerpt, dedupeByDomain, buildEvidenceBundle } from "./lib/research-sources.mjs";
 import { searchFilings, fetchFilingPassages } from "./lib/edgar.mjs";
@@ -26,10 +26,24 @@ mkdirSync(dir, { recursive: true });
 const write = (name, txt) => writeFileSync(new URL(name, dir), txt);
 
 const scar = read("scarcities.json"); const sig = read("signals.json") || {};
+
+// PREFLIGHT: confirm the keys/config we need are present BEFORE gathering evidence or calling models.
+// Build the "present secrets/vars" lists from the environment the workflow injects, then report
+// readiness up-front. A missing LLM key is the only hard stop; the rest are logged as warnings so a
+// degraded run is obvious in the log instead of silently weak.
+const SECRET_ENVS = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY"];
+const presentSecrets = SECRET_ENVS.filter((k) => (process.env[k] || "").trim());
+const presentVars = ["SEC_USER_AGENT"].filter((k) => (process.env[k] || "").trim());
+const preflight = researchPreflight(presentSecrets, presentVars);
+console.log(`research preflight: ${preflight.summary}`);
+for (const w of preflight.warnings) console.log(`  ⚠ ${w}`);
+for (const e of preflight.errors) console.log(`  ✗ ${e}`);
+
 const providers = availableProviders();
-if (!scar || !providers.length) {
-  write(`${date}.md`, `# Auto-research ${date}\n\nSkipped: ${!providers.length ? "no LLM key set" : "no scarcities"}.\n`);
-  console.log("research: skipped (no key or data)"); process.exit(0);
+if (!scar || !preflight.ok) {
+  const reason = !preflight.ok ? preflight.errors.join(" ") : "no scarcities";
+  write(`${date}.md`, `# Auto-research ${date}\n\nSkipped: ${reason}\n`);
+  console.log("research: skipped — " + reason); process.exit(0);
 }
 
 // DEEP multi-source evidence per scarcity: multi-angle news WITH article excerpts (domain-
@@ -107,9 +121,8 @@ const seats = providers.map((pr) => (p) => llm(p, pr));
 const frontier = providers.find((p) => p === "anthropic" || p === "openai") || null;
 const cro = frontier ? (p) => llm(p, frontier) : null;
 // The actual role→provider map for THIS run, published to the dashboard so the Research tab can show
-// which LLM played each role (no admin token needed). Mirrors the seat/CRO wiring above.
-const roster = committeeRoster(providers.map((p) => `${p.toUpperCase()}_API_KEY`));
-console.log(`committee: bull=${roster.bull || "—"} bear=${roster.bear || "—"} skeptic=${roster.skeptic || "—"} cio=${roster.cio || "—"} | CRO review: ${roster.cro || "DISABLED (needs Anthropic/OpenAI key)"}`);
+// which LLM played each role (no admin token needed). Already computed + logged by the preflight.
+const roster = preflight.roster;
 // Resilient: a transient LLM/network error must NOT fail the workflow — write a stub + exit 0
 // so the run is green and the evidence summary is still visible.
 try {

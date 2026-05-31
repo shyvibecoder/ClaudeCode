@@ -75,3 +75,27 @@ export function committeeRoster(existingSecrets = []) {
     singleModel: providers.length === 1,
   };
 }
+
+// PREFLIGHT: confirm the keys/config a research run needs BEFORE doing any work, so the run logs a
+// clear readiness report instead of silently producing a weak (or empty) result. ok:false only when
+// there's literally no LLM key (nothing to run); everything else is a non-blocking warning. Pure +
+// tested; used by research-run.mjs and available to the dashboard.
+export function researchPreflight(existingSecrets = [], existingVariables = []) {
+  const roster = committeeRoster(existingSecrets);
+  const vs = new Set(existingVariables);
+  const errors = [], warnings = [];
+  if (!roster.providers.length) errors.push("no LLM key set (need at least one of Anthropic / OpenAI / Groq / OpenRouter / Gemini) — nothing to run.");
+  if (roster.providers.length === 1) warnings.push(`single model (${roster.providers[0]}) — the committee has no cross-model diversity; seats reuse the one provider.`);
+  if (!roster.croAvailable) warnings.push("CRO risk review is OFF — it needs a frontier key (ANTHROPIC_API_KEY or OPENAI_API_KEY). Only the deterministic gate will run.");
+  if (!vs.has("SEC_USER_AGENT")) warnings.push("SEC_USER_AGENT not set — filing-passage fetches still work but aren't identifying you politely to SEC EDGAR.");
+  const summary = roster.providers.length
+    ? `committee: bull=${roster.bull} bear=${roster.bear} skeptic=${roster.skeptic} cio=${roster.cio} | CRO: ${roster.cro || "DISABLED (needs Anthropic/OpenAI)"}`
+    : "committee: (no providers)";
+  return {
+    ok: errors.length === 0,
+    providerCount: roster.providers.length,
+    croEnabled: roster.croAvailable,
+    croProvider: roster.cro,
+    roster, errors, warnings, summary,
+  };
+}
