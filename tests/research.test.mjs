@@ -141,6 +141,23 @@ describe("research: audit trail — 'considered' records WHY each scarcity wasn'
     assert.equal(considered.length, 0);
   });
 
+  it("survives ONE dead provider: if model A returns nothing but B gives a confident call, still proposes (single-model fallback, not a zeroed run)", async () => {
+    const dead = async () => "";                                  // e.g. a retired/blocked model → empty
+    const live = async () => '{"priced_in":"crowded","confidence":0.8,"rationale":"de-rating"}';
+    const { proposals, considered } = await proposeScarcityEdits({ scarcities, analysts: [dead, live], redteam: async () => "", minConfidence: 0.6 });
+    assert.equal(proposals.length, 1);
+    assert.equal(proposals[0].priced_in, "crowded");
+    assert.equal(considered.length, 0);
+  });
+
+  it("captures the underlying ERROR when a model call throws, so 'no-response' says WHY", async () => {
+    const boom = async () => { throw new Error("gemini 404: model gemini-x is not found"); };
+    const { proposals, considered } = await proposeScarcityEdits({ scarcities, analysts: [boom], redteam: async () => "", minConfidence: 0.6 });
+    assert.equal(proposals.length, 0);
+    assert.equal(considered[0].reason, "no-response");
+    assert.match(considered[0].error || "", /gemini 404/);
+  });
+
   it("report lists the discipline trail even when zero proposals (so '0 proposals' is auditable)", async () => {
     const analyst = async () => '{"priced_in":"high","confidence":0.88,"rationale":"already fairly priced"}';
     const { report } = await proposeScarcityEdits({ scarcities, analyst, redteam: async () => "", minConfidence: 0.6 });

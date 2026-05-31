@@ -1,41 +1,59 @@
 // Free-LLM abstraction with MULTI-MODEL adversarial review.
 //   GEMINI_API_KEY -> Google Gemini (free tier)   [analyst by default]
-//   GROQ_API_KEY   -> Groq (free tier, Llama)      [red-team by default]
+//   GROQ_API_KEY   -> Groq (free tier)             [red-team by default]
 // If BOTH keys are set, the analyst and red-team passes run on DIFFERENT models,
 // so the critique is genuinely adversarial (one model attacks the other's output)
 // instead of a model grading itself. With one key, both passes use it.
 // This is where the "research / red-team agents" run in CI on free models.
+//
+// Defaults are the latest THINKING models (May 2026): Gemini 3.5 Flash (thinking on by default)
+// and Groq's gpt-oss-120b reasoning model. Both are overridable via GEMINI_MODEL / GROQ_MODEL so
+// the next model bump needs no code change. CRITICAL: API failures THROW (they used to be
+// swallowed into ""), so a retired/blocked model surfaces loudly in the run instead of looking
+// like "the model had nothing to say" — that silent-fail is exactly what hid the 2.0-flash
+// retirement and zeroed out every research run.
+const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
+const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
 
 async function callGemini(prompt) {
   const key = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  const model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   const r = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(120000), // thinking models take longer than the old flash
   });
+  if (!r.ok) throw new Error(`gemini ${model} HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const j = await r.json();
-  return j?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  const text = j?.candidates?.[0]?.content?.parts?.map((p) => p?.text).filter(Boolean).join("") || "";
+  if (!text) throw new Error(`gemini ${model}: empty response (${JSON.stringify(j).slice(0, 200)})`);
+  return text;
 }
 
 async function callGroq(prompt) {
   const key = process.env.GROQ_API_KEY;
-  const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+  const model = process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL;
   const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+    // gpt-oss reasons by default; Groq returns the thinking in a separate `reasoning` field, so
+    // message.content stays the clean final answer. Don't send reasoning_effort — an unsupported
+    // value would 400 and reintroduce the silent-fail we're fixing.
     body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }] }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(120000),
   });
+  if (!r.ok) throw new Error(`groq ${model} HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const j = await r.json();
-  return j?.choices?.[0]?.message?.content || "";
+  const text = j?.choices?.[0]?.message?.content || "";
+  if (!text) throw new Error(`groq ${model}: empty response (${JSON.stringify(j).slice(0, 200)})`);
+  return text;
 }
 
 const PROVIDERS = {
-  gemini: { env: "GEMINI_API_KEY", label: () => `gemini:${process.env.GEMINI_MODEL || "gemini-2.0-flash"}`, call: callGemini },
-  groq: { env: "GROQ_API_KEY", label: () => `groq:${process.env.GROQ_MODEL || "llama-3.3-70b-versatile"}`, call: callGroq },
+  gemini: { env: "GEMINI_API_KEY", label: () => `gemini:${process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL}`, call: callGemini },
+  groq: { env: "GROQ_API_KEY", label: () => `groq:${process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL}`, call: callGroq },
 };
 
 // Providers with a key present, in analyst-first preference order.

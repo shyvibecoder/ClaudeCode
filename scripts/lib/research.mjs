@@ -53,23 +53,32 @@ export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst,
   // confident no-change) rather than silently shrugged. A scarcity is in exactly one of
   // proposals/considered, never both.
   const considered = [];
-  const note = (s, reason, edit) => considered.push({
+  const note = (s, reason, edit, error) => considered.push({
     id: s.id, scarcity: s.scarcity, reason,
     priced_in: edit?.priced_in ?? null, bind_window: edit?.bind_window ?? null,
     non_consensus: typeof edit?.non_consensus === "boolean" ? edit.non_consensus : null,
-    confidence: edit?.confidence ?? null, rationale: edit?.rationale || "",
+    confidence: edit?.confidence ?? null, rationale: edit?.rationale || "", error: error || "",
   });
   for (const s of scarcities) {
     const ev = evidence[s.id] || {};
-    // Deep-dive on every model in the pool (one call with a single analyst — unchanged).
+    // Deep-dive on every model in the pool. Capture the first error so a dead/retired model is
+    // reported with its reason instead of vanishing into an empty string (the old silent-fail trap).
     const raws = [];
-    for (const fn of pool) { try { raws.push(parseProposal(await fn(deepDivePrompt(s, ev, scorecard)))); } catch { raws.push(null); } }
-    let a = raws[0];
-    if (!a) { note(s, "no-response", null); continue; }
-    // Multi-model: require a strict majority on priced_in, else this call isn't robust → skip.
+    let firstErr = "";
+    for (const fn of pool) {
+      try { raws.push(parseProposal(await fn(deepDivePrompt(s, ev, scorecard)))); }
+      catch (e) { if (!firstErr) firstErr = e.message; raws.push(null); }
+    }
+    // Resilient: anchor on the first model that actually produced a parseable call, not raws[0].
+    // One dead provider must not zero out the whole run when another model answered.
+    const good = raws.filter(Boolean);
+    let a = good[0];
+    if (!a) { note(s, "no-response", null, firstErr); continue; }
+    // Multi-model: require a strict majority on priced_in across the models that DID answer, else
+    // this call isn't robust → skip. A lone surviving model falls through to single-model handling.
     let ensemble = null;
-    if (pool.length >= 2) {
-      ensemble = ensembleConsensus(raws);
+    if (good.length >= 2) {
+      ensemble = ensembleConsensus(good);
       if (!ensemble.priced_in) { note(s, "no-majority", a); continue; }
       a = { ...a, priced_in: ensemble.priced_in }; // the ensemble owns the direction
     }
@@ -115,6 +124,7 @@ function buildConsidered(considered) {
   return "\n## Considered but not proposed\n" + considered.map((c) => {
     const conf = c.confidence != null ? `, conf ${c.confidence}` : "";
     const would = c.priced_in ? ` [would say priced_in=${c.priced_in}]` : "";
-    return `- **${c.id}** — ${REASON_LABEL[c.reason] || c.reason}${conf}${would}` + (c.rationale ? `\n  - ${c.rationale}` : "");
+    const err = c.error ? ` — ⚠ ${c.error}` : "";
+    return `- **${c.id}** — ${REASON_LABEL[c.reason] || c.reason}${conf}${would}${err}` + (c.rationale ? `\n  - ${c.rationale}` : "");
   }).join("\n") + "\n";
 }

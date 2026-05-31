@@ -314,6 +314,12 @@ An optional LLM **"analyst + red-team"** summary of what materially changed (quo
 regime) and whether any trigger looks closer. With **two** free keys it runs **cross-model** — the
 analyst on one model, the red-team on another — so it isn't a model grading itself.
 
+It uses the **latest free thinking models** by default — Gemini 3.5 Flash and Groq's gpt-oss-120b — so
+the analysis actually reasons rather than pattern-matches. Both are overridable via the `GEMINI_MODEL`
+/ `GROQ_MODEL` repo variables when newer models ship, so a model retirement needs no code change. If a
+model is unreachable (retired/blocked/rate-limited) the run now says so **loudly** in its report
+instead of silently producing nothing.
+
 - **Automated:** set `GEMINI_API_KEY` (and optionally `GROQ_API_KEY`) as GitHub repo secrets; the daily
   scan writes the digest.
 - **In-browser, on demand:** add a Gemini key in Settings and click **✦ Generate digest in browser**.

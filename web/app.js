@@ -608,14 +608,15 @@ async function browserDigest() {
   const k = getKeys();
   if (!k.gemini) return setMsg("Add a Gemini key first (Groq is CORS-blocked in browsers — use it via the Actions scanner).");
   setMsg("Generating digest with Gemini…");
-  const model = "gemini-2.0-flash";
+  const model = "gemini-3.5-flash"; // latest thinking model (May 2026); 2.0-flash retired 2026-06-01
   const call = async (prompt) => {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${k.gemini}`, {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
     });
     if (!r.ok) throw new Error(`Gemini HTTP ${r.status}`);
-    return (await r.json())?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    // Thinking models can split the answer across multiple parts — join them all.
+    return ((await r.json())?.candidates?.[0]?.content?.parts || []).map((p) => p?.text).filter(Boolean).join("") || "";
   };
   try {
     const ctx = JSON.stringify({
