@@ -4,7 +4,12 @@ name: research
 on:
   schedule:
     - cron: "0 6 1 * *"   # 06:00 UTC on the 1st of each month
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      open_pr:
+        description: "Open a PR with the proposals (off = just write research/auto/ files to inspect)"
+        type: boolean
+        default: true
 permissions:
   contents: write
   pull-requests: write
@@ -16,12 +21,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - name: Run the research LLMs
+      - name: Run the research LLMs (deep evidence: news excerpts + SEC filing passages)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: node scripts/research-run.mjs
+          # SEC etiquette for the filing-passage fetches (set repo variable to "Name email").
+          SEC_USER_AGENT: ${{ vars.SEC_USER_AGENT }}
+        run: node scripts/research-run.mjs | tee "$GITHUB_STEP_SUMMARY"
       - name: Open PR with proposals (human approves)
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.open_pr }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -32,3 +40,10 @@ jobs:
           git push -u origin "$b"
           gh pr create --base main --head "$b" --title "Auto-research proposals $(date +%F)" \
             --body "LLM-proposed scarcity reassessments (bot-owned fields only; ARCHITECTURE §1). Review the dated report in research/auto/ and apply by hand if you agree. Prompt version is in each proposal." || echo "pr skipped"
+      - name: Upload research output (inspect without a PR)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-output
+          path: research/auto/
+          if-no-files-found: ignore
