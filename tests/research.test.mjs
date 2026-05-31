@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseProposal, sanitizeEdit, proposeScarcityEdits, ensembleConsensus } from "../scripts/lib/research.mjs";
+import { parseProposal, sanitizeEdit, proposeScarcityEdits, ensembleConsensus, dispersion } from "../scripts/lib/research.mjs";
 
 describe("research: ensemble consensus across independent models", () => {
   it("returns the strict-majority priced_in and the agreement ratio", () => {
@@ -79,6 +79,75 @@ describe("research: parse + F9 ownership enforcement", () => {
   it("rejects invalid enum values", () => {
     const e = sanitizeEdit({}, { priced_in: "ULTRA", bind_window: "2099", confidence: 0.9 });
     assert.ok(!("priced_in" in e) && !("bind_window" in e));
+  });
+});
+
+describe("research Phase 1: falsifiability — variant view + dated kill-criterion ride on the edit", () => {
+  it("keeps a non-empty variant_view (trimmed/capped) and drops a blank one", () => {
+    const e = sanitizeEdit({}, { priced_in: "high", confidence: 0.7, variant_view: "  Street models a glut; backlog says otherwise.  " });
+    assert.equal(e.variant_view, "Street models a glut; backlog says otherwise.");
+    const e2 = sanitizeEdit({}, { priced_in: "high", confidence: 0.7, variant_view: "   " });
+    assert.ok(!("variant_view" in e2));
+    const e3 = sanitizeEdit({}, { priced_in: "high", confidence: 0.7, variant_view: "x".repeat(900) });
+    assert.ok(e3.variant_view.length <= 600);
+  });
+  it("keeps a kill_criterion ONLY when it has both a condition and a sane by_date (YYYY or YYYY-MM[-DD])", () => {
+    const ok = sanitizeEdit({}, { priced_in: "high", confidence: 0.7, kill_criterion: { condition: "spot price falls 20%", by_date: "2027-06" } });
+    assert.deepEqual(ok.kill_criterion, { condition: "spot price falls 20%", by_date: "2027-06" });
+    const noDate = sanitizeEdit({}, { priced_in: "high", confidence: 0.7, kill_criterion: { condition: "x" } });
+    assert.ok(!("kill_criterion" in noDate));
+    const badDate = sanitizeEdit({}, { priced_in: "high", confidence: 0.7, kill_criterion: { condition: "x", by_date: "someday" } });
+    assert.ok(!("kill_criterion" in badDate));
+    const noCond = sanitizeEdit({}, { priced_in: "high", confidence: 0.7, kill_criterion: { by_date: "2027" } });
+    assert.ok(!("kill_criterion" in noCond));
+  });
+  it("keeps a steelmanned bear_case string (capped), drops non-strings", () => {
+    const e = sanitizeEdit({}, { priced_in: "high", confidence: 0.7, bear_case: "Supply responds by 2028; this de-rates first." });
+    assert.match(e.bear_case, /Supply responds/);
+    const e2 = sanitizeEdit({}, { priced_in: "high", confidence: 0.7, bear_case: { not: "a string" } });
+    assert.ok(!("bear_case" in e2));
+  });
+  it("never lets these descriptive fields smuggle in a thesis/ticker change (still F9)", () => {
+    const e = sanitizeEdit({ id: "x" }, { priced_in: "high", confidence: 0.7, variant_view: "v", thesis: "HACK", tickers: ["EVIL"] });
+    assert.ok(!("thesis" in e) && !("tickers" in e));
+  });
+});
+
+describe("research Phase 1: report renders variant view + kill-criterion on a proposal", () => {
+  const scarcities = [{ id: "copper", scarcity: "Copper", priced_in: "high", bind_window: "2030+", non_consensus: false, thesis: "..." }];
+  it("a proposed change shows its variant_view and dated kill-criterion in the report", async () => {
+    const analyst = async () => JSON.stringify({
+      priced_in: "crowded", confidence: 0.8, rationale: "de-rating",
+      variant_view: "Street prices a glut; grades say deficit holds.",
+      bear_case: "New mines land 2028.", kill_criterion: { condition: "LME stocks +30%", by_date: "2027-12" },
+    });
+    const { proposals, report } = await proposeScarcityEdits({ scarcities, analyst, redteam: async () => "", minConfidence: 0.6 });
+    assert.equal(proposals.length, 1);
+    assert.match(report, /Variant:/);
+    assert.match(report, /Street prices a glut/);
+    assert.match(report, /Wrong if:/);
+    assert.match(report, /LME stocks \+30%.*2027-12|2027-12/);
+  });
+});
+
+describe("research Phase 1: dispersion (conviction proxy across seat reads)", () => {
+  it("unanimous reads → tight, agreement 1", () => {
+    const d = dispersion(["high", "high", "high"]);
+    assert.equal(d.level, "tight"); assert.equal(d.agreement, 1);
+  });
+  it("strict majority → moderate", () => {
+    const d = dispersion(["high", "high", "crowded"]);
+    assert.equal(d.level, "moderate"); assert.equal(d.agreement, +(2 / 3).toFixed(2));
+  });
+  it("no majority → wide (low conviction)", () => {
+    const d = dispersion(["low", "high", "crowded"]);
+    assert.equal(d.level, "wide");
+  });
+  it("ignores invalid/missing reads and is safe on empty", () => {
+    const d = dispersion(["high", null, "ULTRA", undefined]);
+    assert.equal(d.level, "tight"); assert.equal(d.n, 1);
+    assert.equal(dispersion([]).level, "wide");
+    assert.equal(dispersion(null).n, 0);
   });
 });
 

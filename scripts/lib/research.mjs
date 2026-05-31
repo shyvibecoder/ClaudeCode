@@ -14,7 +14,21 @@ export function parseProposal(text) {
   try { return JSON.parse(m[0]); } catch { return null; }
 }
 
+const str = (v, max = 600) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+// A kill-criterion is only useful if it's FALSIFIABLE: a concrete condition AND a date by which it
+// resolves. Accept YYYY, YYYY-MM, or YYYY-MM-DD; reject vague "someday" text.
+const KILL_DATE = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+function cleanKill(k) {
+  if (!k || typeof k !== "object") return null;
+  const condition = str(k.condition, 300);
+  const by_date = typeof k.by_date === "string" && KILL_DATE.test(k.by_date.trim()) ? k.by_date.trim() : null;
+  return condition && by_date ? { condition, by_date } : null;
+}
+
 // Enforce F9 ownership in CODE: keep only bot-owned, validated fields. Never thesis/tickers/id.
+// Phase 1 also carries DESCRIPTIVE hedge-fund fields (variant_view / bear_case / kill_criterion):
+// these never mutate scarcities.json — they ride on the proposal for the human reviewer + the
+// report. Still F9: thesis/tickers/id/sector can never appear in the output.
 export function sanitizeEdit(scarcity, raw) {
   if (!raw || typeof raw !== "object") return null;
   const out = {};
@@ -22,8 +36,26 @@ export function sanitizeEdit(scarcity, raw) {
   if (BIND.includes(raw.bind_window)) out.bind_window = raw.bind_window;
   if (typeof raw.non_consensus === "boolean") out.non_consensus = raw.non_consensus;
   out.confidence = typeof raw.confidence === "number" ? Math.max(0, Math.min(1, raw.confidence)) : 0;
-  if (typeof raw.rationale === "string") out.rationale = raw.rationale.slice(0, 600);
+  const rationale = str(raw.rationale); if (rationale) out.rationale = rationale;
+  const variant = str(raw.variant_view); if (variant) out.variant_view = variant;
+  const bear = str(raw.bear_case); if (bear) out.bear_case = bear;
+  const kill = cleanKill(raw.kill_criterion); if (kill) out.kill_criterion = kill;
   return out;
+}
+
+// Dispersion across the committee seats' honest priced_in reads — a conviction proxy. Tight
+// agreement = higher conviction; wide = low conviction (the CIO must cut confidence / size small).
+// Reuses the strict-majority logic; invalid/missing reads are ignored. Soft signal, not truth.
+export function dispersion(reads) {
+  const { priced_in, agreement, n } = ensembleConsensus((reads || []).map((r) => ({ priced_in: r })));
+  const counts = {};
+  for (const r of (reads || [])) if (PRICED.includes(r)) counts[r] = (counts[r] || 0) + 1;
+  const distinct = Object.keys(counts).length;
+  const level = n === 0 ? "wide"
+    : distinct === 1 ? "tight"
+    : priced_in ? "moderate"        // a strict majority exists but isn't unanimous
+    : "wide";                       // no majority
+  return { level, agreement, n, reads: counts };
 }
 
 // Ensemble gate: a priced_in reassessment is only robust if INDEPENDENT models agree.
@@ -108,9 +140,17 @@ export function buildReport(proposals, scorecard, considered = []) {
     `Tilt hit-rate prior: ${scorecard?.hit_rate != null ? (scorecard.hit_rate * 100).toFixed(0) + "%" : "n/a"}. ` +
     `Human-approved only; bot-owned fields (priced_in/bind_window/non_consensus) per ARCHITECTURE §1.\n`;
   const body = proposals.length
-    ? "\n## Proposed\n" + proposals.map((p) =>
-        `- **${p.id}** → priced_in=${p.priced_in ?? "—"}, bind=${p.bind_window ?? "—"}, non_consensus=${p.non_consensus ?? "—"} (conf ${p.confidence}${p.ensemble ? `, ${Math.round(p.ensemble.agreement * 100)}% of ${p.ensemble.models} models agree` : ""})\n  - ${p.rationale || ""}`
-      ).join("\n") + "\n"
+    ? "\n## Proposed\n" + proposals.map((p) => {
+        const conv = p.dispersion ? `, ${p.dispersion.level} conviction` : "";
+        const lines = [
+          `- **${p.id}** → priced_in=${p.priced_in ?? "—"}, bind=${p.bind_window ?? "—"}, non_consensus=${p.non_consensus ?? "—"} (conf ${p.confidence}${p.ensemble ? `, ${Math.round(p.ensemble.agreement * 100)}% of ${p.ensemble.models} models agree` : ""}${conv})`,
+          `  - ${p.rationale || ""}`,
+        ];
+        if (p.variant_view) lines.push(`  - Variant: ${p.variant_view}`);
+        if (p.bear_case) lines.push(`  - Bear: ${p.bear_case}`);
+        if (p.kill_criterion) lines.push(`  - Wrong if: ${p.kill_criterion.condition} (by ${p.kill_criterion.by_date})`);
+        return lines.join("\n");
+      }).join("\n") + "\n"
     : "\nNo changes proposed this run.\n";
   return head + body + buildConsidered(considered);
 }
