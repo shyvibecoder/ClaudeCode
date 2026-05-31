@@ -38,7 +38,8 @@ import { discoverProxies, rankProxies, proxyGraph } from "./lib/edgar-fts.mjs";
 const OFFLINE = process.argv.includes("--offline");
 const BACKFILL = process.argv.includes("--backfill"); // one-time deep history seed into Supabase
 const read = (p) => JSON.parse(readFileSync(new URL(`../web/data/${p}`, import.meta.url)));
-const priceRows = []; // accumulated daily closes (ticker,d,close) → upserted to Supabase if configured
+const v23LatestBars = []; // today's bars for the non-universe V2.3 tickers, collected during the cross-check
+const V23_TICKERS = ["QQQ", "^VIX", "^VIX3M", "HYG", "QLD", "SGOV"]; // V2.3 cross-check + execution instruments
 
 const dataUrl = (p) => new URL(`../web/data/${p}`, import.meta.url);
 
@@ -61,16 +62,16 @@ async function seriesFor(ticker, { liveRange = "1y", years } = {}) {
 
 // V2.3 series: deep history from the DB (no on-demand 2y fetch when seeded) + today's latest REAL
 // bar via one light quote — which both makes the cross-check current and appends that bar to the DB
-// (these tickers aren't in the universe, so this is how the DB stays fed for them). Pushes to priceRows.
+// (these tickers aren't in the universe, so this is how the DB stays fed for them via the top-off).
 async function v23Series(ticker) {
   let s = null;
   try { s = await seriesFor(ticker, { liveRange: "2y", years: 6 }); } catch { /* may be unavailable */ }
   try {
-    const q = await fetchYahoo(ticker); // light 1y fetch; we use only its latest bar
+    const q = await fetchYahoo(ticker); // light fetch; latest bar makes the cross-check current
     if (q && q.price > 0 && q.asof) {
       if (!s) s = { ticker, dates: [], closes: [], src: "live" };
       if (s.dates[s.dates.length - 1] !== q.asof) { s.dates.push(q.asof); s.closes.push(q.price); }
-      priceRows.push({ ticker, d: q.asof, close: q.price, source: q.source || "yahoo" });
+      v23LatestBars.push({ ticker, d: q.asof, close: q.price, source: q.source || "yahoo" }); // fed to the single top-off
     }
   } catch { /* top-up best-effort */ }
   return s;
@@ -425,7 +426,7 @@ if (!OFFLINE) {
       ["QQQ", "^VIX", "^VIX3M", "HYG"].map((t) => v23Series(t)));
     // Keep the V2.3 execution instruments current in the DB too (not used by the cross-check itself).
     for (const t of ["QLD", "SGOV"]) {
-      try { const q = await fetchYahoo(t); if (q && q.price > 0 && q.asof) priceRows.push({ ticker: t, d: q.asof, close: q.price, source: q.source || "yahoo" }); } catch { /* ignore */ }
+      try { const q = await fetchYahoo(t); if (q && q.price > 0 && q.asof) v23LatestBars.push({ ticker: t, d: q.asof, close: q.price, source: q.source || "yahoo" }); } catch { /* ignore */ }
     }
     const stress = compositeStress({ vixCloses: vixS?.closes, vix3mCloses: vix3mS?.closes, hygCloses: hygS?.closes });
     v23 = v23State(qqqS?.closes || null, { compositeStress: stress });
@@ -529,30 +530,28 @@ const out = {
   errors,
 };
 
-// --- Persist price history to Supabase (phase 1) — only when configured (server-side, the
-// scanner's service_role key). No-ops silently otherwise so local/offline runs and forks are
-// unaffected. Robustness ("no synthetic data"): the deep --backfill reconciles every bar across
-// providers (Yahoo + Stooq + Tiingo) — median consensus, conflict/weekend/holiday/jump screening
-// (see history-reconcile.mjs). Daily increments persist each ticker's latest REAL bar (true
-// date from `asof`, cross-source-corroborated price). `--backfill` seeds FULL history once. ---
-const V23_TICKERS = ["QQQ", "^VIX", "^VIX3M", "HYG", "QLD", "SGOV"]; // V2.3 cross-check + execution instruments
+// --- THE SINGLE DAILY TOP-OFF: one place that writes to the DB. Everything else only READS.
+// Gathers today's real bars from three sources already computed above — (1) the universe quotes
+// (corroborated), (2) the non-universe V2.3 tickers' latest bars — plus, when --backfill is set,
+// (3) the one-time deep reconciled history — then de-dupes, runs the anti-synthetic guard, and
+// does ONE upsert. No-ops without the DB; non-fatal on error so the scan never breaks. ---
 if (!OFFLINE && supabaseConfigured()) {
   try {
-    // Daily increment: latest real bar per universe ticker (price already cross-source-corroborated,
-    // dated by its real last session via `asof`, not a synthesized "today").
+    const bars = [];
+    // (1) Universe: each ticker's latest real bar (real `asof` date, cross-source-corroborated price).
     for (const [t, q] of Object.entries(enriched)) {
       if (q && !q.error && q.price > 0 && q.source) {
         const corroborated = (q.corroboration?.sources?.length || 0) >= 2;
-        priceRows.push({ ticker: t, d: q.asof || TODAY, close: q.price, source: corroborated ? "consensus" : q.source });
+        bars.push({ ticker: t, d: q.asof || TODAY, close: q.price, source: corroborated ? "consensus" : q.source });
       }
     }
+    // (2) Non-universe V2.3 tickers (QQQ/^VIX/^VIX3M/HYG/QLD/SGOV) collected during the cross-check.
+    bars.push(...v23LatestBars);
+    // (3) One-time deep seed.
     if (BACKFILL) {
-      // FULL history for EVERY ticker (universe + the V2.3 set), reconciled across all providers.
       const all = [...new Set([...universe, ...V23_TICKERS])];
-      // Yahoo adjclose + Tiingo adjClose are the ADJUSTED corroborating pair (same basis → they
-      // agree). Stooq is kept as a KEYLESS FALLBACK so that when Yahoo/Tiingo are rate-limited we
-      // still get history instead of zero; when the adjusted pair is present, Stooq is simply
-      // outvoted (never corrupts). Daily-only guard + retry on each. Idempotent: safe to re-run.
+      // Yahoo adjclose + Tiingo adjClose are the ADJUSTED corroborating pair; Stooq is a KEYLESS
+      // fallback so rate-limiting can't zero a ticker (outvoted when the adjusted pair is present).
       console.log(`Backfill: deep ADJUSTED history for ${all.length} tickers — Yahoo(adj)+Stooq${process.env.TIINGO_API_KEY ? "+Tiingo(adj)" : ""}, cross-provider reconciled…`);
       const tally = { tickers: 0, kept: 0, conflict: 0, weekend: 0, holiday: 0, jump: 0, single: 0, corr: 0 };
       for (const t of all) {
@@ -563,22 +562,22 @@ if (!OFFLINE && supabaseConfigured()) {
         await new Promise((r) => setTimeout(r, 200));
         if (process.env.TIINGO_API_KEY) { try { sources.tiingo = await fetchTiingoHistory(t); } catch { /* skip */ } await new Promise((r) => setTimeout(r, 300)); }
         const { rows, stats } = reconcileSeries(t, sources);
-        for (const r of rows) priceRows.push({ ticker: r.ticker, d: r.d, close: r.close, source: r.source }); // drop the corroborated flag (encoded in source)
+        for (const r of rows) bars.push({ ticker: r.ticker, d: r.d, close: r.close, source: r.source });
         if (rows.length) { tally.tickers++; tally.kept += stats.kept; tally.conflict += stats.dropped_conflict; tally.weekend += stats.dropped_weekend; tally.holiday += stats.dropped_holiday_fill; tally.jump += stats.dropped_jump; tally.single += stats.single_source; tally.corr += stats.corroborated; }
         console.log(`  ${t}: ${stats.kept} bars (${stats.corroborated} corroborated, ${stats.single_source} single)${rows.length ? ` ${rows[0].d}..${rows[rows.length - 1].d}` : ""}${stats.dropped_conflict + stats.dropped_weekend + stats.dropped_holiday_fill + stats.dropped_jump ? ` · dropped ${stats.dropped_conflict}conf/${stats.dropped_weekend}wknd/${stats.dropped_holiday_fill}hol/${stats.dropped_jump}jump` : ""}`);
       }
       console.log(`Backfill reconciliation: ${tally.tickers} tickers, ${tally.kept} bars kept (${tally.corr} corroborated, ${tally.single} single-source); dropped ${tally.conflict} conflict / ${tally.weekend} weekend / ${tally.holiday} holiday-fill / ${tally.jump} jump.`);
     }
-    // Higher-trust bars first so de-dupe keeps them: consensus > single-source.
-    const ordered = priceRows.slice().sort((a, b) => (a.source === "consensus" ? 0 : 1) - (b.source === "consensus" ? 0 : 1));
+    // Higher-trust bars first so de-dupe keeps them (consensus > single-source); then guard + ONE upsert.
+    const ordered = bars.slice().sort((a, b) => (a.source === "consensus" ? 0 : 1) - (b.source === "consensus" ? 0 : 1));
     const dedup = dedupePriceRows(ordered);
-    const clean = sanitizePriceRows(dedup); // anti-synthetic guard: only real, trusted, valid prints
+    const clean = sanitizePriceRows(dedup);
     const dropped = dedup.length - clean.length;
     const { written, skipped } = await upsertPriceHistory(clean);
-    console.log(`Supabase: ${skipped ? "skipped" : `upserted ${written}`} price-history rows (${dedup.length} candidates${dropped ? `, ${dropped} dropped by anti-synthetic guard` : ""})`);
-  } catch (e) { errors.push(`supabase: ${e.message}`); console.error(`Supabase upsert failed (non-fatal): ${e.message}`); }
+    console.log(`Top-off: ${skipped ? "skipped" : `wrote ${written}`} bars → DB (${dedup.length} candidates${dropped ? `, ${dropped} dropped by anti-synthetic guard` : ""})`);
+  } catch (e) { errors.push(`top-off: ${e.message}`); console.error(`Top-off failed (non-fatal): ${e.message}`); }
 } else if (!OFFLINE) {
-  console.log("Supabase: not configured (set SUPABASE_URL + SUPABASE_SERVICE_KEY to persist history)");
+  console.log("Top-off: Supabase not configured (set SUPABASE_URL + SUPABASE_SERVICE_KEY to persist history)");
 }
 
 // Validate our own output before writing — never commit a malformed signals.json.
