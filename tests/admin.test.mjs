@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { configStatus, browserKeyStatus, REPO_SECRETS, REPO_VARIABLES } from "../scripts/lib/admin.mjs";
+import { configStatus, browserKeyStatus, committeeRoster, REPO_SECRETS, REPO_VARIABLES } from "../scripts/lib/admin.mjs";
 
 describe("admin: configuration status", () => {
   it("marks a secret configured when GitHub reports its name", () => {
@@ -22,5 +22,44 @@ describe("admin: configuration status", () => {
     assert.equal(b.find((x) => x.key === "gemini").configured, true);
     assert.equal(b.find((x) => x.key === "finnhub").configured, false);
     assert.equal(b.find((x) => x.store === "token").configured, true);
+  });
+});
+
+describe("admin: committeeRoster — which LLM plays each role (mirrors llm.mjs preference)", () => {
+  it("assigns seats in preference order: frontier first, then free tiers", () => {
+    const r = committeeRoster(["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY"]);
+    assert.equal(r.bull, "Anthropic");
+    assert.equal(r.bear, "OpenAI");
+    assert.equal(r.skeptic, "Groq");
+    assert.equal(r.cio, "Anthropic");        // the lead model chairs
+  });
+
+  it("CRO REQUIRES a frontier key (Anthropic/OpenAI) — null without one, even with 3 free models", () => {
+    const free = committeeRoster(["GROQ_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY"]);
+    assert.equal(free.cro, null);
+    assert.equal(free.croAvailable, false);
+    const paid = committeeRoster(["OPENAI_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY"]);
+    assert.equal(paid.cro, "OpenAI");          // the frontier model runs the risk review
+    assert.equal(paid.croAvailable, true);
+  });
+
+  it("degrades when fewer keys: roles reuse the lead model, and it's honest about that", () => {
+    const one = committeeRoster(["GROQ_API_KEY"]);
+    assert.equal(one.bull, "Groq");
+    assert.equal(one.bear, "Groq");            // reuses the only model
+    assert.equal(one.skeptic, "Groq");
+    assert.equal(one.cro, null);               // no frontier → no CRO
+    assert.equal(one.singleModel, true);
+  });
+
+  it("reports no providers cleanly when no LLM key is set", () => {
+    const none = committeeRoster([]);
+    assert.equal(none.providers.length, 0);
+    assert.equal(none.bull, null);
+    assert.equal(none.cro, null);
+  });
+
+  it("prefers Anthropic over OpenAI for the CRO when both are present", () => {
+    assert.equal(committeeRoster(["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]).cro, "Anthropic");
   });
 });

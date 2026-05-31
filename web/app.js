@@ -727,6 +727,7 @@ function renderAdminStatus(secrets, variables) {
   const bk = A.browserKeyStatus(getKeys(), !!localStorage.getItem(TOKEN_KEY));
   const row = (x) => `<tr><td>${x.configured ? "✅" : "⬜"}</td><td><code>${x.name || x.key}</code></td><td>${x.label}</td></tr>`;
   $("#adminStatus").innerHTML = `
+    ${rosterHtml(A.committeeRoster(secrets))}
     <table class="cfg"><tbody>
       <tr><th colspan="3">Repo secrets (scanner) — set in GitHub → Settings → Secrets</th></tr>
       ${st.secrets.map(row).join("")}
@@ -737,6 +738,23 @@ function renderAdminStatus(secrets, variables) {
     </tbody></table>
     <p class="modal-note">Secrets are write-only in GitHub (values never shown). Set/rotate them at
       <a href="https://github.com/${REPO}/settings/secrets/actions" target="_blank" rel="noopener">github.com/${REPO}/settings/secrets/actions</a>.</p>`;
+}
+
+// Live "which LLM does what role" panel — reads the same secrets GitHub reports, so it shows the
+// TRUE committee assignment for the next research run (and whether the CRO risk review is active).
+function rosterHtml(r) {
+  if (!r.providers.length) return `<p class="modal-note">⚠ <strong>No LLM key set</strong> — the research committee can't run. Add at least one of Groq / OpenRouter / Gemini (free) or Anthropic / OpenAI (frontier).</p>`;
+  const seat = (role, who, note) => `<tr><td><strong>${role}</strong></td><td>${who ? esc(who) : "—"}</td><td class="foot">${note}</td></tr>`;
+  const croCell = r.cro ? `${esc(r.cro)} <span style="color:var(--good)">✓ frontier</span>` : `<span style="color:var(--y27)">disabled</span>`;
+  return `<table class="cfg roster"><tbody>
+      <tr><th colspan="3">🏛 Research committee — who plays each role next run${r.singleModel ? " <span class='foot'>(single model: roles reuse it)</span>" : ""}</th></tr>
+      ${seat("Bull", r.bull, "makes the strongest variant-perception case")}
+      ${seat("Bear", r.bear, "tries to kill the thesis")}
+      ${seat("Skeptic", r.skeptic, "outside view / base rates")}
+      ${seat("CIO (chair)", r.cio, "weighs the debate, issues the call")}
+      <tr><td><strong>CRO review</strong></td><td>${croCell}</td><td class="foot">independent risk check — <strong>requires Anthropic/OpenAI</strong></td></tr>
+    </tbody></table>
+    ${r.cro ? "" : `<p class="modal-note">The <strong>Chief-Risk-Officer review</strong> (catches hallucinated tickers, momentum traps, illogical theses) is <strong>off</strong> — it needs a frontier key. Add <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> below to enable it.</p>`}`;
 }
 
 async function saveVariables() {
@@ -819,9 +837,22 @@ const HELP = {
     <p><strong>Defined-risk only — no naked options.</strong> Use long calls/puts, debit spreads, collars, covered calls, cash-secured puts. Caveats: realized vol is backward-looking and options also carry event/skew premia, so treat this as a sanity check, not a price oracle. Not advice.</p>` },
   digest: { title: "Agent digest", body: `
     <p>An optional LLM "analyst + red-team" summary of what changed (quotes, filings, news, regime). With <strong>two</strong> free keys it's <em>cross-model</em> — the analyst runs on one model and the red-team on another, so it isn't a model grading itself. Set keys in ⚙ Settings (in-browser, Gemini) or as GitHub repo secrets (automated scanner).</p>` },
-  research: { title: "Research proposals", body: `
-    <p>The monthly research engine runs the free LLMs (deep-dive → cross-model red-team → synthesis) over <strong>deep evidence</strong> — multi-angle news article excerpts + SEC filing passages + the live signals — and proposes reassessments of each scarcity's <strong>priced-in / bind-window / non-consensus</strong> fields. It only PROPOSES; you APPROVE.</p>
-    <p>Each card shows the <strong>before→after</strong> change, the LLM's rationale, sources, and confidence. <strong>Accept</strong> opens a GitHub <strong>pull request</strong> with just that change (needs a token in Settings → Admin: Contents + Pull requests read/write) — you merge it. <strong>Reject</strong> dismisses it. The bot can <em>only</em> ever touch those three fields — never the thesis or tickers (F9). Not advice.</p>` },
+  research: { title: "Research proposals — how the committee works", body: `
+    <p>The monthly research engine doesn't just ask one model. For each scarcity it runs an <strong>investment committee</strong> over <strong>deep evidence</strong> (multi-angle news excerpts + SEC filing passages + live price signals), then proposes reassessments of only three <strong>bot-owned</strong> fields — <strong>priced-in / bind-window / non-consensus</strong>. It only PROPOSES; you APPROVE.</p>
+    <p><strong>The committee (4 seats + 2 checks):</strong></p>
+    <ul>
+      <li><strong>Bull</strong> — the strongest variant-perception case: what does consensus underrate?</li>
+      <li><strong>Bear</strong> — tries to <em>kill</em> the thesis: supply response, demand air-pocket, already-priced.</li>
+      <li><strong>Skeptic</strong> — the outside view: how often do "structural shortage" stories just mean-revert?</li>
+      <li><strong>CIO (chair)</strong> — weighs the three seats + their <em>dispersion</em> (how much they disagree → lower confidence) and issues the final call with a variant view, a steelmanned bear case, and a dated <em>kill-criterion</em> (what would prove it wrong).</li>
+    </ul>
+    <p>Run on <strong>different model families</strong> (one per provider key), the seats give genuine cognitive diversity instead of one model agreeing with itself. The dashboard's <strong>Admin → Check configuration</strong> shows exactly <strong>which LLM is playing each role</strong> for the next run.</p>
+    <p><strong>Two trust layers catch the mistakes a non-expert can't:</strong></p>
+    <ul>
+      <li><strong>1 · Verification gate (automatic, in code):</strong> hard-blocks a call that rates a name "cheaper" while its basket is already up big (the momentum trap), or that's highly confident on near-zero evidence; flags a ticker in the thesis that isn't in the scarcity's coverage (a likely hallucination). No model needed — it always runs.</li>
+      <li><strong>2 · Chief-Risk-Officer (CRO) review:</strong> an independent <strong>frontier-model</strong> pass that does the fuzzy judgment code can't — is every ticker real and correctly attributed? does the thesis actually follow? is it chasing momentum? It can <strong>veto</strong> a proposal or dock its confidence. <strong>This requires an Anthropic or OpenAI key</strong> (a free model grading its own free-tier siblings isn't a real check), so without a frontier key the CRO is disabled and only layer 1 runs.</li>
+    </ul>
+    <p>Each card shows the <strong>before→after</strong> change, rationale, sources, confidence, any <strong>Checks</strong> flags, and the CRO note. <strong>Accept</strong> opens a GitHub <strong>pull request</strong> with just that change (needs a token in Settings → Admin: Contents + Pull requests read/write) — you merge it. <strong>Reject</strong> dismisses it. The bot can <em>only</em> ever touch those three fields — never the thesis or tickers (F9). Not advice.</p>` },
   datakeys: { title: "Market-data keys", body: `
     <p>Keyless <strong>Yahoo</strong> (rich history) + <strong>Stooq</strong> (EOD) always run. Adding free keys gives <em>independent cross-check sources</em> so a single bad or synthetic price can't pass silently — when sources disagree &gt;3% the quote is flagged.</p>
     <ul><li><strong>Finnhub</strong> (finnhub.io) — also CORS-friendly, powers the "Check live prices" button here.</li>

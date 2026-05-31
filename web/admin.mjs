@@ -49,3 +49,29 @@ export function configStatus(existingSecrets = [], existingVariables = []) {
 export function browserKeyStatus(keys = {}, hasToken = false) {
   return BROWSER_KEYS.map((b) => ({ ...b, configured: b.store === "token" ? !!hasToken : !!keys[b.key] }));
 }
+
+// Which LLM plays each committee role, derived from the secrets actually present. MUST mirror the
+// PREFERENCE order in scripts/lib/llm.mjs (frontier first) and the seat/CRO wiring in research-run.mjs
+// so the dashboard shows the TRUE live assignment. Frontier = Anthropic/OpenAI; the CRO risk review
+// runs ONLY on a frontier model (a free model grading its free-tier siblings isn't a real check).
+const LLM_PREFERENCE = [
+  { secret: "ANTHROPIC_API_KEY", label: "Anthropic", frontier: true },
+  { secret: "OPENAI_API_KEY", label: "OpenAI", frontier: true },
+  { secret: "GROQ_API_KEY", label: "Groq", frontier: false },
+  { secret: "OPENROUTER_API_KEY", label: "OpenRouter", frontier: false },
+  { secret: "GEMINI_API_KEY", label: "Gemini", frontier: false },
+];
+export function committeeRoster(existingSecrets = []) {
+  const ss = new Set(existingSecrets);
+  const present = LLM_PREFERENCE.filter((p) => ss.has(p.secret));
+  const providers = present.map((p) => p.label);
+  const at = (i) => providers[i] || providers[0] || null;   // degrade: reuse the lead model
+  const frontier = present.find((p) => p.frontier) || null; // Anthropic preferred over OpenAI
+  return {
+    providers,
+    bull: at(0), bear: at(1), skeptic: at(2), cio: providers[0] || null,
+    cro: frontier ? frontier.label : null,        // null unless a frontier key is set
+    croAvailable: !!frontier,
+    singleModel: providers.length === 1,
+  };
+}

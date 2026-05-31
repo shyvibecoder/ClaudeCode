@@ -98,11 +98,14 @@ console.log(`research evidence: ${totalExcerpts} news excerpts, ${totalPassages}
 // one key the role structure is preserved on a single model. This replaces the deep-dive→red-team
 // path in production. The provider pool is preference-ordered (Groq → OpenRouter → Gemini).
 const seats = providers.map((pr) => (p) => llm(p, pr));
-// Chief-Risk-Officer review (trust lever #3): an independent final pass on the STRONGEST available
-// model (providers[0] — frontier-first when a paid key is set) that does the fuzzy checks code
-// can't — hallucinated tickers, illogical thesis, momentum-chasing. Only runs on calls that would
-// be proposed. Skipped with a single provider (it'd just grade itself).
-const cro = providers.length >= 2 ? (p) => llm(p, providers[0]) : null;
+// Chief-Risk-Officer review (trust lever #3): an independent final pass that does the fuzzy checks
+// code can't — hallucinated tickers, illogical thesis, momentum-chasing. It runs ONLY on a FRONTIER
+// model (Anthropic/OpenAI): a free model grading its free-tier siblings isn't a real check, so
+// without a paid key the CRO is disabled (the deterministic gate + committee still run). When set,
+// the frontier provider is preference-first, so providers[0] is the frontier model.
+const frontier = providers.find((p) => p === "anthropic" || p === "openai") || null;
+const cro = frontier ? (p) => llm(p, frontier) : null;
+console.log(`committee: bull=${providers[0] || "—"} bear=${providers[1] || providers[0] || "—"} skeptic=${providers[2] || providers[0] || "—"} cio=${providers[0] || "—"} | CRO review: ${frontier || "DISABLED (needs Anthropic/OpenAI key)"}`);
 // Resilient: a transient LLM/network error must NOT fail the workflow — write a stub + exit 0
 // so the run is green and the evidence summary is still visible.
 try {
