@@ -101,7 +101,10 @@ const seats = providers.map((pr) => (p) => llm(p, pr));
 // Resilient: a transient LLM/network error must NOT fail the workflow — write a stub + exit 0
 // so the run is green and the evidence summary is still visible.
 try {
-  const { proposals, report } = await proposeScarcityEdits({ scarcities: scar.scarcities, evidence, seats, scorecard: sig.scorecard, minConfidence: 0.5 });
+  // concurrency=4: process 4 scarcities at once (seats within each also run in parallel). With the
+  // retry/backoff in llm.mjs this stays under the free-tier RPMs while cutting the ~50-min serial
+  // run to roughly a third. Lower it if a provider's free limit is tighter.
+  const { proposals, report } = await proposeScarcityEdits({ scarcities: scar.scarcities, evidence, seats, scorecard: sig.scorecard, minConfidence: 0.5, concurrency: 4 });
   write(`${date}.md`, report);
   write(`${date}.proposals.json`, JSON.stringify(proposals, null, 2) + "\n");
   // Also publish the latest proposals to the dashboard-readable data tier so the front-end

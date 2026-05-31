@@ -117,20 +117,40 @@ const changed = (s, e) =>
 // (ideally different) injected model fns; each returns an honest priced_read; the CIO weighs the
 // debate (with dispersion) into a final edit. Seat failures are captured loudly; the CIO still runs
 // on survivors. Returns null cio only when EVERY seat failed. Pure given injected seats → testable.
+// Bounded-concurrency map: run `fn` over `items` at most `limit` in flight, preserving input order.
+// Lets us parallelize without firing every call at once (which would 429 the free tiers). A worker
+// error rejects the whole map (callers wrap per-item where partial failure is acceptable).
+export async function mapLimit(items, limit, fn) {
+  const list = items || [];
+  const out = new Array(list.length);
+  let next = 0;
+  const n = Math.max(1, Math.min(limit, list.length || 1));
+  const workers = Array.from({ length: n }, async () => {
+    while (next < list.length) {
+      const i = next++;
+      out[i] = await fn(list[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
 export async function runCommittee({ scarcity, evidence = {}, seats, scorecard = null }) {
   const pool = (seats || []).filter(Boolean);
   const roles = ["bull", "bear", "skeptic"];
   const out = { seats: {}, dispersion: null, cio: null, errors: [] };
   const reads = [];
-  for (let i = 0; i < roles.length; i++) {
+  // Seats are INDEPENDENT → run them concurrently (≈1 round instead of 3). Each captures its own
+  // failure so one dead provider can't sink the others; the CIO then runs on whoever answered.
+  await Promise.all(roles.map(async (role, i) => {
     const fn = pool[i] || pool[0];           // degrade: reuse the only model if fewer keys
-    if (!fn) continue;
+    if (!fn) return;
     try {
-      const r = parseProposal(await fn(seatPrompt(roles[i], scarcity, evidence, scorecard))) || {};
-      out.seats[roles[i]] = r;
+      const r = parseProposal(await fn(seatPrompt(role, scarcity, evidence, scorecard))) || {};
+      out.seats[role] = r;
       if (PRICED.includes(r.priced_read)) reads.push(r.priced_read);
     } catch (e) { if (!out.errors.includes(e.message)) out.errors.push(e.message); }
-  }
+  }));
   if (!Object.keys(out.seats).length) return out;   // every seat failed → caller records no-response
   out.dispersion = dispersion(reads);
   const cioFn = pool[0];
@@ -139,7 +159,18 @@ export async function runCommittee({ scarcity, evidence = {}, seats, scorecard =
   return out;
 }
 
-export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst, analysts = null, redteam, seats = null, scorecard = null, minConfidence = 0.6 }) {
+// Build one "considered" audit entry (pure — so it's safe to create inside concurrent workers and
+// merge in order later, rather than pushing to a shared array mid-flight).
+function noteOf(s, reason, edit, error) {
+  return {
+    id: s.id, scarcity: s.scarcity, reason,
+    priced_in: edit?.priced_in ?? null, bind_window: edit?.bind_window ?? null,
+    non_consensus: typeof edit?.non_consensus === "boolean" ? edit.non_consensus : null,
+    confidence: edit?.confidence ?? null, rationale: edit?.rationale || "", error: error || "",
+  };
+}
+
+export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst, analysts = null, redteam, seats = null, scorecard = null, minConfidence = 0.6, concurrency = 4 }) {
   const pool = analysts && analysts.length ? analysts : (analyst ? [analyst] : []);
   const primary = pool[0];
   const proposals = [];
@@ -148,19 +179,15 @@ export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst,
   // confident no-change) rather than silently shrugged. A scarcity is in exactly one of
   // proposals/considered, never both.
   const considered = [];
-  const note = (s, reason, edit, error) => considered.push({
-    id: s.id, scarcity: s.scarcity, reason,
-    priced_in: edit?.priced_in ?? null, bind_window: edit?.bind_window ?? null,
-    non_consensus: typeof edit?.non_consensus === "boolean" ? edit.non_consensus : null,
-    confidence: edit?.confidence ?? null, rationale: edit?.rationale || "", error: error || "",
-  });
-  for (const s of scarcities) {
-    const ev = evidence[s.id] || {};
-    // COMMITTEE MODE (Phase 2): bull/bear/skeptic → CIO. Richer than the deep-dive→redteam path; the
-    // dispersion across seats rides on the proposal as a conviction signal.
-    if (seats && seats.length) {
+  const note = (s, reason, edit, error) => considered.push(noteOf(s, reason, edit, error));
+  // COMMITTEE MODE (Phase 2): bull/bear/skeptic → CIO per scarcity. Scarcities are INDEPENDENT, so we
+  // run them with bounded concurrency (default 4) for a big speedup, then merge results IN INPUT ORDER
+  // so the report is deterministic run-to-run. Each scarcity returns a tagged outcome.
+  if (seats && seats.length) {
+    const results = await mapLimit(scarcities, concurrency, async (s) => {
+      const ev = evidence[s.id] || {};
       const memo = await runCommittee({ scarcity: s, evidence: ev, seats, scorecard });
-      if (!memo.cio) { note(s, "no-response", null, memo.errors.join(" | ")); continue; }
+      if (!memo.cio) return { kind: "considered", entry: noteOf(s, "no-response", null, memo.errors.join(" | ")) };
       const edit = sanitizeEdit(s, memo.cio);
       if (memo.dispersion) edit.dispersion = { level: memo.dispersion.level, agreement: memo.dispersion.agreement };
       const tri = triangulate(ev);
@@ -172,22 +199,21 @@ export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst,
       if (vr.penalty) edit.confidence = +Math.max(0, edit.confidence - vr.penalty).toFixed(3);
       if (vr.hardFail) {
         const why = vr.flags.filter((f) => f.code === "price-contradiction" || f.code === "thin-evidence-overconfident");
-        considered.push({
-          id: s.id, scarcity: s.scarcity, reason: "verification-failed",
-          priced_in: edit.priced_in ?? null, bind_window: edit.bind_window ?? null,
-          non_consensus: typeof edit.non_consensus === "boolean" ? edit.non_consensus : null,
-          confidence: edit.confidence ?? null,
-          rationale: why.map((f) => `${f.code}: ${f.detail}`).join(" | "), error: "",
-        });
-        continue;
+        const entry = noteOf(s, "verification-failed", edit);
+        entry.rationale = why.map((f) => `${f.code}: ${f.detail}`).join(" | ");
+        return { kind: "considered", entry };
       }
       if (edit && edit.confidence >= minConfidence && changed(s, edit)) {
-        proposals.push({ id: s.id, ...edit, prompt_version: RESEARCH_PROMPT_VERSION });
-      } else {
-        note(s, !edit || !changed(s, edit) ? "no-change" : "below-confidence", edit);
+        return { kind: "proposal", entry: { id: s.id, ...edit, prompt_version: RESEARCH_PROMPT_VERSION } };
       }
-      continue;
-    }
+      return { kind: "considered", entry: noteOf(s, !edit || !changed(s, edit) ? "no-change" : "below-confidence", edit) };
+    });
+    for (const r of results) (r.kind === "proposal" ? proposals : considered).push(r.entry);
+    return { proposals, considered, report: buildReport(proposals, scorecard, considered) };
+  }
+
+  for (const s of scarcities) {
+    const ev = evidence[s.id] || {};
     // Deep-dive on every model in the pool. Capture ALL distinct errors so a dead/retired model is
     // reported with its reason instead of vanishing into an empty string (the old silent-fail trap).
     // Collecting every error (not just the first) is what reveals a SECOND provider also failing —
