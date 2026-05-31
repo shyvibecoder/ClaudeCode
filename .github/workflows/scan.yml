@@ -42,10 +42,11 @@ jobs:
           # Optional: set repo variable SEC_USER_AGENT to "Your Name you@email.com"
           # (SEC etiquette). A sensible default is used if unset.
           SEC_USER_AGENT: ${{ vars.SEC_USER_AGENT }}
-          # Optional: persist price history to Supabase. SUPABASE_URL can be a repo VARIABLE;
+          # Optional: persist price history to Supabase. SUPABASE_URL is normally a repo VARIABLE
+          # (it isn't secret) but we also accept it as a secret to avoid a confusing misconfig.
           # SUPABASE_SERVICE_KEY MUST be a repo SECRET (service_role key — server-side only).
           # When unset, the scanner runs exactly as before (history persistence skipped).
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         # `--backfill` (one-time deep history seed) when the manual run requests it.
         run: node scripts/scan.mjs ${{ (github.event_name == 'workflow_dispatch' && inputs.backfill) && '--backfill' || '' }}
