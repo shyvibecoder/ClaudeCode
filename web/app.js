@@ -659,7 +659,7 @@ const ghHeaders = (t) => ({ accept: "application/vnd.github+json", authorization
 // open a PR via the user's admin token — branch → commit the updated file → PR. The user merges.
 async function acceptProposal(id) {
   const RR = window.PuckResearch, t = adminToken();
-  if (!t) { alert("Open Settings → Admin and paste a GitHub token (Contents: read/write, Pull requests: read/write) first."); return; }
+  if (!t) { alert("Open Settings → Admin and paste a GitHub token first.\n\nClassic token: the 'repo' scope.\nFine-grained token: Contents + Pull requests, both read/write."); return; }
   const proposal = (DATA.proposals?.proposals || []).find((p) => p.id === id);
   if (!proposal) return;
   const updated = RR.applyAcceptance(DATA.scar, proposal);            // F9-guarded; new doc
@@ -691,7 +691,10 @@ async function acceptProposal(id) {
     window.open(pr.html_url, "_blank", "noopener");
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = "✓ Accept → open PR"; }
-    alert(`Could not open PR: ${e.message}. The token needs Contents: read/write + Pull requests: read/write on ${REPO}.`);
+    // A 404/403 on a public repo almost always means the token can READ but not WRITE — the most
+    // common cause is a classic token created without the 'repo' scope ticked. Say so plainly
+    // rather than naming fine-grained-only permissions that confuse classic-token users.
+    alert(`Could not open PR: ${e.message}.\n\nThis usually means the token can read but not write. Check it has write access to ${REPO}:\n• Classic token → the 'repo' scope must be ticked\n• Fine-grained token → Contents + Pull requests, both read/write`);
   }
 }
 
@@ -829,7 +832,7 @@ const HELP = {
   admin: { title: "Admin — credentials &amp; configuration", body: `
     <p>One place for every credential. Two tiers:</p>
     <ul><li><strong>Browser keys</strong> (Gemini/Groq/Finnhub/… + dispatch token) — stored only in this browser; power the in-browser digest, live price check, and Refresh.</li>
-    <li><strong>Repo configuration</strong> — what the automated GitHub Actions scanner uses. Paste an <strong>admin GitHub token</strong> (fine-grained: Secrets <em>read</em>, Variables <em>read/write</em>) and click <strong>Check configuration</strong> to see a ✅/⬜ status for every secret and variable.</li></ul>
+    <li><strong>Repo configuration + research review</strong> — paste an <strong>admin GitHub token</strong> to (a) <strong>Check configuration</strong> for a ✅/⬜ status of every secret and variable, and (b) <strong>Accept</strong> research proposals on the Research tab (opens a PR). Use a <em>classic</em> token with the <strong>repo</strong> scope, or a <em>fine-grained</em> token with <strong>Contents + Pull requests</strong> (read/write) and <strong>Secrets read / Variables read-write</strong>.</li></ul>
     <p><strong>Variables</strong> (alert email, SEC user-agent, Supabase URL) are non-secret — you can <strong>save them to GitHub right here</strong>. <strong>Secrets</strong> (API keys, SMTP password, Supabase service_role key) are write-only in GitHub for security and can't be set from a static page — the panel shows whether each is configured and links you to GitHub's secrets form to set/rotate them. Everything you paste stays in this browser.</p>
     <p><strong>Price-history DB (optional):</strong> create a Supabase project, run <code>db/schema.sql</code>, set <strong>SUPABASE_URL</strong> here + <strong>SUPABASE_SERVICE_KEY</strong> as a repo secret. The scanner then persists daily price history (used by backtests / metrics / the V2.3 cross-check). The DB is written only by the scanner, never the browser; skip it and nothing else changes.</p>` },
   metrics: { title: "Objective scorecard", body: `
