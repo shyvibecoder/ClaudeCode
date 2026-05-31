@@ -53,10 +53,13 @@ function renderResearch() {
   const box = $("#researchReview"); if (!box) return;
   const RR = window.PuckResearch;
   const doc = DATA.proposals;
-  if (!RR || !doc?.proposals?.length || !DATA.scar?.scarcities) { box.innerHTML = ""; return; }
-  const diffs = RR.proposalDiffs(doc.proposals, DATA.scar);
-  if (!diffs.length) { box.innerHTML = `<p class="foot">No open research proposals (last run ${esc(doc.generated || "—")} proposed no changes).</p>`; return; }
-  box.innerHTML = `<h3>Research proposals <button class="help" data-help="research">?</button> <span class="foot">— LLM-proposed reassessments (prompt v${esc(String(doc.prompt_version ?? "?"))}); you approve. Bot-owned fields only.</span></h3>` +
+  // The roster (which LLM played each role this run) is shown whenever it's published — even with
+  // zero proposals — so you can always see the committee make-up + whether the CRO check was active.
+  const roster = doc?.roster ? rosterHtml(doc.roster, `last run (${esc(doc.generated || "—")})`) : "";
+  if (!RR || !doc || !DATA.scar?.scarcities) { box.innerHTML = roster; return; }
+  const diffs = doc.proposals?.length ? RR.proposalDiffs(doc.proposals, DATA.scar) : [];
+  if (!diffs.length) { box.innerHTML = roster + `<p class="foot">No open research proposals (last run ${esc(doc.generated || "—")} proposed no changes).</p>`; return; }
+  box.innerHTML = roster + `<h3>Research proposals <button class="help" data-help="research">?</button> <span class="foot">— LLM-proposed reassessments (prompt v${esc(String(doc.prompt_version ?? "?"))}); you approve. Bot-owned fields only.</span></h3>` +
     diffs.map((d, i) => {
       const chg = d.changes.map((c) => `<code>${esc(c.field)}</code>: <span class="pi-${esc(String(c.from))}">${esc(String(c.from))}</span> → <strong class="pi-${esc(String(c.to))}">${esc(String(c.to))}</strong>`).join(" · ");
       const src = (d.sources || []).slice(0, 4).map((s) => esc(s)).join("; ");
@@ -742,12 +745,12 @@ function renderAdminStatus(secrets, variables) {
 
 // Live "which LLM does what role" panel — reads the same secrets GitHub reports, so it shows the
 // TRUE committee assignment for the next research run (and whether the CRO risk review is active).
-function rosterHtml(r) {
-  if (!r.providers.length) return `<p class="modal-note">⚠ <strong>No LLM key set</strong> — the research committee can't run. Add at least one of Groq / OpenRouter / Gemini (free) or Anthropic / OpenAI (frontier).</p>`;
+function rosterHtml(r, when = "next run") {
+  if (!r || !r.providers?.length) return `<p class="modal-note">⚠ <strong>No LLM key set</strong> — the research committee can't run. Add at least one of Groq / OpenRouter / Gemini (free) or Anthropic / OpenAI (frontier).</p>`;
   const seat = (role, who, note) => `<tr><td><strong>${role}</strong></td><td>${who ? esc(who) : "—"}</td><td class="foot">${note}</td></tr>`;
   const croCell = r.cro ? `${esc(r.cro)} <span style="color:var(--good)">✓ frontier</span>` : `<span style="color:var(--y27)">disabled</span>`;
   return `<table class="cfg roster"><tbody>
-      <tr><th colspan="3">🏛 Research committee — who plays each role next run${r.singleModel ? " <span class='foot'>(single model: roles reuse it)</span>" : ""}</th></tr>
+      <tr><th colspan="3">🏛 Research committee — who plays each role ${esc(when)}${r.singleModel ? " <span class='foot'>(single model: roles reuse it)</span>" : ""}</th></tr>
       ${seat("Bull", r.bull, "makes the strongest variant-perception case")}
       ${seat("Bear", r.bear, "tries to kill the thesis")}
       ${seat("Skeptic", r.skeptic, "outside view / base rates")}

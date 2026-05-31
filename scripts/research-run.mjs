@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { llm, availableProviders } from "./lib/llm.mjs";
 import { proposeScarcityEdits } from "./lib/research.mjs";
+import { committeeRoster } from "./lib/admin.mjs";
 import { newsForQuery } from "./lib/news.mjs";
 import { thesisQueries, extractExcerpt, dedupeByDomain, buildEvidenceBundle } from "./lib/research-sources.mjs";
 import { searchFilings, fetchFilingPassages } from "./lib/edgar.mjs";
@@ -105,7 +106,10 @@ const seats = providers.map((pr) => (p) => llm(p, pr));
 // the frontier provider is preference-first, so providers[0] is the frontier model.
 const frontier = providers.find((p) => p === "anthropic" || p === "openai") || null;
 const cro = frontier ? (p) => llm(p, frontier) : null;
-console.log(`committee: bull=${providers[0] || "—"} bear=${providers[1] || providers[0] || "—"} skeptic=${providers[2] || providers[0] || "—"} cio=${providers[0] || "—"} | CRO review: ${frontier || "DISABLED (needs Anthropic/OpenAI key)"}`);
+// The actual role→provider map for THIS run, published to the dashboard so the Research tab can show
+// which LLM played each role (no admin token needed). Mirrors the seat/CRO wiring above.
+const roster = committeeRoster(providers.map((p) => `${p.toUpperCase()}_API_KEY`));
+console.log(`committee: bull=${roster.bull || "—"} bear=${roster.bear || "—"} skeptic=${roster.skeptic || "—"} cio=${roster.cio || "—"} | CRO review: ${roster.cro || "DISABLED (needs Anthropic/OpenAI key)"}`);
 // Resilient: a transient LLM/network error must NOT fail the workflow — write a stub + exit 0
 // so the run is green and the evidence summary is still visible.
 try {
@@ -118,7 +122,7 @@ try {
   // Also publish the latest proposals to the dashboard-readable data tier so the front-end
   // Accept/Reject review can show them (the UI opens a PR via the user's token; F9-guarded).
   writeFileSync(new URL("../web/data/research-proposals.json", import.meta.url),
-    JSON.stringify({ schema_version: 1, generated: date, prompt_version: proposals[0]?.prompt_version ?? null, proposals }, null, 2) + "\n");
+    JSON.stringify({ schema_version: 1, generated: date, prompt_version: proposals[0]?.prompt_version ?? null, roster, proposals }, null, 2) + "\n");
   console.log(`research: ${proposals.length} proposal(s) written to research/auto/${date}.* + web/data/research-proposals.json`);
 } catch (e) {
   write(`${date}.md`, `# Auto-research ${date}\n\nEvidence gathered (${totalExcerpts} news excerpts, ${totalPassages} filing passages) but the LLM step errored: ${e.message}\n`);
