@@ -494,7 +494,7 @@ let scorecard = null;
 }
 
 // --- Optional free-LLM analyst + red-team digest ---
-let digest = "(no LLM key set — set GEMINI_API_KEY or GROQ_API_KEY in repo secrets to enable the agent digest)";
+let digest = "(no LLM key set — set GROQ_API_KEY, OPENROUTER_API_KEY, or GEMINI_API_KEY in repo secrets to enable the agent digest)";
 if (llmAvailable() && !OFFLINE) {
   try {
     const slim = scarcities.scarcities.map((s) => ({ id: s.id, scarcity: s.scarcity, bind: s.bind_window, priced: s.priced_in, tickers: s.tickers }));

@@ -12,7 +12,11 @@ The scanner lives in `.github/workflows/scan.yml` and runs on GitHub Actions (fr
 - It runs on a weekday schedule automatically once the repo is on GitHub.
 - **To run it on demand:** repo → **Actions** tab → **scan** → **Run workflow**.
 - It also watches **SEC EDGAR** filings (8-K/10-Q/etc) per holding and pulls **Google-News RSS** per scarcity — both free/keyless — and surfaces them on the dashboard's "Filings & news" tab.
-- **(Optional) LLM "analyst + red-team" digest:** create a free key at **aistudio.google.com** (Gemini) → add it in the repo as **Settings → Secrets and variables → Actions → New repository secret** named `GEMINI_API_KEY`. Groq is also supported via `GROQ_API_KEY` (free at **console.groq.com**). **Set BOTH keys to get a true cross-model adversarial review** — the analyst pass runs on Gemini and the red-team pass on Groq (one model attacks the other instead of grading itself). With one key, both passes use it; with none, the digest is skipped (everything else still runs).
+- **(Optional) LLM "analyst + red-team" digest + research:** add **any one** free key as a repo secret under **Settings → Secrets and variables → Actions** to enable it; add **two+** for a true cross-model adversarial review (the analyst runs on one model, the red-team on another). The engine prefers the highest-free-limit providers first (**Groq → OpenRouter → Gemini**), retries on rate-limits, and reports loudly if a model is unreachable.
+  - `GROQ_API_KEY` — **primary**, high free limit (gpt-oss-120b thinking model). Free at **console.groq.com**.
+  - `OPENROUTER_API_KEY` — **one key unlocks DeepSeek R1 / Qwen3 / GLM / Kimi**. Free at **openrouter.ai**; pick a model with the `OPENROUTER_MODEL` variable (e.g. `deepseek/deepseek-r1:free`, `qwen/qwen3-coder:free`, `z-ai/glm-4.5-air:free`).
+  - `GEMINI_API_KEY` — powers the **in-browser** digest too. Free at **aistudio.google.com** (note: tiny free RPM, so it's best as a 2nd opinion, not the primary).
+  - Model overrides (variables, optional): `GROQ_MODEL`, `OPENROUTER_MODEL`, `GEMINI_MODEL` — so a model retirement needs no code change. With no key, the digest/research are skipped (everything else still runs).
 
 ## 3. (Optional) Wire up the dashboard **Refresh** button
 The Refresh button can kick the scan on demand from the dashboard via GitHub's `repository_dispatch`. It needs a token, which is **never committed** — it lives only in your browser's `localStorage`.

@@ -7,8 +7,9 @@
 // they can be read-for-existence and used, but only WRITTEN via GitHub's UI/API with
 // libsodium encryption (not from this static page).
 export const REPO_SECRETS = [
-  { name: "GEMINI_API_KEY", label: "Gemini — LLM digest" },
-  { name: "GROQ_API_KEY", label: "Groq — red-team model" },
+  { name: "GROQ_API_KEY", label: "Groq — primary analyst (high free limit)" },
+  { name: "OPENROUTER_API_KEY", label: "OpenRouter — DeepSeek/Qwen/GLM/Kimi (one key)" },
+  { name: "GEMINI_API_KEY", label: "Gemini — LLM digest / 2nd opinion" },
   { name: "FINNHUB_API_KEY", label: "Finnhub — data cross-check" },
   { name: "TWELVE_DATA_API_KEY", label: "Twelve Data — data cross-check" },
   { name: "ALPHAVANTAGE_API_KEY", label: "Alpha Vantage — data cross-check" },
