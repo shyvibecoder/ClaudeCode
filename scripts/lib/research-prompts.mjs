@@ -54,6 +54,42 @@ export function deepDivePrompt(scarcity, evidence = {}, scorecard = null) {
   ].join("\n");
 }
 
+// --- Investment-committee seats (Phase 2) ---------------------------------------------------------
+// Each seat argues a distinct MANDATE but must also give an HONEST neutral priced_read (low|medium|
+// high|crowded) — the read, not the mandate, drives dispersion. Genuine cognitive diversity comes
+// from running these on different model families (see the provider pool).
+const SEAT = {
+  bull: "the BULL / long PM. Make the STRONGEST variant-perception case: what does consensus underrate, and what catalyst forces a re-rate? Be specific and evidence-grounded.",
+  bear: "the BEAR / short-seller. Try to KILL this thesis: supply response, demand air-pocket, substitution, policy reversal, or it's already-priced and will de-rate first. Attack, don't hedge.",
+  skeptic: "the BASE-RATE SKEPTIC. Take the OUTSIDE view: how often do 'structural shortage' stories actually mean-revert? Ignore the narrative; weigh reference-class frequency and disconfirming data.",
+};
+export function seatPrompt(role, scarcity, evidence = {}, scorecard = null) {
+  const ec = evidence?.evidence_count || {};
+  return [
+    `You are ${SEAT[role] || SEAT.bull}`,
+    `Scarcity under review: "${scarcity.scarcity}". ${OBJECTIVE}`,
+    calib(scorecard),
+    `Ground every claim in the EVIDENCE; cite news excerpts / SEC filing passages (ticker/form/date). The bundle has ${ec.news_with_excerpt || 0} excerpts and ${ec.filing_passages || 0} filing passages — read them, don't invent. Edge lives where filings, price, and news DISAGREE.`,
+    `Current state: ${JSON.stringify({ priced_in: scarcity.priced_in, bind_window: scarcity.bind_window, non_consensus: scarcity.non_consensus, thesis: scarcity.thesis })}`,
+    `EVIDENCE: ${JSON.stringify(evidence).slice(0, 24000)}`,
+    `Output STRICT JSON: {"priced_read":"low|medium|high|crowded","argument":"your mandate's case (<=120 words)","confidence":0..1}`,
+  ].join("\n");
+}
+
+// The CIO weighs the debate and issues the FINAL proposal. It must respect dispersion (wide → cut
+// confidence), and emit a variant view + steelmanned bear case + a falsifiable dated kill-criterion.
+export function cioPrompt(scarcity, seats, disp) {
+  return [
+    `You are the CIO chairing an investment committee on "${scarcity.scarcity}". ${OBJECTIVE}`,
+    `Weigh the three seats and issue the FINAL call. ${OWNERSHIP}`,
+    `Seat reads dispersion: ${disp?.level || "n/a"} (agreement ${disp?.agreement ?? "n/a"}). If dispersion is wide, the committee disagrees — LOWER confidence and consider leaving fields unchanged.`,
+    `BULL: ${JSON.stringify(seats.bull || {})}`,
+    `BEAR: ${JSON.stringify(seats.bear || {})}`,
+    `SKEPTIC: ${JSON.stringify(seats.skeptic || {})}`,
+    `Output STRICT JSON including variant_view, bear_case (steelman the BEAR), and a falsifiable kill_criterion {condition, by_date as YYYY or YYYY-MM}: {"priced_in":...,"bind_window":...,"non_consensus":...,"confidence":0..1,"rationale":"...","sources":["..."],"variant_view":"...","bear_case":"...","kill_criterion":{"condition":"...","by_date":"YYYY-MM"}}`,
+  ].join("\n");
+}
+
 export function redTeamPrompt(scarcity, proposal) {
   return [
     `You are a skeptical red-team (a different model than the analyst). Attack this proposed reassessment of "${scarcity.scarcity}".`,

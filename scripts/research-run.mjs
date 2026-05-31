@@ -93,16 +93,15 @@ const totalPassages = Object.values(evidence).reduce((a, e) => a + (e.evidence_c
 const totalExcerpts = Object.values(evidence).reduce((a, e) => a + (e.evidence_count?.news_with_excerpt || 0), 0);
 console.log(`research evidence: ${totalExcerpts} news excerpts, ${totalPassages} filing passages across ${scar.scarcities.length} scarcities`);
 
-const analyst = (p) => llm(p, providers[0]);
-const redteam = (p) => llm(p, providers[1] || providers[0]); // cross-model when 2 keys
-// Ensemble the deep-dive across every available model so a priced_in call needs a strict
-// majority to surface (no single-model hallucination). With one key, falls back to the
-// single analyst (unchanged behavior).
-const analysts = providers.length >= 2 ? providers.map((pr) => (p) => llm(p, pr)) : null;
+// Committee mode (Phase 2): each available provider staffs a seat (bull/bear/skeptic → CIO), so
+// with 2-3 free keys the seats run on DIFFERENT model families (genuine cognitive diversity); with
+// one key the role structure is preserved on a single model. This replaces the deep-dive→red-team
+// path in production. The provider pool is preference-ordered (Groq → OpenRouter → Gemini).
+const seats = providers.map((pr) => (p) => llm(p, pr));
 // Resilient: a transient LLM/network error must NOT fail the workflow — write a stub + exit 0
 // so the run is green and the evidence summary is still visible.
 try {
-  const { proposals, report } = await proposeScarcityEdits({ scarcities: scar.scarcities, evidence, analyst, analysts, redteam, scorecard: sig.scorecard, minConfidence: 0.5 });
+  const { proposals, report } = await proposeScarcityEdits({ scarcities: scar.scarcities, evidence, seats, scorecard: sig.scorecard, minConfidence: 0.5 });
   write(`${date}.md`, report);
   write(`${date}.proposals.json`, JSON.stringify(proposals, null, 2) + "\n");
   // Also publish the latest proposals to the dashboard-readable data tier so the front-end

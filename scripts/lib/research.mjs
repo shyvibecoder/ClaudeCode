@@ -2,7 +2,7 @@
 // gated and sanitized so the bot can ONLY propose F9-owned fields with enough
 // confidence. LLM functions are INJECTED, so the logic is fully unit-testable without
 // network/keys (in prod they're bound to the free providers).
-import { deepDivePrompt, redTeamPrompt, synthesisPrompt, RESEARCH_PROMPT_VERSION } from "./research-prompts.mjs";
+import { deepDivePrompt, redTeamPrompt, synthesisPrompt, seatPrompt, cioPrompt, RESEARCH_PROMPT_VERSION } from "./research-prompts.mjs";
 
 const PRICED = ["low", "medium", "high", "crowded"];
 const BIND = ["now", "2027", "2028-29", "2030+", "physics-floor"];
@@ -76,7 +76,33 @@ const changed = (s, e) =>
   (e.bind_window && e.bind_window !== s.bind_window) ||
   (typeof e.non_consensus === "boolean" && e.non_consensus !== s.non_consensus);
 
-export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst, analysts = null, redteam, scorecard = null, minConfidence = 0.6 }) {
+// Phase 2: run a synthetic investment committee for ONE scarcity. bull/bear/skeptic seats run on
+// (ideally different) injected model fns; each returns an honest priced_read; the CIO weighs the
+// debate (with dispersion) into a final edit. Seat failures are captured loudly; the CIO still runs
+// on survivors. Returns null cio only when EVERY seat failed. Pure given injected seats → testable.
+export async function runCommittee({ scarcity, evidence = {}, seats, scorecard = null }) {
+  const pool = (seats || []).filter(Boolean);
+  const roles = ["bull", "bear", "skeptic"];
+  const out = { seats: {}, dispersion: null, cio: null, errors: [] };
+  const reads = [];
+  for (let i = 0; i < roles.length; i++) {
+    const fn = pool[i] || pool[0];           // degrade: reuse the only model if fewer keys
+    if (!fn) continue;
+    try {
+      const r = parseProposal(await fn(seatPrompt(roles[i], scarcity, evidence, scorecard))) || {};
+      out.seats[roles[i]] = r;
+      if (PRICED.includes(r.priced_read)) reads.push(r.priced_read);
+    } catch (e) { if (!out.errors.includes(e.message)) out.errors.push(e.message); }
+  }
+  if (!Object.keys(out.seats).length) return out;   // every seat failed → caller records no-response
+  out.dispersion = dispersion(reads);
+  const cioFn = pool[0];
+  try { out.cio = parseProposal(await cioFn(cioPrompt(scarcity, out.seats, out.dispersion))) || null; }
+  catch (e) { if (!out.errors.includes(e.message)) out.errors.push(e.message); }
+  return out;
+}
+
+export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst, analysts = null, redteam, seats = null, scorecard = null, minConfidence = 0.6 }) {
   const pool = analysts && analysts.length ? analysts : (analyst ? [analyst] : []);
   const primary = pool[0];
   const proposals = [];
@@ -93,6 +119,20 @@ export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst,
   });
   for (const s of scarcities) {
     const ev = evidence[s.id] || {};
+    // COMMITTEE MODE (Phase 2): bull/bear/skeptic → CIO. Richer than the deep-dive→redteam path; the
+    // dispersion across seats rides on the proposal as a conviction signal.
+    if (seats && seats.length) {
+      const memo = await runCommittee({ scarcity: s, evidence: ev, seats, scorecard });
+      if (!memo.cio) { note(s, "no-response", null, memo.errors.join(" | ")); continue; }
+      const edit = sanitizeEdit(s, memo.cio);
+      if (memo.dispersion) edit.dispersion = { level: memo.dispersion.level, agreement: memo.dispersion.agreement };
+      if (edit && edit.confidence >= minConfidence && changed(s, edit)) {
+        proposals.push({ id: s.id, ...edit, prompt_version: RESEARCH_PROMPT_VERSION });
+      } else {
+        note(s, !edit || !changed(s, edit) ? "no-change" : "below-confidence", edit);
+      }
+      continue;
+    }
     // Deep-dive on every model in the pool. Capture ALL distinct errors so a dead/retired model is
     // reported with its reason instead of vanishing into an empty string (the old silent-fail trap).
     // Collecting every error (not just the first) is what reveals a SECOND provider also failing —
