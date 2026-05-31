@@ -81,6 +81,38 @@ describe("research-committee: runCommittee (bull/bear/skeptic → CIO)", () => {
   });
 });
 
+describe("research-committee: deterministic verification gate (trust layer)", () => {
+  // optical-style momentum trap: crowded thesis, basket up huge, model says "cheaper" → hard-fail.
+  const optical = { id: "optical", scarcity: "Optical", priced_in: "crowded", bind_window: "2027", non_consensus: false, thesis: "ran 5x", tickers: ["COHR", "LITE"] };
+  it("HARD-fails the momentum trap (cheaper rating on an extended basket) → not proposed, audit-trailed", async () => {
+    const ev = { optical: { quotes: { COHR: { ytd: 0.86, vs200: 0.3 }, LITE: { ytd: 1.21, vs200: 0.4 } }, evidence_count: { news_with_excerpt: 4, filing_passages: 2 } } };
+    const seats = [
+      seatFn({ bull: '{"priced_read":"medium","confidence":0.7}', cio: '{"priced_in":"medium","confidence":0.7,"rationale":"inflection","variant_view":"supply breakthrough"}' }),
+      seatFn({ bear: '{"priced_read":"medium","confidence":0.6}' }),
+      seatFn({ skeptic: '{"priced_read":"medium","confidence":0.6}' }),
+    ];
+    const { proposals, considered } = await proposeScarcityEdits({ scarcities: [optical], evidence: ev, seats, minConfidence: 0.5 });
+    assert.equal(proposals.length, 0);
+    assert.equal(considered[0].reason, "verification-failed");
+    assert.match(considered[0].rationale + (considered[0].error || ""), /price-contradiction|momentum/i);
+  });
+
+  it("soft flags (bind-acceleration) dock confidence and ride on the proposal + report", async () => {
+    const gal = { id: "gallium", scarcity: "Gallium", priced_in: "low", bind_window: "2028-29", non_consensus: true, thesis: "x", tickers: ["WOLF"] };
+    const ev = { gallium: { quotes: { WOLF: { ytd: 0.1, vs200: 0.0 } }, evidence_count: { news_with_excerpt: 3, filing_passages: 1 } } };
+    const seats = [
+      seatFn({ bull: '{"priced_read":"low","confidence":0.66}', cio: '{"priced_in":"low","bind_window":"now","confidence":0.66,"rationale":"binds now","variant_view":"WOLF gains"}' }),
+      seatFn({ bear: '{"priced_read":"low","confidence":0.6}' }),
+      seatFn({ skeptic: '{"priced_read":"low","confidence":0.6}' }),
+    ];
+    const { proposals, report } = await proposeScarcityEdits({ scarcities: [gal], evidence: ev, seats, minConfidence: 0.5 });
+    assert.equal(proposals.length, 1);
+    assert.ok(proposals[0].confidence < 0.66);                 // penalty applied
+    assert.ok(proposals[0].verify_flags.some((f) => f.code === "bind-acceleration"));
+    assert.match(report, /Checks:|bind-acceleration/);
+  });
+});
+
 describe("research-committee: proposeScarcityEdits in committee mode", () => {
   const scarcities = [copper];
   it("uses the committee when 'seats' are provided and proposes the CIO call with dispersion attached", async () => {
@@ -89,7 +121,9 @@ describe("research-committee: proposeScarcityEdits in committee mode", () => {
       seatFn({ bear: '{"priced_read":"crowded","confidence":0.7}' }),
       seatFn({ skeptic: '{"priced_read":"crowded","confidence":0.6}' }),
     ];
-    const { proposals, report } = await proposeScarcityEdits({ scarcities, seats, minConfidence: 0.6 });
+    // High confidence needs real evidence to clear the verification gate (else thin-evidence-overconfident).
+    const ev = { copper: { quotes: {}, evidence_count: { news_with_excerpt: 4, filing_passages: 3 } } };
+    const { proposals, report } = await proposeScarcityEdits({ scarcities, evidence: ev, seats, minConfidence: 0.6 });
     assert.equal(proposals.length, 1);
     assert.equal(proposals[0].priced_in, "crowded");
     assert.equal(proposals[0].dispersion.level, "tight");

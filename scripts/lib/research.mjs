@@ -3,6 +3,7 @@
 // confidence. LLM functions are INJECTED, so the logic is fully unit-testable without
 // network/keys (in prod they're bound to the free providers).
 import { deepDivePrompt, redTeamPrompt, synthesisPrompt, seatPrompt, cioPrompt, RESEARCH_PROMPT_VERSION } from "./research-prompts.mjs";
+import { verifyProposal } from "./research-verify.mjs";
 
 const PRICED = ["low", "medium", "high", "crowded"];
 const BIND = ["now", "2027", "2028-29", "2030+", "physics-floor"];
@@ -164,6 +165,22 @@ export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst,
       if (memo.dispersion) edit.dispersion = { level: memo.dispersion.level, agreement: memo.dispersion.agreement };
       const tri = triangulate(ev);
       if (tri.divergence) edit.divergence_flag = tri.divergence;
+      // DETERMINISTIC VERIFICATION GATE (trust layer): hard-fail kills momentum traps + unsupported
+      // overconfidence outright; soft flags dock confidence and ride on the proposal for the report.
+      const vr = verifyProposal(s, edit, ev);
+      if (vr.flags.length) edit.verify_flags = vr.flags;
+      if (vr.penalty) edit.confidence = +Math.max(0, edit.confidence - vr.penalty).toFixed(3);
+      if (vr.hardFail) {
+        const why = vr.flags.filter((f) => f.code === "price-contradiction" || f.code === "thin-evidence-overconfident");
+        considered.push({
+          id: s.id, scarcity: s.scarcity, reason: "verification-failed",
+          priced_in: edit.priced_in ?? null, bind_window: edit.bind_window ?? null,
+          non_consensus: typeof edit.non_consensus === "boolean" ? edit.non_consensus : null,
+          confidence: edit.confidence ?? null,
+          rationale: why.map((f) => `${f.code}: ${f.detail}`).join(" | "), error: "",
+        });
+        continue;
+      }
       if (edit && edit.confidence >= minConfidence && changed(s, edit)) {
         proposals.push({ id: s.id, ...edit, prompt_version: RESEARCH_PROMPT_VERSION });
       } else {
@@ -227,6 +244,7 @@ export function buildReport(proposals, scorecard, considered = []) {
         if (p.variant_view) lines.push(`  - Variant: ${p.variant_view}`);
         if (p.bear_case) lines.push(`  - Bear: ${p.bear_case}`);
         if (p.divergence_flag) lines.push(`  - Divergence: ${p.divergence_flag}`);
+        if (p.verify_flags?.length) lines.push(`  - Checks: ${p.verify_flags.map((f) => f.code).join(", ")}`);
         if (p.kill_criterion) lines.push(`  - Wrong if: ${p.kill_criterion.condition} (by ${p.kill_criterion.by_date})`);
         return lines.join("\n");
       }).join("\n") + "\n"
@@ -239,6 +257,7 @@ export function buildReport(proposals, scorecard, considered = []) {
 const REASON_LABEL = {
   "no-change": "confident no-change", "below-confidence": "below confidence bar",
   "no-majority": "models split (no priced_in majority)", "no-response": "no usable model output",
+  "verification-failed": "❌ failed an automated check (likely momentum trap / unsupported)",
 };
 function buildConsidered(considered) {
   if (!considered?.length) return "";
