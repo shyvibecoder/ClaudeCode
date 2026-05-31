@@ -19,6 +19,10 @@
 //        VARIANT VIEW (what we believe that consensus doesn't + the catalyst that forces the market
 //        to agree), a steelmanned BEAR CASE, and a dated, falsifiable KILL-CRITERION ("wrong if X by
 //        Y"). Confidence must respect dispersion across seats. See docs/RESEARCH-DESIGN.md.
+// Circular-safe: triangulate is a hoisted export function in research.mjs, only called at runtime
+// inside seatPrompt — so the cycle resolves cleanly (no use at module-eval time).
+import { triangulate } from "./research.mjs";
+
 export const RESEARCH_PROMPT_VERSION = 4;
 
 const OBJECTIVE = "Objective: maximize 10-year return while keeping max drawdown < 35% (best Calmar/Sortino).";
@@ -70,6 +74,7 @@ export function seatPrompt(role, scarcity, evidence = {}, scorecard = null) {
     `Scarcity under review: "${scarcity.scarcity}". ${OBJECTIVE}`,
     calib(scorecard),
     `Ground every claim in the EVIDENCE; cite news excerpts / SEC filing passages (ticker/form/date). The bundle has ${ec.news_with_excerpt || 0} excerpts and ${ec.filing_passages || 0} filing passages — read them, don't invent. Edge lives where filings, price, and news DISAGREE.`,
+    `TRIANGULATION: ${triangulate(evidence).note}`,
     `Current state: ${JSON.stringify({ priced_in: scarcity.priced_in, bind_window: scarcity.bind_window, non_consensus: scarcity.non_consensus, thesis: scarcity.thesis })}`,
     `EVIDENCE: ${JSON.stringify(evidence).slice(0, 24000)}`,
     `Output STRICT JSON: {"priced_read":"low|medium|high|crowded","argument":"your mandate's case (<=120 words)","confidence":0..1}`,

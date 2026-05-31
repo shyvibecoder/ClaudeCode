@@ -93,6 +93,20 @@ describe("research-committee: proposeScarcityEdits in committee mode", () => {
     assert.match(report, /Wrong if: stocks \+30%/);
   });
 
+  it("attaches a fundamentals-vs-price divergence flag from triangulation and shows it in the report", async () => {
+    const loved = [{ id: "copper", scarcity: "Copper", priced_in: "crowded", bind_window: "2030+", non_consensus: false, thesis: "x" }];
+    const ev = { copper: { id: "copper", priced_in: "crowded", signals: { de_rating: "de-rating" }, quotes: { FCX: { ytd: -0.2, vs200: -0.1, mom_1m: -0.05 } }, filings: [{ passages: ["backlog"] }], evidence_count: { filings: 1, filing_passages: 1, news: 0, news_with_excerpt: 0 } } };
+    const seats = [
+      seatFn({ bull: '{"priced_read":"high","confidence":0.7}', cio: '{"priced_in":"high","confidence":0.7,"rationale":"tape rolling over"}' }),
+      seatFn({ bear: '{"priced_read":"high","confidence":0.7}' }),
+      seatFn({ skeptic: '{"priced_read":"high","confidence":0.7}' }),
+    ];
+    const { proposals, report } = await proposeScarcityEdits({ scarcities: loved, evidence: ev, seats, minConfidence: 0.6 });
+    assert.equal(proposals.length, 1);
+    assert.equal(proposals[0].divergence_flag, "fundamentals-vs-price");
+    assert.match(report, /Divergence: fundamentals-vs-price/);
+  });
+
   it("a wide-dispersion committee that lands below threshold is recorded as considered (auditable)", async () => {
     const seats = [
       seatFn({ bull: '{"priced_read":"crowded","confidence":0.5}', cio: '{"priced_in":"crowded","confidence":0.45,"rationale":"split"}' }),

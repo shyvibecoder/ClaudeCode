@@ -1,6 +1,6 @@
 # Research engine — premier hedge-fund-grade design
 
-Status: in build (TDD, 3 phases). This documents the *why* and the data contracts so the
+Status: **all 3 phases shipped** (TDD, Red→Green→Verify). This documents the *why* and the data contracts so the
 implementation and the prompts stay honest. The bot still only ever PROPOSES bot-owned fields
 (`priced_in` / `bind_window` / `non_consensus`); a human approves via PR (F9, ARCHITECTURE §1).
 
@@ -98,14 +98,19 @@ extended over time to mark a call **invalidated** if its kill-criterion triggers
 No new infra in the first cut — the criterion is recorded now so it can be graded later; "prompts
 get better and better" by being judged on pre-registered, falsifiable claims.
 
-## Build phases (each: pure logic + tests first, then wire in, then commit)
+## Build phases (each: pure logic + tests first, then wire in, then commit) — ALL SHIPPED
 
-1. **Falsifiability + dispersion + variant view** — extend the proposal/report schema and prompts so
-   every call carries a variant view, a dated kill-criterion, and a dispersion read. (~60% of value.)
-2. **Adversarial committee** — `runCommittee` with bull/bear/skeptic/CIO seats across model families,
-   replacing the deep-dive→redteam→synthesis path. Report renders the debate.
-3. **Evidence triangulation** — typed evidence lanes + divergence detection feeding the seats and
-   the report.
+1. ✅ **Falsifiability + dispersion + variant view** — `sanitizeEdit` carries variant_view / bear_case /
+   dated kill_criterion; `dispersion()` conviction proxy; prompts → v4; report renders them.
+2. ✅ **Adversarial committee** — `runCommittee` (bull/bear/skeptic → CIO) across model families;
+   `proposeScarcityEdits` committee mode; `research-run.mjs` staffs seats from the provider pool.
+3. ✅ **Evidence triangulation** — `triangulate()` types the lanes + flags fundamentals-vs-price
+   divergence; injected into the seat prompts and surfaced on the proposal + report.
+
+Honest limitation carried forward: filing/news *sentiment* is judged by the LLM seats, not a
+mechanical classifier — triangulation's deterministic part is the tape lean + the loved-but-de-rating
+divergence flag. Dispersion is a soft conviction proxy (a seat's mandate can bias even its neutral
+read), so the raw seat reads are shown for human judgement.
 
 Versioning: `RESEARCH_PROMPT_VERSION` bumps to 4 so the scorecard can tell committee-era calls from
 v3, and we can verify newer prompts are better-calibrated (not just different).

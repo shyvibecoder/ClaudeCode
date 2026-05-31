@@ -7,6 +7,42 @@ import { deepDivePrompt, redTeamPrompt, synthesisPrompt, seatPrompt, cioPrompt, 
 const PRICED = ["low", "medium", "high", "crowded"];
 const BIND = ["now", "2027", "2028-29", "2030+", "physics-floor"];
 
+// Phase 3: evidence triangulation. Edge lives where INDEPENDENT sources disagree. We can derive the
+// TAPE lean mechanically (de-rating flag + price momentum); filing/news *sentiment* is left to the
+// LLM seats (we don't fake an NLP classifier). The high-signal mechanical flag is
+// "fundamentals-vs-price divergence": a thesis the market already loves (high/crowded) whose tape is
+// de-rating — often where the real call is. Pure + tested; the note is injected into the seat prompts.
+export function triangulate(evidence) {
+  const ev = evidence || {};
+  const ec = ev.evidence_count || {};
+  const q = Object.values(ev.quotes || {}).filter(Boolean);
+  const lanes = {
+    filings: ec.filing_passages || 0,
+    news: ec.news_with_excerpt || ec.news || 0,
+    tape: q.length > 0 || !!ev.signals,
+    positioning: ev.signals?.forced_flow != null || ev.signals?.opportunity != null,
+  };
+  // Mechanical tape lean: de-rating flag and/or broadly negative momentum → "weak"; firmly positive
+  // → "strong"; otherwise neutral.
+  const avg = (k) => q.length ? q.reduce((a, x) => a + (typeof x[k] === "number" ? x[k] : 0), 0) / q.length : 0;
+  const mom = avg("mom_1m") + avg("vs200");
+  const deRating = ev.signals?.de_rating === "de-rating" || ev.signals?.de_rating === true;
+  const lean = (deRating || mom < -0.05) ? "weak" : (mom > 0.05 && !deRating) ? "strong" : "neutral";
+  const tape = { lean, detail: `de_rating=${ev.signals?.de_rating ?? "—"}, mom≈${mom.toFixed(2)}` };
+
+  const hasSubstance = lanes.filings > 0 || lanes.news > 0 || q.length > 0;
+  const loved = ev.priced_in === "high" || ev.priced_in === "crowded";
+  let divergence = null, note = "";
+  if (!hasSubstance) { divergence = "thin-evidence"; note = "Thin evidence — few independent sources; keep confidence low."; }
+  else if (loved && lean === "weak") {
+    divergence = "fundamentals-vs-price";
+    note = `Fundamentals-vs-price divergence: consensus rates this ${ev.priced_in} but the TAPE is de-rating (${tape.detail}). Weigh whether the fundamental story still holds or the market is right early.`;
+  } else {
+    note = `Lanes — filings:${lanes.filings} news:${lanes.news} tape:${lean}. No strong cross-source divergence; weight independent corroboration over any single loud source.`;
+  }
+  return { lanes, tape, divergence, note };
+}
+
 export function parseProposal(text) {
   if (typeof text !== "string") return null;
   const m = text.match(/\{[\s\S]*\}/);
@@ -126,6 +162,8 @@ export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst,
       if (!memo.cio) { note(s, "no-response", null, memo.errors.join(" | ")); continue; }
       const edit = sanitizeEdit(s, memo.cio);
       if (memo.dispersion) edit.dispersion = { level: memo.dispersion.level, agreement: memo.dispersion.agreement };
+      const tri = triangulate(ev);
+      if (tri.divergence) edit.divergence_flag = tri.divergence;
       if (edit && edit.confidence >= minConfidence && changed(s, edit)) {
         proposals.push({ id: s.id, ...edit, prompt_version: RESEARCH_PROMPT_VERSION });
       } else {
@@ -188,6 +226,7 @@ export function buildReport(proposals, scorecard, considered = []) {
         ];
         if (p.variant_view) lines.push(`  - Variant: ${p.variant_view}`);
         if (p.bear_case) lines.push(`  - Bear: ${p.bear_case}`);
+        if (p.divergence_flag) lines.push(`  - Divergence: ${p.divergence_flag}`);
         if (p.kill_criterion) lines.push(`  - Wrong if: ${p.kill_criterion.condition} (by ${p.kill_criterion.by_date})`);
         return lines.join("\n");
       }).join("\n") + "\n"
