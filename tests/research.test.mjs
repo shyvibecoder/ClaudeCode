@@ -101,3 +101,51 @@ describe("research: orchestration with injected LLMs (no network)", () => {
     assert.equal(proposals.length, 0);
   });
 });
+
+describe("research: audit trail — 'considered' records WHY each scarcity wasn't proposed", () => {
+  const scarcities = [{ id: "copper", scarcity: "Copper", priced_in: "high", bind_window: "2030+", non_consensus: false, thesis: "..." }];
+
+  it("records a below-threshold call with its confidence + reasoning, and reports it", async () => {
+    const analyst = async () => '{"priced_in":"crowded","confidence":0.3,"rationale":"weakening but unsure"}';
+    const { proposals, considered, report } = await proposeScarcityEdits({ scarcities, analyst, redteam: async () => "", minConfidence: 0.6 });
+    assert.equal(proposals.length, 0);
+    assert.equal(considered.length, 1);
+    assert.equal(considered[0].id, "copper");
+    assert.equal(considered[0].reason, "below-confidence");
+    assert.equal(considered[0].confidence, 0.3);
+    assert.equal(considered[0].priced_in, "crowded");          // what it WOULD have said
+    assert.match(report, /Considered but not proposed/i);
+    assert.match(report, /copper/);
+    assert.match(report, /below confidence bar/);
+  });
+
+  it("records a high-confidence NO-CHANGE call (the discipline case) as 'no-change'", async () => {
+    const analyst = async () => '{"priced_in":"high","confidence":0.9,"rationale":"correctly priced, no change"}';
+    const { proposals, considered } = await proposeScarcityEdits({ scarcities, analyst, redteam: async () => "", minConfidence: 0.6 });
+    assert.equal(proposals.length, 0);
+    assert.equal(considered[0].reason, "no-change");
+    assert.equal(considered[0].confidence, 0.9);
+  });
+
+  it("records an ensemble split (no priced_in majority) as 'no-majority'", async () => {
+    const analysts = [async () => '{"priced_in":"crowded","confidence":0.8}', async () => '{"priced_in":"medium","confidence":0.8}'];
+    const { proposals, considered } = await proposeScarcityEdits({ scarcities, analysts, redteam: async () => "", minConfidence: 0.5 });
+    assert.equal(proposals.length, 0);
+    assert.equal(considered[0].reason, "no-majority");
+  });
+
+  it("does NOT add a 'considered' entry for a scarcity that IS proposed (no double-count)", async () => {
+    const analyst = async () => '{"priced_in":"crowded","confidence":0.8,"rationale":"de-rating"}';
+    const { proposals, considered } = await proposeScarcityEdits({ scarcities, analyst, redteam: async () => "", minConfidence: 0.6 });
+    assert.equal(proposals.length, 1);
+    assert.equal(considered.length, 0);
+  });
+
+  it("report lists the discipline trail even when zero proposals (so '0 proposals' is auditable)", async () => {
+    const analyst = async () => '{"priced_in":"high","confidence":0.88,"rationale":"already fairly priced"}';
+    const { report } = await proposeScarcityEdits({ scarcities, analyst, redteam: async () => "", minConfidence: 0.6 });
+    assert.match(report, /No changes proposed/i);
+    assert.match(report, /Considered but not proposed/i);
+    assert.match(report, /already fairly priced/);
+  });
+});

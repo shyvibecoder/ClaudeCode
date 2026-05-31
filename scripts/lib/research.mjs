@@ -48,18 +48,29 @@ export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst,
   const pool = analysts && analysts.length ? analysts : (analyst ? [analyst] : []);
   const primary = pool[0];
   const proposals = [];
+  // Audit trail: every scarcity the engine looked at but did NOT propose, and WHY. This makes a
+  // "0 proposals" run inspectable — you can see it reasoned (low confidence / split models / a
+  // confident no-change) rather than silently shrugged. A scarcity is in exactly one of
+  // proposals/considered, never both.
+  const considered = [];
+  const note = (s, reason, edit) => considered.push({
+    id: s.id, scarcity: s.scarcity, reason,
+    priced_in: edit?.priced_in ?? null, bind_window: edit?.bind_window ?? null,
+    non_consensus: typeof edit?.non_consensus === "boolean" ? edit.non_consensus : null,
+    confidence: edit?.confidence ?? null, rationale: edit?.rationale || "",
+  });
   for (const s of scarcities) {
     const ev = evidence[s.id] || {};
     // Deep-dive on every model in the pool (one call with a single analyst — unchanged).
     const raws = [];
     for (const fn of pool) { try { raws.push(parseProposal(await fn(deepDivePrompt(s, ev, scorecard)))); } catch { raws.push(null); } }
     let a = raws[0];
-    if (!a) continue;
+    if (!a) { note(s, "no-response", null); continue; }
     // Multi-model: require a strict majority on priced_in, else this call isn't robust → skip.
     let ensemble = null;
     if (pool.length >= 2) {
       ensemble = ensembleConsensus(raws);
-      if (!ensemble.priced_in) continue;
+      if (!ensemble.priced_in) { note(s, "no-majority", a); continue; }
       a = { ...a, priced_in: ensemble.priced_in }; // the ensemble owns the direction
     }
     let critique = ""; try { critique = await redteam(redTeamPrompt(s, a)); } catch { critique = ""; }
@@ -72,17 +83,38 @@ export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst,
     }
     if (edit && edit.confidence >= minConfidence && changed(s, edit)) {
       proposals.push({ id: s.id, ...edit, prompt_version: RESEARCH_PROMPT_VERSION });
+    } else {
+      // Distinguish "the bar was too high" from "the engine confidently saw no change" — both are
+      // healthy, but only the audit trail lets a human tell them apart.
+      note(s, !edit || !changed(s, edit) ? "no-change" : "below-confidence", edit);
     }
   }
-  return { proposals, report: buildReport(proposals, scorecard) };
+  return { proposals, considered, report: buildReport(proposals, scorecard, considered) };
 }
 
-export function buildReport(proposals, scorecard) {
+export function buildReport(proposals, scorecard, considered = []) {
   const head = `# Auto-research proposals (prompt v${RESEARCH_PROMPT_VERSION})\n\n` +
     `Tilt hit-rate prior: ${scorecard?.hit_rate != null ? (scorecard.hit_rate * 100).toFixed(0) + "%" : "n/a"}. ` +
     `Human-approved only; bot-owned fields (priced_in/bind_window/non_consensus) per ARCHITECTURE §1.\n`;
-  if (!proposals.length) return head + "\nNo changes proposed this run.\n";
-  return head + "\n" + proposals.map((p) =>
-    `- **${p.id}** → priced_in=${p.priced_in ?? "—"}, bind=${p.bind_window ?? "—"}, non_consensus=${p.non_consensus ?? "—"} (conf ${p.confidence}${p.ensemble ? `, ${Math.round(p.ensemble.agreement * 100)}% of ${p.ensemble.models} models agree` : ""})\n  - ${p.rationale || ""}`
-  ).join("\n") + "\n";
+  const body = proposals.length
+    ? "\n## Proposed\n" + proposals.map((p) =>
+        `- **${p.id}** → priced_in=${p.priced_in ?? "—"}, bind=${p.bind_window ?? "—"}, non_consensus=${p.non_consensus ?? "—"} (conf ${p.confidence}${p.ensemble ? `, ${Math.round(p.ensemble.agreement * 100)}% of ${p.ensemble.models} models agree` : ""})\n  - ${p.rationale || ""}`
+      ).join("\n") + "\n"
+    : "\nNo changes proposed this run.\n";
+  return head + body + buildConsidered(considered);
+}
+
+// The discipline trail: per scarcity that wasn't proposed, what the ensemble concluded and why it
+// was dropped. Turns a bare "0 proposals" into something a human can actually audit.
+const REASON_LABEL = {
+  "no-change": "confident no-change", "below-confidence": "below confidence bar",
+  "no-majority": "models split (no priced_in majority)", "no-response": "no usable model output",
+};
+function buildConsidered(considered) {
+  if (!considered?.length) return "";
+  return "\n## Considered but not proposed\n" + considered.map((c) => {
+    const conf = c.confidence != null ? `, conf ${c.confidence}` : "";
+    const would = c.priced_in ? ` [would say priced_in=${c.priced_in}]` : "";
+    return `- **${c.id}** — ${REASON_LABEL[c.reason] || c.reason}${conf}${would}` + (c.rationale ? `\n  - ${c.rationale}` : "");
+  }).join("\n") + "\n";
 }
