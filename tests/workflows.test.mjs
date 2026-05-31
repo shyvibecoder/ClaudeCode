@@ -17,4 +17,15 @@ describe("workflows: pushes to main rebase first (race guard, red-team R3)", () 
       assert.ok(!/env:\s*\{[^}]*\$\{\{/.test(wf(f)), `${f} has an inline-flow env with \${{ }} — YAML startup-failure trap`);
     }
   });
+  it("no unquoted 'name:' value contains a colon-space (YAML key/value trap)", () => {
+    for (const f of ["scan.yml", "docs.yml", "research.yml", "ci.yml", "e2e.yml"]) {
+      for (const line of wf(f).split("\n")) {
+        const m = line.match(/^\s*-?\s*name:\s+(\S.*)$/);
+        if (!m) continue;
+        const v = m[1].trim();
+        if (/^['"]/.test(v)) continue; // already quoted
+        assert.ok(!/:\s/.test(v), `${f}: unquoted step/job name contains ": " (YAML invalid) → ${v}`);
+      }
+    }
+  });
 });
