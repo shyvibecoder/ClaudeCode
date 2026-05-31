@@ -19,8 +19,19 @@ jobs:
         with: { node-version: 20 }
       - name: "Run the research LLMs (deep evidence: news excerpts + SEC filing passages)"
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Frontier (paid, optional) — when set, leads the committee seats + runs the CRO review.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Free tiers — staff the remaining seats.
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Optional model overrides (repo variables); defaults live in scripts/lib/llm.mjs.
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL }}
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           # SEC etiquette for the filing-passage fetches (set repo variable to "Name email").
           SEC_USER_AGENT: ${{ vars.SEC_USER_AGENT }}
         run: |
