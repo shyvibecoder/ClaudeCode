@@ -46,19 +46,19 @@ gates between them.
 **1. Scout — *find new scarcities*.** Weekly (auto, Mon), the scout reads SEC filings for "constraint
 shadow" language (downstream firms complaining about supply) and drafts **candidate** new scarcities.
 It writes them to a **separate** feed (`scout-candidates.json`), never to your live list. You review
-them in the **Scout** tab (§5d) and click **Accept → opens a PR**. *Merging that PR* is what adds the
+them in the **Scout** tab (§4d) and click **Accept → opens a PR**. *Merging that PR* is what adds the
 scarcity to `scarcities.json`.
 
 **2. Committee — *pressure-test the theses*.** Monthly (auto, the 1st) — and automatically whenever
 `scarcities.json` changes — a synthetic **bull / bear / skeptic** committee re-reads every scarcity and
 proposes edits to its read (priced-in, durability, confidence). It writes **proposals only**
-(`research-proposals.json`); you review the before→after diffs in the **Research** tab (§5c) and
+(`research-proposals.json`); you review the before→after diffs in the **Research** tab (§4c) and
 **Accept → PR**. Merging applies the edits.
 
 **3. Scan — *score everything + suggest a rebalance*.** Daily (auto, weekdays after the US open), the
 scanner reads your **merged** `scarcities.json` + `portfolio.json` + `triggers.json`, pulls free
 prices, and computes the whole dashboard into `signals.json`: Opportunity scores, crowding, the
-regime/timing posture, **rebalance suggestions** (§5.9), and **trigger status**. If a trigger fires it
+regime/timing posture, **rebalance suggestions** (§4.9), and **trigger status**. If a trigger fires it
 **opens a GitHub issue**. It writes only generated files — *never* your portfolio or triggers.
 
 **4. You — *decide and act*.** You own `portfolio.json` and `triggers.json`. Your jobs: **merge** the
@@ -68,7 +68,7 @@ yourself and update your holdings (via **⚙ Settings** in the browser, or by co
 
 > **Where a NEW *axis* comes from (e.g. the Health + Climate diversifier sleeve).** Adding a whole new
 > sleeve is a bigger decision than a single scarcity, so it goes through the **axis-check** workflow
-> (manual, §below) which back-tests candidate baskets apples-to-apples before any are curated in. That's
+> (manual — Actions → axis-check) which back-tests candidate baskets apples-to-apples before any are curated in. That's
 > how the second (diversifier) axis was chosen. Diversifiers then live in `scarcities.json` tagged
 > `axis: "diversifier"` and are **tracked/priced but held out of the AI-capex ranking and sizing** — they
 > earn their place by lowering drawdown, shown with a `◇ diversifier · 2nd axis` badge on the radar.
@@ -79,7 +79,7 @@ yourself and update your holdings (via **⚙ Settings** in the browser, or by co
 |---|---|---|---|---|---|
 | **Scout** | `scout` | Mondays 07:00 UTC | Actions → *scout* → Run workflow | `scout-candidates.json` | **Scout** tab — "last sweep ⟨date⟩" + new rows |
 | **Committee** | `research` | 1st of month 09:00 UTC *(and on any `scarcities.json` change)* | Actions → *research* → Run workflow | `research-proposals.json` | **Research** tab — "last run ⟨date⟩" + diffs |
-| **Scan** | `scan` | Weekdays 13:00 UTC | Actions → *scan* → Run workflow, **or ⟳ Refresh** in the UI (§10) | `signals.json` (+ history/forecasts/dca) | Header — "· last scan ⟨time⟩"; updates **every** tab |
+| **Scan** | `scan` | Weekdays 13:00 UTC | Actions → *scan* → Run workflow, **or ⟳ Refresh** in the UI (§9) | `signals.json` (+ history/forecasts/dca) | Header — "· last scan ⟨time⟩"; updates **every** tab |
 | **Axis-check** | `axis-check` | — (manual only) | Actions → *axis-check* → Run workflow | *(run log / summary only)* | Actions run **Summary** (no UI tab) |
 
 **Things only you can do (human-in-the-loop gates):** merge the scout/research PRs; edit
@@ -93,7 +93,7 @@ else happens on the cron schedule with no action from you.
 - **Scout:** the **Scout** tab lists candidates with **"last sweep ⟨date⟩"**; commit `scout output ⟨date⟩`.
 - **Committee:** the **Research** tab shows proposals with **"last run ⟨date⟩"**; commit `auto-research proposals ⟨date⟩`.
 - **A trigger fired:** a **GitHub Issue** titled *"Scarcity trigger fired"* appears, and the trigger shows
-  `fired` in **Portfolio & triggers → Triggers** (§5.3).
+  `fired` in **Portfolio & triggers → Triggers** (§4.3).
 
 ---
 
@@ -101,8 +101,8 @@ else happens on the cron schedule with no action from you.
 
 1. **Open the dashboard** (your Vercel URL). You'll land on the **Scarcity radar**.
 2. A **"First time?"** banner points you to **⚙ Settings** — open it.
-3. **Add your holdings** per account (see §9). This is stored *only in your browser* — never uploaded.
-4. *(Optional)* add **free API keys** (§9.2–9.3) to enable the AI digest and extra data cross-checks.
+3. **Add your holdings** per account (see §8). This is stored *only in your browser* — never uploaded.
+4. *(Optional)* add **free API keys** (§8.2–8.3) to enable the AI digest and extra data cross-checks.
 5. Use the tabs across the top to explore. Tap any **?** for context.
 
 Nothing you enter in Settings is ever committed to the repo — it lives in your browser's localStorage.
@@ -149,21 +149,19 @@ theses. The durable edge is **low priced-in + high durability + low substitution
 
 ---
 
-## 4. Timeline
-
-![Timeline](img/timeline.png)
-
-The same scarcities, **bucketed by when they bind** (now → 2027 → 2028-29 → 2030+ → physics floor),
-each tagged with its priced-in level. Use it to see *sequencing* — what bites first and what's a
-longer-dated, more certain deficit (e.g., copper).
-
----
-
-## 5. Portfolio & triggers
+## 4. Portfolio & triggers
 
 ![Portfolio and triggers](img/portfolio.png)
 
-### 5.1 Timing posture (the regime)
+This tab is organized into five labelled blocks, each with its own **?** help:
+
+1. **⏱ Timing** — when to act (the regime posture + the dislocation cross-check). §4.1, §4.1a
+2. **💼 Your book** — your live holdings vs the target plan, summary cards, DCA progress, and the holdings table. §4.2, §4.4, §4.5, §4.6
+3. **🎯 Suggestions** — *what to change*: the rebalance plan (with the tactical IRA tilts folded in) and a stress check. **Advisory only — Puck never trades.** §4.7, §4.8, §4.9
+4. **🔔 Triggers** — rules that tell you to act. §4.3
+5. **📊 Track record & honesty** — is the edge real? Scorecard, factor attribution, signal backtest. §4.1b–§4.1e
+
+### 4.1 Timing posture (the regime)
 The colored banner at the top is the **timing posture** — the heart of "when to act":
 
 | Posture | Meaning | What to do |
@@ -191,7 +189,7 @@ a **per-name TSMOM tilt** (which names to lean into vs. trim).
   one notch** — so you don't stay in cash too long after a V-shaped bottom (the momentum-crash fix). The
   macro brake always wins over re-entry.
 
-### 5.1a Dislocation timing + V2.3 cross-check
+### 4.1a Dislocation timing + V2.3 cross-check
 Just under the posture, the **Dislocation timing** card answers a single question: *when should I take
 advantage of a dislocation?* A dislocation is a name mechanically sold off (off highs, below trend)
 **while its structural thesis is intact** (the forced-flow **✚ accumulate** flag). The danger is buying
@@ -217,14 +215,14 @@ consecutive days **and** HY-velocity (20-day change in −log(HYG)) sits in the 
 is suppressed (it won't act on fake data). **Puck itself adds no leverage** — a 2× QLD sleeve would
 breach the −35% max-drawdown objective unless gated by a full exit to cash.
 
-### 5.1b Objective scorecard
+### 4.1b Objective scorecard
 The app's goal is **max 10-year return with max drawdown < 35%, and the best Calmar/Sortino.** This card
 measures your **strategy basket** (target-weighted holdings) over the trailing window: **CAGR**, **max
 drawdown** (turns ⚠ red if it breaches −35%), **Calmar** (CAGR ÷ maxDD), and **Sortino** (return ÷
 downside risk). It's a live check on whether the timing/risk layer is actually holding drawdown under the
 limit while earning a good risk-adjusted return — a backward-looking proxy, not a forecast. A **trend-brake backtest** line below it shows, on this basket and with no look-ahead, whether a moving-average brake actually cut max-drawdown and improved Calmar vs. buy-and-hold (the dial's premise, tested).
 
-### 5.1c Track record (self-grading)
+### 4.1c Track record (self-grading)
 Puck records every dated **per-name TSMOM tilt** (overweight → expect the stock up over ~21 days;
 underweight → down) and, when the horizon matures, **resolves** it against the realized price into a
 **hit-rate**. It starts empty and fills in over ~21 days. This is the accountability layer — the system
@@ -236,7 +234,7 @@ A second **Alpha edge** line grades the harder claim. Each **de-rating / inflect
 complex (the theme ETFs)? That relative move, not raw direction, is the thesis's real edge, so it is
 scored separately (de-rating and inflecting buckets). It tells you whether the alpha signal earns its keep.
 
-### 5.1d Factor attribution — alpha or just beta? (G1, the honesty gate's teeth)
+### 4.1d Factor attribution — alpha or just beta? (G1, the honesty gate's teeth)
 The most important sanity check in the app. A rising basket or a good hit-rate is **not** proof of skill —
 the book could simply be loaded on factors anyone can buy cheaply. So Puck regresses the basket's daily
 return on a small set of **tradeable factors: market (SPY), momentum (MTUM), and — crucially — a thematic
@@ -251,7 +249,7 @@ itself. It also shows the blunt absolute check: did the basket beat simply buyin
 limited, partly-foreign history the estimate is noisy for a while (small sample, wide error band) — early
 readings are indicative, not verdicts. This is the layer that keeps the whole "alpha" claim falsifiable.
 
-### 5.1e Signal backtest (historical, cross-sectional)
+### 4.1e Signal backtest (historical, cross-sectional)
 The Track record is unbiased but slow. This line evidences the same edge on **history**: across the
 scarcity baskets and many past dates, does **trailing relative strength vs the AI-capex complex predict the
 forward relative return?** It reports the rank **IC** (predictive ordering) and a directional **hit-rate
@@ -261,11 +259,11 @@ carries selection/survivorship bias and this IC is an **upper bound**, not the t
 are strictly point-in-time). Read it as "has the signal logic worked on these names"; the live ledger is
 the unbiased confirmation. Runs when the accumulated price warehouse is available.
 
-### 5.2 Summary cards
+### 4.2 Summary cards
 Sleeve size, IRA vs taxable split, holding count, and a **data-quality** card (✓ OK or ⚠ degraded —
-see §11).
+see §10).
 
-### 5.3 Triggers
+### 4.3 Triggers
 Rules that tell you to act. Each shows a state — **armed** (active), **monitor** (manual watch), or
 **fired** (condition met). Auto triggers require **two consecutive scans** to confirm before they fire
 (the first time a condition is met it shows *pending — needs a 2nd confirming scan*), so a single bad
@@ -279,9 +277,9 @@ print or one-day spike can't fire an action:
 When a trigger fires, the scanner opens a GitHub issue (deduped — one open issue at a time). You can
 also get an **email** the moment a trigger *newly* fires (a state change, not every run) — turn it on in
 **Settings → Admin** (set the alert email variable) plus the SMTP secrets in `SETUP.md` §3c. **Auto
-triggers are held on a degraded-data run** so bad data can't fire an action (§11).
+triggers are held on a degraded-data run** so bad data can't fire an action (§10).
 
-### 5.4 Holdings table
+### 4.4 Holdings table
 Your **target plan**: account, target $, weight, **tier** (deployment pace), live price, YTD,
 **% off high**, **vs 200-DMA** (trend), and **Fwd P/E** (the "went up a lot ≠ expensive" check; skipped
 for ETFs). A **⚠** next to a ticker means a data-quality flag (divergent sources, a big jump, or a stale
@@ -290,7 +288,7 @@ quote — hover to see why).
 **Tiers:** A = 100% now · B = 50% now + months 1–3 · C = 25% now + DCA to month 9 · D = small option
 sleeve · DRY = cash held for triggers.
 
-### 5.5 Your holdings (live)
+### 4.5 Your holdings (live)
 Once you add positions in Settings, this panel shows **market value, gain vs cost, % of target,
 per-account subtotals, and your sleeve value vs the cap** — computed from your browser-stored positions
 × the latest scan prices. The **Rebalance** column flags any holding whose actual weight has drifted
@@ -299,12 +297,12 @@ are **FX-converted to USD** for the sleeve total (a lot with no available FX rat
 
 ---
 
-### 5.6 DCA progress
+### 4.6 DCA progress
 Once you've entered positions, this shows how much of each holding's **target** you've **deployed**
 (shares × cost basis) against the 9-month dollar-cost-averaging calendar — a progress bar + % per
 holding, and the sleeve total deployed. Use it to stay on the plan and see where dry powder still goes.
 
-## 5b. Chokepoints (inaccessible / differentiated alpha)
+## 4b. Chokepoints (inaccessible / differentiated alpha)
 The sharpest thesis idea: **the best chokepoints have no clean ETF** — they're private (SpaceX, Physical
 Intelligence), foreign (ASML, Ajinomoto, Harmonic Drive), or impaired. The app **discovers the public
 proxies** exposed to each by searching **SEC filings** for who mentions the entity (customers/suppliers/
@@ -317,18 +315,18 @@ that appear across **multiple** bottlenecks (×degree) — a **hub** (≥3) is a
 "picks-and-shovels" way to play the whole complex, a degree-1 name is a concentrated pure play. All
 data-derived (no hand-picked lists); discovered names are research leads, not recommendations.
 
-### 5.7 Stress test
+### 4.7 Stress test
 Applies the thesis's named shocks to **your** sleeve and shows the drawdown vs the **−35% objective
 limit**: 2027–28 AI-capex digestion, a 2022-style rate shock, a broad recession, and a China
 rare-earth "peace." Coarse, documented high-beta shock vectors (not fitted) — a feel for tail risk.
 Runs entirely in your browser on your stored positions.
 
-### 5.8 Suggested IRA tilts
+### 4.8 Suggested IRA tilts
 The last mile from analysis to allocation: per-name **TSMOM tilt × regime** → concrete, bounded (±25%)
 weight deltas. **Add** overweights only in a risk-on regime; **trim** underweights in any regime; the
 **taxable** sleeve stays buy-and-hold. Graded over time by the Track record. Not advice.
 
-### 5.9 Rebalance plan (G3 — volatility-tilted target weights → buy/sell)
+### 4.9 Rebalance plan (G3 — volatility-tilted target weights → buy/sell)
 The fuller allocation engine: it builds **two** target-weight vectors and turns each into a concrete
 **buy/sell dollar plan**, shown side by side so you can see how the signals move your book:
 - **Research plan** — your `portfolio.json` weights nudged only by a **light ±15% inverse-volatility
@@ -355,7 +353,7 @@ falsifiable *"signal weights beat the research baseline"* claim into the Track r
 With a `positions.local.json` it rebalances **what you actually hold**; without it, it shows the ideal
 weighting vs your static plan. **Advisory only** — it never edits your portfolio or places trades. Not advice.
 
-## 5c. Research (LLM proposals you approve)
+## 4c. Research (LLM proposals you approve)
 The **Research** tab surfaces the monthly research engine's proposed reassessments. The engine runs the
 free LLMs (deep-dive → cross-model red-team → synthesis) over **deep evidence** — multi-angle news
 *article excerpts* + *SEC filing passages* + the live de-rating / forced-flow / opportunity signals —
@@ -372,7 +370,7 @@ Each card shows the **before→after** change, the LLM's rationale, its sources,
 The bot only *proposes*; **you approve**, and it can **only ever** touch those three fields — never the
 thesis or tickers (the F9 ownership rule, enforced in the browser *and* the scanner). Not advice.
 
-## 5d. Scout (finding NEW scarcities)
+## 4d. Scout (finding NEW scarcities)
 The Research tab re-scores the *known* scarcities; the **Scout** tab hunts for *new* ones — the
 alpha-generation frontier. It is deliberately **not** a trend-finder: by the time something reads as a
 trend it's already priced, and **ALPHA.md** is explicit that there's no edge in what's priced. Instead
@@ -410,7 +408,7 @@ model proposes candidate complaint phrases, which land **pending** on this tab. 
 (it opens a PR updating `scout-phrases.json`; after merge the weekly sweep searches them). Until any are
 approved, the scout falls back to a built-in seed list, so it always works.
 
-## 6. Filings & news
+## 5. Filings & news
 
 ![Filings and news](img/catalysts.png)
 
@@ -426,7 +424,7 @@ policy — that move a thesis.
 
 ---
 
-## 7. Options check (fair-value before you buy)
+## 6. Options check (fair-value before you buy)
 
 ![Options check](img/options.png)
 
@@ -459,7 +457,7 @@ risk-on → LEAPS call).
 
 ---
 
-## 8. Agent digest
+## 7. Agent digest
 
 ![Agent digest](img/digest.png)
 
@@ -479,13 +477,13 @@ instead of silently producing nothing.
 
 ---
 
-## 9. ⚙ Settings & onboarding
+## 8. ⚙ Settings & onboarding
 
 ![Settings](img/settings.png)
 
 Everything here is stored **only in this browser** (localStorage) and **never committed**.
 
-### 9.1 Your holdings (per account)
+### 8.1 Your holdings (per account)
 Add each holding: **ticker, account (IRA/Roth or Taxable), shares, cost basis**, plus your **dry-powder
 cash**. Live prices come from the latest scan.
 - **⬇ Export positions.local.json** — download your positions in the exact shape the scanner reads, so
@@ -494,13 +492,13 @@ cash**. Live prices come from the latest scan.
 - **⬆ Import** — load a positions file back in.
 - **Clear holdings** — wipe them from this browser.
 
-### 9.2 🔐 Admin — credentials & configuration
+### 8.2 🔐 Admin — credentials & configuration
 One place for every credential, in two tiers:
 
 **Browser keys** (stored only in this browser; power client-side features):
 - **Gemini** (aistudio.google.com) — in-browser digest. **Groq** (console.groq.com) — second red-team model.
 - **Finnhub / Twelve Data / Alpha Vantage** — data cross-checks; Finnhub also powers **✓ Check live prices**.
-- **GitHub dispatch token** (Contents: R/W) — lets **⟳ Refresh** trigger a live scan (§10).
+- **GitHub dispatch token** (Contents: R/W) — lets **⟳ Refresh** trigger a live scan (§9).
 - Click **Save browser keys**.
 
 **Repo configuration + research review** (what the automated scanner uses, and what approves research
@@ -534,7 +532,7 @@ Everything you paste here stays in this browser.
 
 ---
 
-## 10. ⟳ Refresh (on-demand scan)
+## 9. ⟳ Refresh (on-demand scan)
 
 The scanner runs automatically on weekdays. To refresh **now**, click **⟳ Refresh**:
 - The first time, paste your **dispatch token** (stored only in your browser).
@@ -544,7 +542,7 @@ The scanner runs automatically on weekdays. To refresh **now**, click **⟳ Refr
 
 ---
 
-## 11. Data integrity & quality (why you can trust the numbers)
+## 10. Data integrity & quality (why you can trust the numbers)
 
 Puck guards against bad/synthetic data:
 - **HTTPS-only** sources; **plausibility** checks (no ≤0 / non-finite prices).
@@ -562,11 +560,11 @@ Puck guards against bad/synthetic data:
 - **XSS-safe** — all third-party text (news headlines, filing fields) is HTML-escaped and links are
   restricted to `http(s)` before display, so a poisoned feed can't run code in your browser.
 
-Add free market-data keys (§9.3) for stronger corroboration.
+Add free market-data keys (§8.3) for stronger corroboration.
 
 ---
 
-## 12. Glossary
+## 11. Glossary
 
 - **Scarcity / chokepoint** — an input that's slow/impossible to expand, so demand outruns supply.
 - **Priced-in / crowding** — how much the market already reflects a thesis (judgment vs. live price proxy).
@@ -581,7 +579,7 @@ Add free market-data keys (§9.3) for stronger corroboration.
 
 ---
 
-## 13. FAQ & troubleshooting
+## 12. FAQ & troubleshooting
 
 - **Prices/options/holdings show "—".** The dashboard needs a completed live scan. Run **⟳ Refresh** (or
   the scan Action), then reload.
@@ -601,4 +599,4 @@ Add free market-data keys (§9.3) for stronger corroboration.
 
 *This guide is maintained alongside the app. A `docs` workflow regenerates the screenshots (and the Word
 version) whenever the UI changes, and a pre-commit hook reminds contributors to update it when `web/`
-changes. See `ARCHITECTURE.md` §6–§7.*
+changes. See `ARCHITECTURE.md` §5–§6.*

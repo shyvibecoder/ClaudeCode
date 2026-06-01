@@ -3,10 +3,12 @@ import { test, expect } from "@playwright/test";
 
 const TABS = [
   ["radar", "#radarTable"],
-  ["timeline", "#timelineGrid"],
   ["portfolio", "#holdings"],
   ["catalysts", "#filings"],
+  ["chokepoints", "#chokeList"],
   ["options", "#optForm"],
+  ["research", "#researchReview"],
+  ["scout", "#scoutReview"],
   ["digest", "#digestBox"],
 ];
 

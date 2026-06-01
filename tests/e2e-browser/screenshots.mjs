@@ -12,10 +12,12 @@ mkdirSync(outDir, { recursive: true });
 const shots = [
   { name: "overview", tab: "radar", setup: async () => {} },
   { name: "radar", tab: "radar" },
-  { name: "timeline", tab: "timeline" },
   { name: "portfolio", tab: "portfolio" },
   { name: "catalysts", tab: "catalysts" },
+  { name: "chokepoints", tab: "chokepoints" },
   { name: "options", tab: "options" },
+  { name: "research", tab: "research" },
+  { name: "scout", tab: "scout" },
   { name: "digest", tab: "digest" },
 ];
 

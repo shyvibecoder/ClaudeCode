@@ -13,6 +13,7 @@
       <p class="sub">Where the puck is going, not where it has been. <span id="posturePill"></span> <span id="scanned"></span></p>
     </div>
     <div class="hdr-actions">
+      <button class="hiw" data-help="overview" title="How Puck works — the end-to-end workflow">ⓘ How it works</button>
       <button id="settingsBtn" title="Manage your holdings per account + API keys (stored only in this browser)">⚙ Settings</button>
       <button id="refresh" title="Triggers the GitHub Action scan (needs a configured dispatch token)">⟳ Refresh</button>
     </div>
@@ -84,7 +85,6 @@
 
   <nav class="tabs">
     <button data-tab="radar" class="active">Scarcity radar</button>
-    <button data-tab="timeline">Timeline</button>
     <button data-tab="portfolio">Portfolio &amp; triggers</button>
     <button data-tab="catalysts">Filings &amp; news</button>
     <button data-tab="chokepoints">Chokepoints</button>
@@ -114,26 +114,45 @@
     <p class="foot">†Opportunity (0–100) = structural alpha BEFORE the tape moves: binds soon × durable × defensible × <strong>not yet priced</strong> (priced-in gates it — a crowded thesis scores ~0). See ALPHA.md. *Crowding = live proxy from YTD return + distance to 52-week high (higher = more already-priced). Populated by the scanner.</p>
   </section>
 
-  <section id="timeline" class="tab">
-    <div id="timelineGrid"></div>
-  </section>
-
   <section id="portfolio" class="tab">
-    <div id="regimeBox"></div>
-    <div id="v23Box"></div>
-    <div id="objMetrics"></div>
-    <div id="myHoldings"></div>
-    <div id="dcaProgress"></div>
-    <div id="stressTest"></div>
-    <div id="portSummary" class="cards"></div>
-    <h3>Triggers <button class="help" data-help="triggers">?</button></h3>
-    <div id="triggers"></div>
-    <h3>Holdings <button class="help" data-help="holdings">?</button></h3>
-    <div class="tscroll"><table id="holdings"><thead><tr>
-      <th>Ticker</th><th>Name</th><th>Acct</th><th>Target $</th><th>Wt</th><th>Tier</th><th>Price</th><th>YTD</th><th>% off high</th><th>vs 200-DMA</th><th>Fwd P/E</th><th>Role</th>
-    </tr></thead><tbody></tbody></table></div>
-    <div id="sizingBox"></div>
-    <div id="rebalanceBox"></div>
+    <div class="group">
+      <h2 class="group-h">⏱ Timing — when to act <button class="help" data-help="regime">?</button></h2>
+      <p class="group-sub">Your scarcity theses say <em>what</em> to own; this dial says <em>when</em> — it paces your buying between deploy and raise-cash. Advisory.</p>
+      <div id="regimeBox"></div>
+      <div id="v23Box"></div>
+    </div>
+
+    <div class="group">
+      <h2 class="group-h">💼 Your book <button class="help" data-help="myholdings">?</button></h2>
+      <p class="group-sub">What you actually hold (from ⚙ Settings) vs your target plan, plus DCA progress.</p>
+      <div id="myHoldings"></div>
+      <div id="portSummary" class="cards"></div>
+      <div id="dcaProgress"></div>
+      <h3>Holdings plan <button class="help" data-help="holdings">?</button></h3>
+      <div class="tscroll"><table id="holdings"><thead><tr>
+        <th>Ticker</th><th>Name</th><th>Acct</th><th>Target $</th><th>Wt</th><th>Tier</th><th>Price</th><th>YTD</th><th>% off high</th><th>vs 200-DMA</th><th>Fwd P/E</th><th>Role</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <div class="group">
+      <h2 class="group-h">🎯 Suggestions — what to change <button class="help" data-help="rebalance">?</button></h2>
+      <p class="group-sub">Advisory only — Puck never trades or edits your book. Buy/sell to reach target weights, the tactical IRA tilts, and a stress check.</p>
+      <div id="rebalanceBox"></div>
+      <div id="sizingBox"></div>
+      <div id="stressTest"></div>
+    </div>
+
+    <div class="group">
+      <h2 class="group-h">🔔 Triggers <button class="help" data-help="triggers">?</button></h2>
+      <p class="group-sub">Rules that tell you to act; when one fires the scanner also opens a GitHub issue.</p>
+      <div id="triggers"></div>
+    </div>
+
+    <div class="group">
+      <h2 class="group-h">📊 Track record &amp; honesty <button class="help" data-help="scorecard">?</button></h2>
+      <p class="group-sub">Is the edge real, or just market beta? Self-graded calls, factor attribution, and a historical backtest.</p>
+      <div id="objMetrics"></div>
+    </div>
   </section>
 
   <section id="catalysts" class="tab">

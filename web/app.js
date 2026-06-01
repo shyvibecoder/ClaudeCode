@@ -44,7 +44,7 @@ function render() {
     pill.className = `posture ${reg?.posture || "unknown"}`;
     pill.textContent = reg ? `${lbl}${reg.risk_score != null ? ` ${reg.risk_score}/100` : ""}` : "";
   }
-  renderStale(sig); renderRadar(); renderTimeline(); renderPortfolio(); renderV23(); renderCatalysts(); renderChokepoints(); renderResearch(); renderScout(); renderDigest();
+  renderStale(sig); renderRadar(); renderPortfolio(); renderV23(); renderCatalysts(); renderChokepoints(); renderResearch(); renderScout(); renderDigest();
 }
 
 // Research review: show the LLM's proposed scarcity reassessments as before→after diffs with an
@@ -257,20 +257,6 @@ function renderRadar() {
   sel.onchange = draw; $("#ncOnly").onchange = draw; draw();
 }
 
-function renderTimeline() {
-  const g = $("#timelineGrid"); g.className = "tcol"; g.innerHTML = "";
-  Object.entries(WIN).forEach(([key, [cls, lbl]]) => {
-    const col = document.createElement("div");
-    col.innerHTML = `<h4><span class="pill ${cls}">${lbl}</span></h4>`;
-    DATA.scar.scarcities.filter((s) => s.bind_window === key).forEach((s) => {
-      const d = document.createElement("div"); d.className = "item";
-      d.innerHTML = `<strong>${esc(s.scarcity)}</strong><br><span style="color:var(--mut)">${esc(s.sector)} · priced-in: <span class="pi-${esc(s.priced_in)}">${esc(s.priced_in)}</span></span>`;
-      col.appendChild(d);
-    });
-    g.appendChild(col);
-  });
-}
-
 function renderRegime() {
   const box = $("#regimeBox"); if (!box) return;
   const r = DATA.sig?.regime;
@@ -461,7 +447,11 @@ function renderCatalysts() {
 }
 
 function renderDigest() {
-  $("#digestBox").textContent = DATA.sig?.digest || "(no digest yet — run the scanner)";
+  const d = DATA.sig?.digest;
+  const unset = !d || /^\(no LLM key|^\(no digest/i.test(d);
+  $("#digestBox").textContent = unset
+    ? "No digest yet.\n\nThe Agent digest is an optional LLM 'analyst + red-team' summary of what changed this scan.\nTurn it on either way:\n  • In your browser — ⚙ Settings → add a free Gemini key → click “✦ Digest in browser”.\n  • Automated — add GEMINI_API_KEY (or GROQ/OPENROUTER) as a GitHub repo secret; the daily scan then writes it here.\nWith two keys it runs cross-model (analyst on one, red-team on another)."
+    : d;
   if (DATA.sig?.errors?.length) $("#digestBox").textContent += `\n\n--- scan errors ---\n${DATA.sig.errors.join("\n")}`;
 }
 
@@ -969,6 +959,7 @@ const HELP = {
     <li><strong>Crowding*</strong> — a <em>live</em> 0–100 proxy from price action (YTD + distance to 52-week high). Higher = more already-priced.</li>
     <li><strong>◆ non-consensus</strong> = under-appreciated (lifts Opportunity); <strong>↓ de-rating / ↑ inflecting</strong> = the tape confirming/denying; <strong>▲ drift</strong> = priced-in changed since first tracked.</li>
     <li><strong>✚ accumulate / ⏳ accumulate on trigger</strong> (forced-flow, Edge 3) = the name is mechanically de-rated (off highs, below trend) <em>while the thesis is intact</em> — the footprint of forced/neglect selling you can buy. It's <strong>regime-aware</strong>: when the timing dial has the brakes on it shows <em>⏳ on trigger</em> (a deploy-WHEN-the-drawdown-trigger-fires priority, not buy-now) so selection and timing never contradict. <strong>⚠ broken</strong> = de-rated AND thesis weak → real deterioration, not a gift.</li></ul>
+    <p><strong>◇ diversifier · 2nd axis</strong> — a few rows are a <em>different kind</em>: defensive sleeves (e.g. health, water/climate) held to <strong>lower the book's drawdown</strong>, not to chase alpha. They're deliberately <em>not</em> Opportunity-scored — instead their cell shows <strong>maxDD · market-β · AI-capex β</strong> (a name only qualifies if it doesn't amplify the AI build-out). Hover the cell for the blended-sleeve drawdown.</p>
     <p>Filter by sector or to non-consensus only. The four structural sources of retail alpha — duration mispricing, inaccessibility, forced-flow, and discipline — are documented in <strong>ALPHA.md</strong>.</p>` },
   triggers: { title: "Deploy / exit triggers", body: `
     <p>Rules that tell you to act. Each shows a state: <strong>armed</strong> (active, watching), <strong>monitor</strong> (manual watch), or <strong>fired</strong> (condition met).</p>
@@ -1080,7 +1071,7 @@ function openHelp(key) {
 }
 $("#helpClose").onclick = () => $("#helpModal").classList.add("hidden");
 $("#helpModal").onclick = (e) => { if (e.target.id === "helpModal") $("#helpModal").classList.add("hidden"); };
-document.addEventListener("click", (e) => { const b = e.target.closest(".help[data-help]"); if (b) openHelp(b.dataset.help); });
+document.addEventListener("click", (e) => { const b = e.target.closest("[data-help]"); if (b) openHelp(b.dataset.help); });
 
 maybeOnboard();
 load();

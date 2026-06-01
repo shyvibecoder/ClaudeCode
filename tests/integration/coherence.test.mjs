@@ -72,6 +72,7 @@ describe("coherence: cross-feature dependencies line up", () => {
     const scar = new Set(r("scarcities.json").scarcities.map((s) => s.id));
     for (const f of r("forecasts.json").open) {
       if (f.type === "scarcity_rel") assert.ok(scar.has(f.subject), `forecast ghost scarcity ${f.subject}`);
+      else if (f.type === "sizing_tilt") assert.equal(f.subject, "portfolio", `unexpected sizing_tilt subject ${f.subject}`); // whole-sleeve sizing call
       else assert.ok(port.has(f.subject), `forecast ghost subject ${f.subject}`);
     }
   });
