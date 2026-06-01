@@ -20,7 +20,11 @@ export function targetDeltas(holdings, perName, regime, { maxDeltaPct = 0.25 } =
 }
 
 // ───────────────────────────────────────────────────────────────────────────────────────────
-// G3 — risk-aware target weights + an account-aware rebalance plan (analysis → allocation).
+// G3 — volatility-tilted target weights + an account-aware rebalance plan (analysis → allocation).
+// HONEST SCOPE: this is a LIGHT single-name inverse-VOL tilt, NOT correlation/covariance-aware. On a
+// ~1.0-internally-correlated book (this one) a standalone-vol tilt does little for PORTFOLIO drawdown —
+// true equal-risk-contribution sizing waits on G2 (a genuinely uncorrelated 2nd axis to balance). The
+// output is ADVISORY and currently UNGRADED (not yet scored by the forecast ledger) — do not auto-execute.
 // No tuned constants: every multiplier is coarse, bounded, economically motivated (REGIME/ALPHA.md).
 // Two vectors side by side: RESEARCH (your portfolio.json weights + a LIGHT inverse-vol tilt only)
 // and SIGNAL (research × Opportunity factor × regime tilt × the same risk tilt — so a committee
@@ -70,7 +74,7 @@ export function targetWeights(holdings, {
 
   const out = [];
   for (const [acct, list] of Object.entries(groups)) {
-    const sleeveTotal = sleeveTotals?.[acct] ?? list.reduce((a, h) => a + h.target_usd, 0);
+    const sleeveTotal = Math.round(sleeveTotals?.[acct] ?? list.reduce((a, h) => a + h.target_usd, 0));
     const rows = list.map((h) => {
       let factor = rf[h.ticker] ?? 1;
       if (mode === "signal") {
@@ -80,13 +84,17 @@ export function targetWeights(holdings, {
       return { h, factor, raw: h.target_usd * factor };
     });
     const sumRaw = rows.reduce((a, r) => a + r.raw, 0) || 1;
-    for (const r of rows) {
-      out.push({
-        ticker: r.h.ticker, account: acct, base_usd: r.h.target_usd, factor: +r.factor.toFixed(3),
-        target_weight: +((r.raw / sumRaw) * 100).toFixed(1),
-        target_usd: +(sleeveTotal * (r.raw / sumRaw)).toFixed(0),
-      });
-    }
+    // Largest-remainder rounding so the sleeve conserves EXACTLY (Σ target_usd === sleeveTotal),
+    // which keeps the rebalance buy/sell identity exact rather than off-by-rounding.
+    const exact = rows.map((r) => ({ r, w: r.raw / sumRaw, usd: sleeveTotal * (r.raw / sumRaw) }));
+    const cents = exact.map((e) => Math.floor(e.usd));
+    let rem = sleeveTotal - cents.reduce((a, b) => a + b, 0);
+    exact.map((e, i) => ({ i, frac: e.usd - cents[i] })).sort((a, b) => b.frac - a.frac)
+      .forEach((o) => { if (rem > 0) { cents[o.i] += 1; rem -= 1; } });
+    exact.forEach((e, i) => out.push({
+      ticker: e.r.h.ticker, account: acct, base_usd: e.r.h.target_usd, factor: +e.r.factor.toFixed(3),
+      target_weight: +(e.w * 100).toFixed(1), target_usd: cents[i],
+    }));
   }
   return out;
 }
@@ -119,11 +127,21 @@ export function rebalancePlan(targets, { currentUsd = {}, taxableTrimOk = [] } =
 }
 
 // Both columns + plans in one call (what the scan and dashboard consume).
+// SAFETY (funding invariant): when live `currentUsd` is supplied we rebalance ONLY the holdings we can
+// actually price, and the sleeve total follows the summed market value of exactly those names. Mixing a
+// priced-sleeve total with unpriced names defaulting to their full base target manufactures phantom
+// "sell everything" trims when a quote is missing — so unpriced names are excluded, not guessed.
 export function rebalanceBoth(holdings, inputs = {}) {
+  let hs = holdings || [], sleeveTotals = inputs.sleeveTotals;
+  if (inputs.currentUsd) {
+    hs = hs.filter((h) => Number.isFinite(inputs.currentUsd[h.ticker]));
+    sleeveTotals = hs.reduce((a, h) => { a[h.account] = (a[h.account] || 0) + inputs.currentUsd[h.ticker]; return a; }, {});
+  }
+  const wInputs = { ...inputs, sleeveTotals };
   const planArgs = { currentUsd: inputs.currentUsd, taxableTrimOk: inputs.taxableTrimOk };
   return {
-    research: rebalancePlan(targetWeights(holdings, { ...inputs, mode: "research" }), planArgs),
-    signal: rebalancePlan(targetWeights(holdings, { ...inputs, mode: "signal" }), planArgs),
+    research: rebalancePlan(targetWeights(hs, { ...wInputs, mode: "research" }), planArgs),
+    signal: rebalancePlan(targetWeights(hs, { ...wInputs, mode: "signal" }), planArgs),
     risk_cap_pct: +((inputs.riskCap ?? 0.15) * 100).toFixed(0),
   };
 }

@@ -461,21 +461,19 @@ try {
     }
   }
   const haveCur = Object.keys(currentUsd).length > 0;
-  const sleeveTotals = haveCur
-    ? reHoldings.reduce((acc, h) => { if (currentUsd[h.ticker] != null) acc[h.account] = (acc[h.account] || 0) + currentUsd[h.ticker]; return acc; }, {})
-    : null;
-  // Higher bar for a TAXABLE sell: a BROKEN thesis or the cost-basis trim rule — not routine tilts.
+  // Higher bar for a TAXABLE sell = the cost-basis trim rule ONLY (>2x cost AND >50x forward — a
+  // deliberate valuation/profit-taking trim). A signal-derived "broken" flag is single-scan + tape-
+  // driven and would authorize selling INTO a dislocation (inverting ALPHA.md Edge 3) with permanent
+  // tax cost — so it does NOT qualify; signal-driven taxable sells need a human/committee decision.
   const taxableTrimOk = new Set(trimHits.map((t) => t.ticker));
-  for (const s of scarcities.scarcities) {
-    if (scarcity_signals[s.id]?.forced_flow?.flag === "broken") for (const t of s.tickers || []) taxableTrimOk.add(t);
-  }
   rebalance = rebalanceBoth(reHoldings, {
     vols, perName: regime?.per_name || [], posture: regime?.posture, oppByTicker,
-    currentUsd: haveCur ? currentUsd : undefined, sleeveTotals,
+    currentUsd: haveCur ? currentUsd : undefined,
     taxableTrimOk: [...taxableTrimOk], riskCap: 0.15,
   });
   rebalance.basis = haveCur ? "live positions (positions.local.json)" : "static plan (portfolio.json targets)";
   rebalance.taxable_trim_ok = [...taxableTrimOk];
+  rebalance.graded = false; // ADVISORY + UNGRADED: not yet scored by the forecast ledger (G3 follow-up). Do not auto-execute.
   if (!OFFLINE) console.log(`Rebalance(${rebalance.basis}): signal buys $${Math.round(rebalance.signal.summary.buy_usd / 1e3)}k / sells $${Math.round(rebalance.signal.summary.sell_usd / 1e3)}k` + (rebalance.signal.summary.blocked_trim_usd ? `, $${Math.round(rebalance.signal.summary.blocked_trim_usd / 1e3)}k anchor-trim blocked` : ""));
 } catch (e) { errors.push(`rebalance: ${e.message}`); }
 

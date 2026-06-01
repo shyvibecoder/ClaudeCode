@@ -139,4 +139,32 @@ describe("sizing G3: rebalanceBoth", () => {
     const rLeu = both.research.rows.find((r) => r.ticker === "LEU").target_usd;
     assert.ok(sLeu > rLeu, "signal boosts high-opportunity LEU above research");
   });
+
+  // CRITICAL regression (adversarial review): a missing live quote must NOT manufacture phantom trims.
+  // Unpriced names are EXCLUDED and the sleeve total follows only the priced names → buy === sell.
+  it("partial live coverage: excludes unpriced names; IRA buy === sell (no 'sell everything' leak)", () => {
+    const holds = [
+      { ticker: "A", account: "ira", target_usd: 100000 },
+      { ticker: "B", account: "ira", target_usd: 100000 },
+      { ticker: "C", account: "ira", target_usd: 100000 }, // no live quote
+    ];
+    const both = rebalanceBoth(holds, { currentUsd: { A: 120000, B: 80000 }, vols: { A: 0.3, B: 0.3 } });
+    const tickers = both.research.rows.map((r) => r.ticker);
+    assert.ok(!tickers.includes("C"), "unpriced C is excluded, not defaulted to its base target");
+    assert.equal(both.research.rows.length, 2);
+    // sleeve total = 120k+80k = 200k; equal vol → 100k each; A trims 20k, B buys 20k → nets to zero
+    assert.equal(both.research.summary.buy_usd, both.research.summary.sell_usd);
+    assert.equal(both.research.summary.net_usd, 0);
+  });
+
+  it("sleeve conserves EXACTLY after largest-remainder rounding (Σ target === sleeve)", () => {
+    const holds = [
+      { ticker: "X", account: "ira", target_usd: 33333 },
+      { ticker: "Y", account: "ira", target_usd: 33333 },
+      { ticker: "Z", account: "ira", target_usd: 33334 },
+    ];
+    const w = targetWeights(holds, { mode: "research", vols: { X: 0.21, Y: 0.37, Z: 0.58 } });
+    const sum = w.reduce((a, r) => a + r.target_usd, 0);
+    assert.equal(sum, 100000, "no rounding drift");
+  });
 });
