@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { runScoutSweep } from "../scripts/lib/scout.mjs";
+import { runScoutSweep, evaluateLeads } from "../scripts/lib/scout.mjs";
 
 // Orchestration (SCOUT-DESIGN flow): phrases → bounded FTS search → cluster → draft → committee →
 // survivors. All I/O is INJECTED (searchPhrase, evaluate) so the whole funnel is testable offline.
@@ -69,5 +69,33 @@ describe("scout: runScoutSweep orchestration", () => {
     assert.ok(out.health.candidates >= 1);
     assert.equal(out.health.proposals, 0);
     assert.ok(out.health.droppedKnown >= 1);   // NVDA dropped
+  });
+});
+
+// The shared evaluator works on leads from ANY engine and applies D2 memory + the budget cap.
+describe("scout: evaluateLeads (multi-engine + D2 memory)", () => {
+  const leads = [
+    { engine: "constraint-shadow", subject: "abf substrate", tickers: ["AAA"], lead: { phrases: ["on allocation"] } },
+    { engine: "bom-ladder", subject: "photoresist", tickers: ["TOK"], lead: { ladder_from: "hbm", why: "lithography input" } },
+    { engine: "arxiv", subject: "cryogenic cmos", tickers: ["CRYO"], lead: { papers: 8 } },
+  ];
+  it("drafts + evaluates leads from all engines, tagging each with its engine", async () => {
+    const evaluate = async (d) => d.tickers.includes("TOK") ? { approved: true, proposal: { confidence: 0.7 } } : { approved: false, reason: "bear: priced" };
+    const out = await evaluateLeads(leads, { evaluate });
+    assert.equal(out.proposals.length, 1);
+    assert.equal(out.proposals[0].engine, "bom-ladder");
+    assert.ok(out.considered.some((c) => c.engine === "arxiv"));
+  });
+  it("D2 memory: suppresses a previously-rejected lead whose evidence is unchanged", async () => {
+    const draftId = "scout-abf-substrate";  // slug of "abf substrate"
+    const seenState = { seen: { [draftId]: { status: "rejected", evidence_hash: "abf substrate|aaa|on allocation" } } };
+    let evals = 0;
+    await evaluateLeads(leads, { evaluate: async () => { evals++; return { approved: false }; }, seenState });
+    assert.equal(evals, 2, "the rejected, unchanged abf lead is suppressed → only 2 leads evaluated");
+  });
+  it("respects maxCandidates across the combined engine leads", async () => {
+    let evals = 0;
+    await evaluateLeads(leads, { evaluate: async () => { evals++; return { approved: false }; }, maxCandidates: 2 });
+    assert.equal(evals, 2);
   });
 });

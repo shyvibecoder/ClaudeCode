@@ -157,39 +157,176 @@ export function legibilityTag({ financialCoverage = 0, primaryCoverage = 0 } = {
     : { tag: "early-contrarian", penalty: 0 };
 }
 
-// ORCHESTRATION (SCOUT-DESIGN flow): phrases → bounded FTS sweep → cluster → draft → committee →
-// survivors. All I/O is INJECTED so the funnel is testable offline and the runner stays thin:
-//   searchPhrase(phrase) -> [{ ticker, company, mentions }]   (wrap searchFts in the runner)
-//   evaluate(draft)      -> { approved, proposal?, reason? }  (wrap the committee in the runner)
-// Budget is hard-bounded: maxSearches caps FTS calls, maxCandidates caps committee evaluations — a
-// sweep is open-ended unlike scoring 24 known items, so cost is enforced here (D-cadence/budget).
-export async function runScoutSweep({
-  phrases = DEFAULT_CONSTRAINT_PHRASES, knownTickers = [], minPhrases = 2,
-  maxSearches = 12, maxCandidates = 8, subjectFor = null,
-  searchPhrase, evaluate,
-} = {}) {
+// ── Normalized "lead" pipeline (multi-engine) ──────────────────────────────────────────────────
+// Every engine (constraint-shadow / BOM-ladder / arXiv) emits LEADS of the same shape, which all
+// flow through ONE shared evaluator. A lead = { engine, subject, tickers, lead: <engine detail> }.
+
+// Build a committee-ingestible DRAFT from ANY engine's lead; the thesis is tailored per engine so the
+// committee (and the reviewer) sees WHERE the lead came from.
+export function draftFromLead(L) {
+  const phrases = L?.lead?.phrases || [];
+  const draft = draftScarcity({ ticker: L?.tickers?.[0], company: L?.lead?.company, phrases },
+    { proxies: L?.tickers || [], subject: L?.subject, bind_window: L?.bind_window || "2027" });
+  draft.engine = L?.engine || "constraint-shadow";
+  if (L?.lead?.ladder_from) {
+    draft.ladder_from = L.lead.ladder_from;
+    draft.thesis = `Scout (BOM ladder from "${L.lead.ladder_from}"): "${L.subject}" is an upstream dependency of a known scarcity${L.lead.why ? ` — ${L.lead.why}` : ""}. The supplier of a scarce thing is the highest-prior place to find the next scarce thing. Committee to confirm it's a real, durable, not-yet-priced chokepoint.`;
+  }
+  if (L?.lead?.papers != null) {
+    draft.thesis = `Scout (research signal): elevated technical activity around "${L.subject}" (${L.lead.papers} recent papers) can foreshadow a forming physical bottleneck before it appears in filings. Committee to confirm investability + whether it's already priced.`;
+  }
+  return draft;
+}
+
+// Stable evidence fingerprint for D2 memory: subject + sorted tickers + sorted phrases. A new dated
+// filing/ticker changes the hash → a previously-rejected candidate is allowed to re-enter.
+export function leadEvidenceHash(L) {
+  return [String(L?.subject || ""), ...((L?.tickers) || []).slice().sort(), ...((L?.lead?.phrases) || []).slice().sort()].join("|").toLowerCase();
+}
+
+// SHARED EVALUATOR: D2-dedupe → budget-cap → draft → committee, for leads from ANY engine.
+//   evaluate(draft) -> { approved, proposal?, reason? }   (wrap the committee in the runner)
+// seenState (optional) enables D2 memory: a previously-rejected lead is suppressed unless its
+// evidence_hash changed. Budget is hard-capped by maxCandidates (committee calls cost money).
+export async function evaluateLeads(leads, { evaluate, maxCandidates = 8, seenState = null } = {}) {
   const errors = [];
-  const toSearch = phrases.slice(0, maxSearches);
+  let active = leads || [];
+  let suppressed = [];
+  if (seenState) {
+    const tagged = active.map((L) => ({ L, id: draftFromLead(L).id, evidence_hash: leadEvidenceHash(L) }));
+    const upd = scoutSeenUpdate(seenState, tagged);
+    suppressed = upd.suppressed;
+    const fresh = new Set(upd.fresh);
+    active = tagged.filter((t) => fresh.has(t.id)).map((t) => t.L);
+  }
+  active = active.slice(0, maxCandidates);
+  const proposals = [], considered = [];
+  for (const L of active) {
+    const draft = draftFromLead(L);
+    let verdict;
+    try { verdict = await evaluate(draft); }
+    catch (e) { errors.push(`evaluate ${draft.id}: ${e.message}`); considered.push({ id: draft.id, engine: draft.engine, reason: `evaluate error: ${e.message}` }); continue; }
+    if (verdict?.approved) proposals.push({ ...(verdict.proposal || {}), id: draft.id, tickers: draft.tickers, source: "scout", engine: draft.engine, constraint_phrases: draft.constraint_phrases });
+    else considered.push({ id: draft.id, tickers: draft.tickers, engine: draft.engine, reason: verdict?.reason || "committee did not approve" });
+  }
+  return { proposals, considered, errors, suppressed };
+}
+
+// ENGINE 1 (constraint-shadow) lead producer: phrases → bounded FTS sweep → cluster → normalized leads.
+//   searchPhrase(phrase) -> [{ ticker, company, mentions }]   (wrap searchFts in the runner)
+export async function constraintShadowLeads({ phrases = DEFAULT_CONSTRAINT_PHRASES, knownTickers = [], minPhrases = 2, maxSearches = 12, maxCandidates = 8, searchPhrase, subjectFor = null } = {}) {
+  const errors = [];
   const results = [];
-  for (const phrase of toSearch) {
+  for (const phrase of phrases.slice(0, maxSearches)) {
     try { results.push({ phrase, hits: await searchPhrase(phrase) }); }
     catch (e) { errors.push(`${phrase}: ${e.message}`); }
   }
   const { candidates, droppedKnown } = clusterConstraintHits(results, { knownTickers, minPhrases, max: maxCandidates });
-  const proposals = [], considered = [];
-  for (const lead of candidates) {
-    // subjectFor lets the runner name the inferred chokepoint (e.g. via the filer's top phrase or an
-    // LLM label); default to the filer so the draft is always well-formed even without enrichment.
-    const subject = (subjectFor && subjectFor(lead)) || `${lead.company || lead.ticker} supply constraint`;
-    const draft = draftScarcity(lead, { proxies: [lead.ticker], subject });
-    let verdict;
-    try { verdict = await evaluate(draft); }
-    catch (e) { errors.push(`evaluate ${draft.id}: ${e.message}`); considered.push({ id: draft.id, reason: `evaluate error: ${e.message}` }); continue; }
-    if (verdict?.approved) proposals.push({ ...(verdict.proposal || {}), id: draft.id, tickers: draft.tickers, source: "scout", constraint_phrases: lead.phrases });
-    else considered.push({ id: draft.id, tickers: draft.tickers, reason: verdict?.reason || "committee did not approve" });
+  const leads = candidates.map((c) => ({
+    engine: "constraint-shadow",
+    subject: (subjectFor && subjectFor(c)) || `${c.company || c.ticker} supply constraint`,
+    tickers: [c.ticker],
+    lead: { ticker: c.ticker, company: c.company, phrases: c.phrases },
+  }));
+  return { leads, errors, droppedKnown, phrasesSearched: results.length };
+}
+
+// Back-compat engine-1 sweep = produce constraint-shadow leads + evaluate them. The runner uses the
+// engine producers + evaluateLeads directly to combine engines; this preserves the original contract.
+export async function runScoutSweep(opts = {}) {
+  const { leads, errors, droppedKnown, phrasesSearched } = await constraintShadowLeads(opts);
+  const ev = await evaluateLeads(leads, { evaluate: opts.evaluate, maxCandidates: opts.maxCandidates ?? 8 });
+  const allErrors = [...errors, ...ev.errors];
+  return { proposals: ev.proposals, considered: ev.considered, errors: allErrors,
+    health: { phrasesSearched, candidates: leads.length, proposals: ev.proposals.length, droppedKnown, errors: allErrors.length } };
+}
+
+// ── ENGINE 2: BOM laddering (SCOUT-DESIGN) ─────────────────────────────────────────────────────
+// Walk UP the dependency stack from KNOWN scarcities. parse the model's upstream-dependency list into
+// { input, why }: accepts "Input — reason" / "Input: reason" lines, bullets/numbers, or a JSON array.
+export function parseLadderResponse(text) {
+  const trimmed = String(text || "").trim();
+  if (trimmed.startsWith("[")) {
+    try { return JSON.parse(trimmed).map((x) => ({ input: String(x.input || "").trim(), why: String(x.why || "").trim() })).filter((x) => x.input.length >= 3); }
+    catch { /* fall through */ }
   }
-  const health = { phrasesSearched: results.length, candidates: candidates.length, proposals: proposals.length, droppedKnown, errors: errors.length };
-  return { proposals, considered, errors, health };
+  const out = [];
+  for (const raw of trimmed.split(/\r?\n/)) {
+    const line = raw.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim();
+    if (!line) continue;
+    const m = line.match(/^(.+?)\s*(?:[—:–-]\s+|—)\s*(.+)$/);
+    const input = (m ? m[1] : line).trim();
+    const why = m ? m[2].trim() : "";
+    if (input.length < 3) continue;
+    out.push({ input, why });
+  }
+  return out;
+}
+
+// Engine-2 lead producer: for each of up to maxSeeds known scarcities, the model proposes upstream
+// inputs; we discover public proxies for each (reusing the chokepoint discovery), and emit a lead.
+// Inputs whose only proxies are ALREADY-known tickers are dropped (novelty). propose()/discover()
+// injected. Budget: maxSeeds propose-calls × maxPerSeed inputs.
+export async function bomLadderLeads({ scarcities = [], propose, discover, knownTickers = [], maxSeeds = 6, maxPerSeed = 2 } = {}) {
+  const known = new Set(knownTickers);
+  const leads = [], errors = [];
+  for (const s of scarcities.slice(0, maxSeeds)) {
+    let inputs = [];
+    try { inputs = parseLadderResponse(await propose(s)).slice(0, maxPerSeed); }
+    catch (e) { errors.push(`ladder ${s.id}: ${e.message}`); continue; }
+    for (const { input, why } of inputs) {
+      let tickers = [];
+      try { tickers = (await discover(input)) || []; }
+      catch (e) { errors.push(`discover ${input}: ${e.message}`); }
+      const novel = tickers.filter((t) => !known.has(t));
+      if (tickers.length && !novel.length) continue;           // every proxy already known → not novel
+      leads.push({ engine: "bom-ladder", subject: input, tickers: novel.length ? novel : tickers, lead: { ladder_from: s.id, why } });
+    }
+  }
+  return { leads, errors };
+}
+
+// ── ENGINE 3: arXiv technical-literature signal (SCOUT-DESIGN; earliest + noisiest) ─────────────
+// Keyless arXiv Atom API. parseArxiv: pull <entry> title/summary/published from the feed (no XML lib
+// — the feed is simple and stable; regex keeps it dependency-free + pure).
+export function parseArxiv(xml) {
+  const out = [];
+  const clean = (s) => String(s || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  for (const m of String(xml || "").matchAll(/<entry\b[\s\S]*?<\/entry>/g)) {
+    const block = m[0];
+    const title = clean((block.match(/<title\b[^>]*>([\s\S]*?)<\/title>/) || [])[1]);
+    const summary = clean((block.match(/<summary\b[^>]*>([\s\S]*?)<\/summary>/) || [])[1]);
+    const published = ((block.match(/<published\b[^>]*>([\s\S]*?)<\/published>/) || [])[1] || "").trim();
+    if (title) out.push({ title, summary, published });
+  }
+  return out;
+}
+
+export async function searchArxiv(query, { maxResults = 20, fetchImpl = fetch } = {}) {
+  const url = `https://export.arxiv.org/api/query?search_query=${encodeURIComponent(`all:"${query}"`)}&sortBy=submittedDate&sortOrder=descending&max_results=${maxResults}`;
+  const r = await fetchImpl(url, { headers: { accept: "application/atom+xml" }, signal: AbortSignal.timeout(15000) });
+  if (!r.ok) throw new Error(`arxiv ${r.status}`);
+  return parseArxiv(await r.text());
+}
+
+// Engine-3 lead producer: a query with ENOUGH recent papers (research heat) AND a discoverable public
+// proxy becomes a low-prior lead. Topics with no public proxy are dropped (the committee needs tickers
+// to score). search()/discover() injected. This is the noisiest engine — leads start priced_in='low'
+// and lean on the committee + the human's higher-scrutiny review.
+export async function arxivLeads({ queries = [], search, discover, minPapers = 5, maxQueries = 12 } = {}) {
+  const leads = [], errors = [];
+  for (const q of queries.slice(0, maxQueries)) {
+    let papers = [];
+    try { papers = (await search(q)) || []; }
+    catch (e) { errors.push(`arxiv ${q}: ${e.message}`); continue; }
+    if (papers.length < minPapers) continue;
+    let tickers = [];
+    try { tickers = (await discover(q)) || []; }
+    catch (e) { errors.push(`discover ${q}: ${e.message}`); }
+    if (!tickers.length) continue;                            // no public proxy → not evaluable
+    leads.push({ engine: "arxiv", subject: q, tickers, lead: { papers: papers.length } });
+  }
+  return { leads, errors };
 }
 
 // D2 memory: split this run's candidates into fresh vs suppressed. A previously-REJECTED candidate

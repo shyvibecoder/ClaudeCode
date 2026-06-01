@@ -44,6 +44,10 @@ jobs:
           SCOUT_MAX_CANDIDATES: ${{ vars.SCOUT_MAX_CANDIDATES }}
           SCOUT_MIN_PHRASES: ${{ vars.SCOUT_MIN_PHRASES }}
           SCOUT_PHRASE_COUNT: ${{ vars.SCOUT_PHRASE_COUNT }}
+          # Engines to run (default: constraint-shadow,bom-ladder; add arxiv to opt into the research signal).
+          SCOUT_ENGINES: ${{ vars.SCOUT_ENGINES }}
+          SCOUT_MAX_SEEDS: ${{ vars.SCOUT_MAX_SEEDS }}
+          SCOUT_MAX_PER_SEED: ${{ vars.SCOUT_MAX_PER_SEED }}
           SCOUT_MODE: ${{ github.event.inputs.mode || 'sweep' }}
         run: |
           # generate-phrases (D1): LLM-propose new constraint phrases for human vetting. Else: sweep.
@@ -55,7 +59,7 @@ jobs:
       - name: "Commit scout output (front-end reviews + approves it)"
         run: |
           git config user.name "puck-bot"; git config user.email "puck-bot@users.noreply.github.com"
-          git add web/data/scout-candidates.json web/data/scout-phrases.json
+          git add web/data/scout-candidates.json web/data/scout-phrases.json web/data/scout-seen.json
           if git diff --cached --quiet; then echo "no new scout output"; exit 0; fi
           git commit -m "scout output $(date +%F) [skip ci]"
           # Rebase before push so a concurrent commit to main can't reject (R3 race guard).
