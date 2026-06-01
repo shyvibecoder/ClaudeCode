@@ -7,6 +7,20 @@ Audit findings are detailed in `ARCHITECTURE.md`; the timing layer in `REGIME.md
 ## ⭐ North star: alpha (scarcity thesis) → timing (regime) → cash
 The thesis picks *what* to own; a literature-grounded timing layer decides *when* to deploy / go
 all-in vs. apply the brakes into cash. See `REGIME.md` for the evidence base.
+
+### 🔭 Scarcity SCOUT — surveil for NEW emerging scarcities / alpha ideas (gap; design needed)
+**The committee is a great *evaluator* of a fixed 24-item watchlist but there is no *scout* feeding
+it new theses.** Every automated path (scan, committee, liveness work) only re-scores the EXISTING
+`scarcities.json`; `edgar-fts.mjs` discovers proxy *tickers* for known chokepoints, not new
+chokepoints. Real alpha is spotting the *next* bottleneck before consensus.
+- [ ] **Design a scout stage**: periodic LLM+evidence pass over fresh news/filings that *proposes
+  candidate new scarcities* with the same falsifiability discipline (thesis, tickers, kill-criterion,
+  priced_in/bind_window), landing as **human-review proposals** — never auto-added to the watchlist
+  (F9: humans own which scarcities exist). Reuse the committee/CRO trust layers on each candidate.
+- [ ] Open question: candidate *sourcing* — broad news/filing sweep vs. a curated "frontier signals"
+  feed (export controls, capacity 8-Ks, DoE/DoD awards, lead-time blowouts). Decide before building.
+- [ ] Decide cadence + cost ceiling (a sweep is more open-ended than scoring 24 known items).
+  → Discuss & design with the user before implementing (per the "no whack-a-mole" guidance).
 - [x] **Timing/regime layer v1** — trend(200-DMA) + 12m abs-momentum + vol-state + drawdown → risk
   posture (risk-on / neutral / caution / defensive). Grounded in Faber'07, MOP'12, Moreira-Muir'17,
   Hurst-Ooi-Pedersen'17; breadth down-weighted (basket ~1.0 corr). Surfaced on dashboard + digest inputs.
@@ -102,6 +116,21 @@ Build a provider abstraction (like the LLM one) that tries keyless first, option
 - [ ] DCA planned-vs-deployed view (uses F6)
 - [x] **Email alerts** on a *newly-fired* trigger (state-change, not every run) — SMTP via repo secrets (e.g. Gmail app password); `scripts/lib/alerts.mjs` (`newlyFired`, TDD-tested) → `signals.alerts` → `scan.yml` email step. (No Telegram.)
 - [x] Rebalance helper: flag any holding >±25% from target weight (`web/rebalance.mjs`, TDD-tested; ⚖ column in Your holdings)
+
+## Committee reliability follow-ups (from the 2026-05-31 hardening session)
+Shipped this session: backoff cap + job timeout; degraded-committee banner (errors surfaced, not
+swallowed); preflight liveness ping + dead-seat fallback to the funded frontier; refreshed stale
+model slugs (OpenAI `gpt-5.4-mini`, OpenRouter `deepseek-v4-flash` + `qwen3.6-plus`); paid OpenRouter
+ranked above free Groq; honest roles (independent Anthropic chair + 2 OpenRouter seats).
+- [ ] **Verify model slugs against a REAL run.** Web-checked (cutoff Jan 2026) but not run-confirmed:
+  `gpt-5.4-mini`, `deepseek/deepseek-v4-flash`, `qwen/qwen3.6-plus`. The liveness ping prints the exact
+  error if any is stale → override via `OPENAI_MODEL`/`OPENROUTER_MODEL`/`OPENROUTER_MODEL_2` repo vars.
+- [ ] **Decide: should a DEGRADED run go RED?** Currently green-with-banner (user deferred). Option to
+  exit non-zero / fail the Actions check when >1 seat is empty so a broken analysis can't look successful.
+- [ ] **Test hygiene:** a test mutates a tracked data file (`web/data/forecasts.json` → today's date),
+  forcing a manual `git checkout` before each commit. Make it write to a temp/fixture instead.
+- [ ] **Branch/process:** this session's commits went to `main`, not the designated
+  `claude/deep-tech-app-v1-hardening-haGqN` branch. Decide whether to keep on main or consolidate.
 
 ## Nice-to-haves
 - [ ] Private/foreign chokepoint watchlist (SpaceX, Anduril, ASML, Lynas, Harmonic Drive) + "how to access" notes
