@@ -73,6 +73,26 @@ yourself and update your holdings (via **⚙ Settings** in the browser, or by co
 > `axis: "diversifier"` and are **tracked/priced but held out of the AI-capex ranking and sizing** — they
 > earn their place by lowering drawdown, shown with a `◇ diversifier · 2nd axis` badge on the radar.
 
+#### How a diversifier sleeve gets funded (the second-axis pipeline)
+
+Because a diversifier earns its place by *lowering drawdown* (not by binding soon), it has its own funding
+pipeline, distinct from the AI-capex Opportunity logic:
+
+![Diversifier funding pipeline: Screen → Committee conviction → Size → human-merged PR into the plan](img/diversifier.svg)
+
+1. **Screen** *(live)* — every candidate defensive sleeve is gated on low market β, a **non-positive
+   AI-capex β** (it must not amplify the build-out), and — crucially — whether it **lowers the drawdown of
+   the plan you already hold** (a sleeve that duplicates planned exposure, e.g. water vs the FIW already in
+   the plan, is flagged as redundant). Output → `diversifier-candidates.json`.
+2. **Committee** *(design)* — a drawdown-focused bull/bear/skeptic panel assigns each surviving name a
+   **conviction** 0–1. It keeps *all* gate-qualifiers (conviction tilts the weights, it doesn't prune).
+3. **Size** *(design)* — `weight = conviction × inverse-volatility`, within a **sleeve budget** (the
+   diversifier axis as a set % of the plan), with water netted against the FIW already planned.
+4. **PR → plan** *(design)* — a **human-merged PR** adds the names + weights to `portfolio.json` (your
+   *plan*). You then place the trades. As everywhere, **Puck never trades or edits your real book.**
+
+*Status: the screen (step 1) is built; the committee + plan-PR (steps 2–4) are the agreed design.*
+
 ### What auto-runs vs. what you run
 
 | Engine | Workflow | Auto cadence | Run it yourself | Output file | See it ran (UI) |

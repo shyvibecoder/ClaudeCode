@@ -955,6 +955,8 @@ const HELP = {
     <li><strong>Committee</strong> (monthly, auto) pressure-tests each thesis → you approve via PR.</li>
     <li><strong>Scan</strong> (daily, auto) scores everything and suggests a rebalance + fires triggers.</li>
     <li><strong>You</strong> merge the PRs, read the suggestions, and place the trades. Puck never trades for you.</li></ol>
+    <p><strong>Second axis — diversifiers (health + water).</strong> A defensive sleeve held to LOWER drawdown, funded by its own pipeline: screen candidate sleeves through the gate → a committee assigns each name a conviction → size by conviction × inverse-vol → a human-merged PR adds them to your plan. <em>(The screen is live; the committee + plan-PR are the agreed design, built next.)</em></p>
+    <img src="img/diversifier.svg" alt="Diversifier funding pipeline: Screen the sleeve through the gate, Committee assigns conviction, Size by conviction times inverse-vol, human-merged PR into the plan." style="width:100%;height:auto;border:1px solid var(--line);border-radius:10px;margin:8px 0"/>
     <p>Full walk-through: the <strong>User Guide §1a</strong>.</p>
     <ul><li><strong>Scarcity radar</strong> — what's scarce, when it binds, and how priced-in it already is.</li>
     <li><strong>Portfolio &amp; triggers</strong> — your sleeve, the <em>timing posture</em> (when to deploy vs. raise cash), and deploy/exit triggers.</li>
