@@ -13,6 +13,7 @@ import { reconcileSeries } from "./lib/history-reconcile.mjs";
 import { basketIndex, portfolioMetrics } from "./lib/metrics.mjs";
 import { backtestRegime } from "./lib/backtest.mjs";
 import { returns, alignByDate, factorAttribution, benchmarkRelative } from "./lib/factor.mjs";
+import { crossSectionalBacktest } from "./lib/xsbacktest.mjs";
 import { getQuotes, providerKeys, dataQualityGate, plausibleNextBar } from "./lib/marketdata.mjs";
 import { macroStress } from "./lib/macro.mjs";
 import { toUsd, fetchRates } from "./lib/fx.mjs";
@@ -360,6 +361,23 @@ if (!OFFLINE) {
   } catch (e) { errors.push(`metrics: ${e.message}`); }
 }
 
+// --- G6: cross-sectional signal backtest on accumulated history (statistical power NOW, not in 5y) ---
+// Does trailing relative strength predict FORWARD relative return across the scarcity baskets? Warehouse-
+// gated (needs deep history for many tickers — cheap from Supabase, too heavy to live-fetch each scan).
+// HONEST: current-membership universe → IC is an UPPER BOUND (survivorship); the live ledger is unbiased.
+let signal_backtest = null;
+if (!OFFLINE && supabaseConfigured()) {
+  try {
+    const groups = scarcities.scarcities.map((s) => ({ id: s.id, tickers: (s.tickers || []).filter(isTradeable) })).filter((g) => g.tickers.length);
+    const complexT = portfolio.holdings.filter((h) => securities[h.ticker]?.type === "etf").map((h) => h.ticker);
+    const allTk = [...new Set([...groups.flatMap((g) => g.tickers), ...complexT])];
+    const sbt = {};
+    for (const t of allTk) { try { const s = await readSeries(t, { minDate: new Date(Date.now() - 8 * 365.25 * 86400000).toISOString().slice(0, 10) }); if (s?.closes?.length > 120) sbt[t] = { dates: s.dates, closes: s.closes }; } catch { /* skip */ } }
+    signal_backtest = crossSectionalBacktest(sbt, groups, complexT, { lookback: 63, horizon: 42, step: 21 });
+    if (signal_backtest) console.log(`Signal backtest: IC ${signal_backtest.ic}, hit-rate ${signal_backtest.hit_rate} over ${signal_backtest.n} pairs (UPPER BOUND — survivorship)`);
+  } catch (e) { errors.push(`signal_backtest: ${e.message}`); }
+}
+
 // --- Macro-stress overlay inputs (free, keyless): VIX term-structure + HY credit velocity ---
 let macro = null;
 if (!OFFLINE) {
@@ -632,6 +650,7 @@ const out = {
   regime,
   metrics,
   attribution,
+  signal_backtest,
   scorecard,
   scarcity_signals,
   opportunities,

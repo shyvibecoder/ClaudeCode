@@ -188,6 +188,16 @@ itself. It also shows the blunt absolute check: did the basket beat simply buyin
 limited, partly-foreign history the estimate is noisy for a while (small sample, wide error band) — early
 readings are indicative, not verdicts. This is the layer that keeps the whole "alpha" claim falsifiable.
 
+### 5.1e Signal backtest (historical, cross-sectional)
+The Track record is unbiased but slow. This line evidences the same edge on **history**: across the
+scarcity baskets and many past dates, does **trailing relative strength vs the AI-capex complex predict the
+forward relative return?** It reports the rank **IC** (predictive ordering) and a directional **hit-rate
+with a 95% confidence interval** (wide at small samples — honestly so). **Important caveat:** the
+basket→ticker map is *today's* — these names were partly chosen *because* they worked, so the universe
+carries selection/survivorship bias and this IC is an **upper bound**, not the true edge (prices themselves
+are strictly point-in-time). Read it as "has the signal logic worked on these names"; the live ledger is
+the unbiased confirmation. Runs when the accumulated price warehouse is available.
+
 ### 5.2 Summary cards
 Sleeve size, IRA vs taxable split, holding count, and a **data-quality** card (✓ OK or ⚠ degraded —
 see §11).
