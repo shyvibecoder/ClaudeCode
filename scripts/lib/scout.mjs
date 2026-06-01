@@ -252,8 +252,25 @@ export async function runScoutSweep(opts = {}) {
 }
 
 // ── ENGINE 2: BOM laddering (SCOUT-DESIGN) ─────────────────────────────────────────────────────
-// Walk UP the dependency stack from KNOWN scarcities. parse the model's upstream-dependency list into
-// { input, why }: accepts "Input — reason" / "Input: reason" lines, bullets/numbers, or a JSON array.
+// Walk UP the dependency stack from KNOWN scarcities. The model proposes UPSTREAM inputs that are
+// THEMSELVES likely structural chokepoints (not commodities) — the supplier of a scarce thing is the
+// best place to find the next scarce thing. Pure + lockable (mirrors generateConstraintPhrases).
+export function bomLadderPrompt(scarcity) {
+  const s = scarcity || {};
+  return `Supply-chain laddering to find the NEXT structural chokepoint. "${s.scarcity}" ` +
+    `(${s.thesis || ""}) is a KNOWN, already-tracked bottleneck — do NOT restate it.\n` +
+    `Name 2-3 UPSTREAM inputs that "${s.scarcity}" critically depends on AND that are THEMSELVES likely ` +
+    `STRUCTURAL chokepoints: supply concentrated in few qualified suppliers, multi-year to add capacity, ` +
+    `hard to substitute, or gated by a long qualification process.\n` +
+    `EXCLUDE commodity inputs (electricity, water, common chemicals, generic labor, land) and anything ` +
+    `already a famous bottleneck. The "why" must say why the UPSTREAM input is ITSELF scarce/hard-to-` +
+    `replace — not merely that it is needed.\n` +
+    `Each input must be GENERIC (no company names) yet specific enough to search SEC filings for. ` +
+    `Output one per line as: input — why. If no non-obvious upstream chokepoint exists, output nothing.`;
+}
+
+// parse the model's upstream-dependency list into { input, why }: accepts "Input — reason" /
+// "Input: reason" lines, bullets/numbers, or a JSON array.
 export function parseLadderResponse(text) {
   const trimmed = String(text || "").trim();
   if (trimmed.startsWith("[")) {

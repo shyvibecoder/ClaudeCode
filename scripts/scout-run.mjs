@@ -8,7 +8,7 @@
 // exits 0 (the scout must never fail the workflow), and it's hard-budgeted so a sweep can't run away.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { availableProviders, probeProviders, planCommittee, seatCaller, llm } from "./lib/llm.mjs";
-import { DEFAULT_CONSTRAINT_PHRASES, approvedPhrases, constraintShadowLeads, bomLadderLeads, arxivLeads, evaluateLeads, draftFromLead, leadEvidenceHash, searchArxiv } from "./lib/scout.mjs";
+import { DEFAULT_CONSTRAINT_PHRASES, approvedPhrases, constraintShadowLeads, bomLadderLeads, bomLadderPrompt, arxivLeads, evaluateLeads, draftFromLead, leadEvidenceHash, searchArxiv } from "./lib/scout.mjs";
 import { runCommittee, sanitizeEdit } from "./lib/research.mjs";
 import { searchFts, discoverProxies } from "./lib/edgar-fts.mjs";
 import { newsForQuery } from "./lib/news.mjs";
@@ -60,11 +60,6 @@ const evaluate = async (draft) => {
 
 // Discover public proxies for an inferred input/topic (reuses the chokepoint-discovery FTS path).
 const discover = async (term) => { try { return (await discoverProxies([term], { max: 3 })).proxies.map((p) => p.ticker); } catch { return []; } };
-// BOM-ladder prompt: ask the chair model for UPSTREAM dependencies of a known scarcity (one layer up).
-const bomPrompt = (s) => `Supply-chain laddering. The scarcity "${s.scarcity}" (${s.thesis || ""}) is a KNOWN bottleneck. ` +
-  `List 2-3 UPSTREAM inputs THIS scarcity itself critically depends on — the material/component/equipment one layer up that, ` +
-  `if it became constrained, would bottleneck "${s.scarcity}". Format each as "input — one-line why". GENERIC inputs only ` +
-  `(no company names, no products we'd already track). If nothing non-obvious, return nothing.`;
 const DEFAULT_ARXIV_QUERIES = ["cryogenic CMOS", "rare earth separation", "solid state cooling", "neutron detector", "photonic interconnect", "advanced packaging substrate"];
 
 // Which engines run this sweep (default the two filing-grounded, high-signal ones; arXiv is opt-in).
@@ -84,7 +79,7 @@ try {
     console.log(`scout[constraint-shadow]: ${r.phrasesSearched} ${approvedCount ? "approved" : "seed"} phrases → ${r.leads.length} lead(s), dropped ${r.droppedKnown} known`);
   }
   if (engines.includes("bom-ladder") && chair) {
-    const r = await bomLadderLeads({ scarcities: scar.scarcities, propose: (s) => chair(bomPrompt(s)), discover, knownTickers, maxSeeds, maxPerSeed });
+    const r = await bomLadderLeads({ scarcities: scar.scarcities, propose: (s) => chair(bomLadderPrompt(s)), discover, knownTickers, maxSeeds, maxPerSeed });
     leads.push(...r.leads); errors.push(...r.errors);
     console.log(`scout[bom-ladder]: ${r.leads.length} upstream lead(s) from ${Math.min(maxSeeds, scar.scarcities.length)} seed scarcities`);
   }

@@ -1,6 +1,20 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseLadderResponse, bomLadderLeads } from "../scripts/lib/scout.mjs";
+import { parseLadderResponse, bomLadderLeads, bomLadderPrompt } from "../scripts/lib/scout.mjs";
+
+describe("scout engine 2: bomLadderPrompt", () => {
+  const p = bomLadderPrompt({ scarcity: "HBM", thesis: "memory bandwidth wall" });
+  it("includes the seed scarcity + its thesis and asks for UPSTREAM inputs", () => {
+    assert.match(p, /HBM/);
+    assert.match(p, /memory bandwidth wall/);
+    assert.match(p, /upstream/i);
+  });
+  it("demands the upstream input be ITSELF a structural chokepoint, not a commodity", () => {
+    assert.match(p, /concentrated|qualif|substitute|multi-year/i, "must require the input itself be structurally scarce");
+    assert.match(p, /electricity|water|commodity|common chemicals/i, "must exclude commodity inputs");
+    assert.match(p, /one per line|input — why|input -/i, "must specify the parseable one-per-line format");
+  });
+});
 
 // Engine 2 (SCOUT-DESIGN): walk UP the dependency stack from the 24 KNOWN scarcities — "what does
 // HBM itself depend on one layer up?" The supplier of a scarce thing is the highest-prior place to
