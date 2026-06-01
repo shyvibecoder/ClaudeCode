@@ -67,11 +67,12 @@ yourself and update your holdings (via **⚙ Settings** in the browser, or by co
 **Puck never trades and never edits your book.**
 
 > **Where a NEW *axis* comes from (e.g. the Health + Climate diversifier sleeve).** Adding a whole new
-> sleeve is a bigger decision than a single scarcity, so it goes through the **axis-check** workflow
-> (manual — Actions → axis-check) which back-tests candidate baskets apples-to-apples before any are curated in. That's
-> how the second (diversifier) axis was chosen. Diversifiers then live in `scarcities.json` tagged
-> `axis: "diversifier"` and are **tracked/priced but held out of the AI-capex ranking and sizing** — they
-> earn their place by lowering drawdown, shown with a `◇ diversifier · 2nd axis` badge on the radar.
+> sleeve runs through the **diversifier** workflow (Actions → *diversifier*, monthly + manual): it screens
+> candidate defensive baskets **book-aware** (the pipeline below), scores conviction, and proposes a sized
+> sleeve for your PR approval. That's how the second (diversifier) axis is built. Diversifiers live in
+> `scarcities.json` tagged `axis: "diversifier"` and are **tracked/priced but held out of the AI-capex
+> ranking and sizing** — they earn their place by lowering drawdown, shown with a `◇ diversifier · 2nd
+> axis` badge on the radar.
 
 #### How a diversifier sleeve gets funded (the second-axis pipeline)
 
@@ -100,7 +101,7 @@ pipeline, distinct from the AI-capex Opportunity logic:
 | **Scout** | `scout` | Mondays 07:00 UTC | Actions → *scout* → Run workflow | `scout-candidates.json` | **Scout** tab — "last sweep ⟨date⟩" + new rows |
 | **Committee** | `research` | 1st of month 09:00 UTC *(and on any `scarcities.json` change)* | Actions → *research* → Run workflow | `research-proposals.json` | **Research** tab — "last run ⟨date⟩" + diffs |
 | **Scan** | `scan` | Weekdays 13:00 UTC | Actions → *scan* → Run workflow, **or ⟳ Refresh** in the UI (§9) | `signals.json` (+ history/forecasts/dca) | Header — "· last scan ⟨time⟩"; updates **every** tab |
-| **Axis-check** | `axis-check` | — (manual only) | Actions → *axis-check* → Run workflow | *(run log / summary only)* | Actions run **Summary** (no UI tab) |
+| **Diversifier** | `diversifier` | 1st of month 08:00 UTC | Actions → *diversifier* → Run workflow | `diversifier-candidates.json` | review/funding UI *(in build)* |
 
 **Things only you can do (human-in-the-loop gates):** merge the scout/research PRs; edit
 `portfolio.json` + `triggers.json`; act on rebalance suggestions and fired-trigger issues. Everything

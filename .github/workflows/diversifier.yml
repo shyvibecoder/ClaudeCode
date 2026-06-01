@@ -1,0 +1,58 @@
+name: diversifier
+# Second-axis (diversifier) scout + funding. Productionizes the old axis-check screen: fetch deep history,
+# screen the candidate defensive sleeves BOOK-AWARE against the current plan, score per-name conviction via
+# the committee, size a 15% sleeve, and commit a PROPOSAL to web/data/diversifier-candidates.json for HUMAN
+# PR approval. It NEVER writes portfolio.json (F9) — the dashboard's Accept→PR funds the plan, you merge it.
+# Trigger from the GitHub mobile app: Actions → diversifier → "Run workflow". Also runs monthly.
+
+on:
+  schedule:
+    - cron: "0 8 1 * *"   # 08:00 UTC on the 1st (alongside the research committee)
+  workflow_dispatch:
+    inputs:
+      sleeve_pct:
+        description: "Diversifier sleeve size as a fraction of the investable sleeve (default 0.15)"
+        required: false
+
+permissions:
+  contents: write
+concurrency: { group: diversifier, cancel-in-progress: false }   # one writer for diversifier-candidates.json
+
+jobs:
+  diversifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 20 }
+      - name: "Screen → committee conviction → size the diversifier sleeve"
+        env:
+          # Deep ADJUSTED history corroborator (keyless Yahoo+Stooq carry it when unset, so CI works without secrets).
+          TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
+          # Committee models (same path as the research committee + scout; offline → equal-conviction fallback).
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL }}
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          DIVERSIFIER_SLEEVE_PCT: ${{ github.event.inputs.sleeve_pct || vars.DIVERSIFIER_SLEEVE_PCT || '0.15' }}
+        run: |
+          node scripts/diversifier-run.mjs | tee diversifier-run.log
+          echo '```' >> "$GITHUB_STEP_SUMMARY"; cat diversifier-run.log >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: "Commit the proposal (front-end reviews + funds it via PR)"
+        run: |
+          git config user.name "puck-bot"; git config user.email "puck-bot@users.noreply.github.com"
+          git add web/data/diversifier-candidates.json
+          if git diff --cached --quiet; then echo "no diversifier changes"; exit 0; fi
+          git commit -m "diversifier proposal $(date +%F) [skip ci]"
+          # Rebase before push so a concurrent commit to main can't reject (R3 race guard).
+          pushed=0; for i in 1 2 3; do git pull --rebase origin main && git push && { pushed=1; break; } || sleep $((i*3)); done; [ "$pushed" = 1 ] || { echo "::error::push failed after 3 retries"; exit 1; }
