@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { basketReturns, axisCorrelation, basketStats, aiCapexLoading } from "../scripts/lib/axis.mjs";
+import { basketReturns, axisCorrelation, basketStats, aiCapexLoading, blendIndex } from "../scripts/lib/axis.mjs";
 
 const DATES = (n) => Array.from({ length: n }, (_, i) => new Date(Date.UTC(2020, 0, 1) + i * 86400000).toISOString().slice(0, 10));
 
@@ -48,6 +48,26 @@ describe("axis: basketStats (returns + risk + explicit window)", () => {
   it("returns null on thin history", () => {
     const dates = DATES(20);
     assert.equal(basketStats({ A: { dates, closes: dates.map(() => 100) } }, ["A"]), null);
+  });
+});
+
+describe("axis: blendIndex (combined sleeve = equal weight across axes)", () => {
+  it("weights each axis equally regardless of name count, and blends to lower variance", () => {
+    const dates = DATES(120);
+    // Axis A (one name) swings up; Axis B (two names) swings down — blend should be flatter than either.
+    const up = [100]; for (let i = 1; i < 120; i++) up.push(up[i - 1] * (1 + (i % 2 ? 0.02 : -0.01)));
+    const dn = [100]; for (let i = 1; i < 120; i++) dn.push(dn[i - 1] * (1 + (i % 2 ? -0.02 : 0.01)));
+    const s = { A1: { dates, closes: up }, B1: { dates, closes: dn }, B2: { dates, closes: dn } };
+    const blended = blendIndex(s, [["A1"], ["B1", "B2"]]);
+    assert.equal(blended.closes.length, 120);
+    assert.ok(Math.abs(blended.closes[0] - 100) < 1e-9, "rebased to 100");
+    // Each axis is 50%: with A up ~ -B down symmetric, blend stays near 100 (axes offset), proving 50/50.
+    const drift = Math.abs(blended.closes[blended.closes.length - 1] - 100);
+    assert.ok(drift < 25, `blend should be damped vs components, drift ${drift}`);
+  });
+  it("returns empty when fewer than two axes have data", () => {
+    const dates = DATES(80);
+    assert.equal(blendIndex({ A: { dates, closes: dates.map(() => 100) } }, [["A"], ["MISSING"]]).closes.length, 0);
   });
 });
 

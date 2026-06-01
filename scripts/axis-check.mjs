@@ -5,7 +5,7 @@
 // Run with network (GitHub Actions, or local): node scripts/axis-check.mjs
 import { fetchSeries, fetchStooqHistory, fetchTiingoHistory } from "./lib/quotes.mjs";
 import { reconcileSeries } from "./lib/history-reconcile.mjs";
-import { axisCorrelation, basketStats, aiCapexLoading } from "./lib/axis.mjs";
+import { axisCorrelation, basketStats, aiCapexLoading, blendIndex } from "./lib/axis.mjs";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -100,6 +100,54 @@ function mdTable(title, cx, rows) {
   return md + "\n";
 }
 
+// Combined sleeves to test: does blending two DIFFERENT defensive demand drivers cut the sleeve's drawdown
+// below either alone (the diversification payoff + the −35% objective test)? compρ = how correlated the two
+// components are TO EACH OTHER (lower = more genuine internal breadth, less shared hidden factor).
+const COMBOS = [
+  ["Health (defensive: pharma/devices)", "Climate-adaptation / water (control)"],
+  ["Health (defensive: pharma/devices)", "Defense / munitions"], // comparator
+];
+
+function evalCombos(marketSeries, complexSeries, candByAxis, combos) {
+  const marketTk = Object.keys(marketSeries), complexTk = Object.keys(complexSeries);
+  return combos.map((axes) => {
+    const lists = axes.map((a) => Object.keys(candByAxis[a] || {}).filter((t) => candByAxis[a][t]?.closes?.length));
+    const allSeries = Object.assign({}, ...axes.map((a) => candByAxis[a] || {}));
+    const idx = blendIndex(allSeries, lists);
+    if (idx.closes.length < 60 || lists.some((l) => l.length < 1)) return { axes, stats: null };
+    const stats = basketStats({ COMBO: idx }, ["COMBO"]);
+    const load = aiCapexLoading({ ...marketSeries, ...complexSeries, COMBO: idx }, ["COMBO"], marketTk, complexTk, { aiBetaMax: 0.3 });
+    const mutual = axes.length === 2 ? axisCorrelation(allSeries, lists[0], lists[1], {}) : null;
+    const compDD = axes.map((a, i) => basketStats(candByAxis[a], lists[i])?.maxDD);
+    return { axes, stats, load, mutual, compDD };
+  });
+}
+
+const shortName = (a) => a.split(/[ (/]/)[0];
+
+function printCombos(rows) {
+  console.log("\n" + "=".repeat(112));
+  console.log("COMBINED SLEEVES (50/50 across axes, common window) — does blending two defensives cut drawdown?\n");
+  console.log("sleeve".padEnd(26), "CAGR".padStart(7), "maxDD".padStart(7), "Shrp".padStart(6), "mktβ".padStart(6), "aiβ".padStart(6), "compρ".padStart(6), "  component maxDDs");
+  for (const { axes, stats, load, mutual, compDD } of rows) {
+    if (!stats || !load) { console.log(axes.map(shortName).join("+").padEnd(26), "  (insufficient data)"); continue; }
+    console.log(axes.map(shortName).join("+").padEnd(26), pct(stats.cagr).padStart(7), pct(stats.maxDD).padStart(7), String(stats.sharpe).padStart(6),
+      String(load.marketBeta).padStart(6), String(load.aiBeta).padStart(6), String(mutual?.corr ?? "—").padStart(6), `  ${compDD.map(pct).join(" / ")}`);
+  }
+  console.log("\nPayoff = blend maxDD BELOW both components → diversification works. compρ low → genuine internal breadth.");
+}
+
+function mdCombos(rows) {
+  let md = "### Combined sleeves (50/50 across axes) — does blending cut drawdown?\n\n";
+  md += "| Sleeve | CAGR | maxDD | Sharpe | mktβ | aiβ | compρ | component maxDDs |\n|---|--:|--:|--:|--:|--:|--:|--|\n";
+  for (const { axes, stats, load, mutual, compDD } of rows) {
+    md += stats && load
+      ? `| ${axes.map(shortName).join(" + ")} | ${pct(stats.cagr)} | **${pct(stats.maxDD)}** | ${stats.sharpe} | ${load.marketBeta} | ${load.aiBeta} | ${mutual?.corr ?? "—"} | ${compDD.map(pct).join(" / ")} |\n`
+      : `| ${axes.map(shortName).join(" + ")} | — | — | — | — | — | — | insufficient data |\n`;
+  }
+  return md + "\n_Payoff: blend maxDD **below both** components = diversification works (and tests the −35% objective). compρ = how correlated the two components are to each other (low = genuine internal breadth, not a shared hidden factor like rates)._\n";
+}
+
 (async () => {
   console.log("Fetching market factor:", MARKET.join(", "), "| AI-capex complex:", COMPLEX.join(", "));
   const marketSeries = await loadSeries(MARKET);
@@ -126,8 +174,11 @@ function mdTable(title, cx, rows) {
   const cxC = basketStats(complexC, Object.keys(complexC));
   const rowsCommon = buildRows(marketC, complexC, candByAxisC);
 
+  const comboRows = evalCombos(marketC, complexC, candByAxisC, COMBOS);
+
   printTable("TABLE A — each basket over its OWN max history (windows differ)", cxOwn, rowsOwn);
   printTable(`TABLE B — APPLES-TO-APPLES, all sliced to common start ${commonStart}`, cxC, rowsCommon);
+  printCombos(comboRows);
   console.log("\naiβ = AI-capex loading AFTER market beta. Negative = mild HEDGE (passes); only POSITIVE loading fails.");
   console.log("Finding: raw ρ is almost all market beta (mktβ). aiβ is small/negative for ALL → none amplifies AI-capex");
   console.log("risk, and it does NOT differentiate them. So decide on risk-adjusted return + maxDD + structural thesis,");
@@ -142,7 +193,8 @@ function mdTable(title, cx, rows) {
     md += "aiT (t-stat) shows aiβ is statistically thin. Negative aiβ is a mild hedge → passes; only *positive* AI loading fails.\n\n";
     md += mdTable("Table A — each basket's own max history (windows differ)", cxOwn, rowsOwn);
     md += mdTable(`Table B — apples-to-apples, all from ${commonStart}`, cxC, rowsCommon);
-    md += "_Lowest mktβ + lowest maxDD = best diversifier against a concentrated AI book. Climate/water is a control (overlaps held FIW)._\n";
+    md += mdCombos(comboRows);
+    md += "_Lowest mktβ + lowest maxDD = best diversifier against a concentrated AI book. Climate/water overlaps held FIW — size around it._\n";
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
   }
 })();

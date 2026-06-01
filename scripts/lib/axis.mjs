@@ -37,6 +37,24 @@ export function basketReturns(seriesByTicker, tickers) {
   return { dates: dates.slice(1), rets };
 }
 
+// Blend several axis baskets into one sleeve index: equal-weight WITHIN each axis, equal-weight ACROSS
+// axes (so a 5-name axis and a 3-name axis each get 50%). Returns a {dates, closes} index rebased to 100
+// on the common start. Used to test whether combining two defensive axes lowers the sleeve's drawdown
+// (diversification payoff) vs either alone. Pure + testable.
+export function blendIndex(seriesByTicker, axisTickerLists) {
+  const indices = (axisTickerLists || []).map((tks) => {
+    const w = {}; for (const t of tks || []) if (seriesByTicker[t]?.dates?.length) w[t] = 1;
+    return basketIndex(seriesByTicker, w);
+  }).filter((idx) => idx.values.length);
+  if (indices.length < 2) return { dates: [], closes: [] };
+  const named = {}; indices.forEach((idx, i) => (named["X" + i] = { dates: idx.dates, values: idx.values }));
+  const { dates, cols } = alignByDate(named);
+  if (dates.length < 60) return { dates: [], closes: [] };
+  const keys = Object.keys(cols), bases = keys.map((k) => cols[k][0]);
+  const closes = dates.map((_, i) => keys.reduce((a, k, j) => a + (100 * cols[k][i]) / bases[j], 0) / keys.length);
+  return { dates, closes };
+}
+
 // 2-FACTOR gate (the forward-looking metric). Raw correlation conflates two things: generic market beta
 // (everything co-moves in a sell-off, and this only rises as AI permeates the index) and the SPECIFIC
 // AI-capex risk we actually carry. So we orthogonalize the AI-capex complex from the broad market to get
