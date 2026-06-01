@@ -24,16 +24,23 @@ const YAHOO_OVERRIDES = {
 };
 export const yahooSymbol = (t) => YAHOO_OVERRIDES[t] || t;
 
+// Parse one Stooq `l/` CSV quote row (header sd2t2ohlcv) -> { ticker, price, asof, source }.
+// Pure + testable, mirroring parseStooqHistory. Maps Stooq's dated bar to `asof` so a Stooq-only
+// quote gets the SAME staleness check as a Yahoo one (Stooq d2 is YYYY-MM-DD; guard junk like "N/D").
+export function parseStooqQuote(ticker, csv) {
+  const [, row] = String(csv || "").trim().split("\n");
+  if (!row) throw new Error("no data");
+  const [, date, , , , , close] = row.split(","); // sym, date, time, open, high, low, close, vol
+  const price = parseFloat(close);
+  if (!isFinite(price) || !(price > 0)) throw new Error(`bad close: ${close}`);
+  const asof = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null; // real dated bar -> staleness-checkable
+  return { ticker, price, asof, source: "stooq", currency: null }; // currency unknown from Stooq
+}
+
 export async function fetchStooq(ticker) {
   const url = `https://stooq.com/q/l/?s=${stooqSymbol(ticker)}&f=sd2t2ohlcv&h&e=csv`;
   const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-  const txt = (await r.text()).trim();
-  const [, row] = txt.split("\n");
-  if (!row) throw new Error("no data");
-  const [sym, date, time, open, high, low, close, vol] = row.split(",");
-  const price = parseFloat(close);
-  if (!isFinite(price) || !(price > 0)) throw new Error(`bad close: ${close}`);
-  return { ticker, price, date, source: "stooq", currency: null }; // currency unknown from Stooq
+  return parseStooqQuote(ticker, await r.text());
 }
 
 // Full DAILY history from Stooq (keyless) — a second deep source for the price-history backfill,

@@ -92,9 +92,10 @@ in technicals; (7) trusted-source persist guard (`sanitizePriceRows`) + first-wi
   direct `annualVol`/`sharpe` tests (C5, 6951f14); stored-XSS + scout-name sanitize + CSP (S1/S2, dd5dcc9).
 - [~] **`runScoutSweep` "dead code" finding — WON'T-DO (finding was wrong).** It is live + covered by
   `tests/scout-sweep.test.mjs` (budget-bound + committee-gate orchestration test). Keep it.
-- [ ] **Stooq-only staleness gap (OPEN, low).** `fetchStooq` returns `date` but the freshness path keys
-  on `asof`, so a Stooq-only quote can't be flagged stale. Fix: map Stooq `date`→`asof` or flag
-  freshness-unknown. Low severity (Stooq is the fallback-of-fallback). The one real audit item still open.
+- [x] **Stooq-only staleness gap** — SHIPPED: extracted pure `parseStooqQuote` (mirrors `parseStooqHistory`)
+  that maps Stooq's dated bar → `asof`, so a Stooq-only quote now gets the SAME >6-day staleness check as
+  Yahoo (was bucketed "freshness unknown"). Bonus: scan no longer stamps TODAY onto a stale Stooq bar.
+  Covered by `tests/quotes.test.mjs`. This was the last genuinely-open audit item.
 
 ### Cross-app hardening — patterns to adopt from "Helm" (sister app; regime-brake design)
 Helm lacks our multi-source consensus + blocking anomaly rejection (our strengths), but its structural

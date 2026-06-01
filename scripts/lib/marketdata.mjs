@@ -93,8 +93,9 @@ export async function getQuote(ticker, { keys = {}, useKeyed = false } = {}) {
 
 // Per-quote integrity flags (pure, testable). Audit P1/P3: a SINGLE-SOURCE quote (corroboration.ok ===
 // null — no cross-check possible) was passing unflagged, invisible to data_quality and the trigger
-// path; and a Stooq-only quote (asof null) could never be flagged stale. Both are now flagged. Foreign
-// tickers are *legitimately* single-source, so this flags per-ticker — it does NOT mark the run degraded.
+// path. Foreign tickers are *legitimately* single-source, so this flags per-ticker — it does NOT mark
+// the run degraded. Stooq-only quotes now carry `asof` (parseStooqQuote maps Stooq's dated bar), so they
+// get the real staleness check; a quote with no dated bar at all still falls back to "freshness unknown".
 export function integrityFlags(corroboration, asof, { staleDays = STALE_DAYS, now = Date.now() } = {}) {
   const flags = [];
   if (corroboration?.ok === null) flags.push(`single-source (${corroboration.sources?.[0] || "?"}) — uncorroborated`);
