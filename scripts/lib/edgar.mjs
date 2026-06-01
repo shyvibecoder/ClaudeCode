@@ -127,11 +127,20 @@ export function filingTextToPassages(text, keywords, opts = {}) {
 
 // Thin fetchers (network; the parsers above are pure + tested).
 // Full-text search for a thesis phrase, restricted to substantive forms.
-export async function searchFilings(query, { forms = "10-K,10-Q,8-K,S-1,DEF 14A", limit = 10 } = {}) {
+export async function searchFilings(query, { forms = "10-K,10-Q,8-K,S-1,DEF 14A", limit = 10, tries = 3, base = 400, fetchImpl = fetch, sleepImpl = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+  // P9: retry 5xx/429 with backoff (parity with edgar-fts.searchFts) — EDGAR FTS transiently sheds
+  // load under sequential requests; without this a single 500 silently dropped the filing lookup.
   const url = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(`"${query}"`)}&forms=${encodeURIComponent(forms)}`;
-  const r = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(15000) });
-  if (!r.ok) throw new Error(`fts ${r.status}`);
-  return parseFtsFilings(await r.json()).slice(0, limit);
+  let last = "";
+  for (let i = 0; i < tries; i++) {
+    let r;
+    try { r = await fetchImpl(url, { headers: HEADERS, signal: AbortSignal.timeout(15000) }); }
+    catch (e) { last = e.message; if (i < tries - 1) { await sleepImpl(base * 2 ** i); continue; } throw new Error(`fts ${last}`); }
+    if (r.ok) return parseFtsFilings(await r.json()).slice(0, limit);
+    if (r.status === 429 || r.status >= 500) { last = `fts ${r.status}`; if (i < tries - 1) { await sleepImpl(base * 2 ** i); continue; } }
+    throw new Error(`fts ${r.status}`);
+  }
+  throw new Error(last || "fts failed");
 }
 
 // Fetch a filing document and extract the thesis passages from its text.

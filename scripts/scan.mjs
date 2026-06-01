@@ -341,12 +341,21 @@ if (!OFFLINE) {
 let macro = null;
 if (!OFFLINE) {
   try {
-    const [vix, vix3m, hyg] = await Promise.all([
+    const [vix, vix3m, hyg, vixSer, vix3mSer] = await Promise.all([
       fetchYahoo("^VIX").catch(() => null),
       fetchYahoo("^VIX3M").catch(() => null),
       fetchYahoo("HYG").catch(() => null),
+      fetchSeries("^VIX", "1mo").catch(() => null),
+      fetchSeries("^VIX3M", "1mo").catch(() => null),
     ]);
-    const m = macroStress({ vix: vix?.price, vix3m: vix3m?.price, hygMom1m: hyg?.mom_1m });
+    // Helm #2: trailing VIX/VIX3M ratios (recency-aligned) for the 3-day term-structure persistence check.
+    let termRatios = null;
+    if (vixSer?.closes?.length && vix3mSer?.closes?.length) {
+      const n = Math.min(vixSer.closes.length, vix3mSer.closes.length, 6);
+      const a = vixSer.closes.slice(-n), b = vix3mSer.closes.slice(-n);
+      termRatios = a.map((v, i) => (b[i] > 0 ? v / b[i] : 0));
+    }
+    const m = macroStress({ vix: vix?.price, vix3m: vix3m?.price, hygMom1m: hyg?.mom_1m, termRatios });
     // Helm #1: the brake needs ALL inputs. If ANY is missing it's SUPPRESSED — leave macro=null so the
     // regime marks the exit-only overlay UNAVAILABLE instead of silently showing "calm" (a missing VIX
     // would otherwise make the term-structure leg false → fake "calm"). Was: only caught BOTH missing.

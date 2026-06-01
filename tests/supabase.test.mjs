@@ -118,3 +118,21 @@ describe("supabase: readSeries (deep history read for the read side)", () => {
     assert.equal(await readSeries("ZZZ", { env: ENV, fetchImpl, pageSize: 1000 }), null);
   });
 });
+
+// Helm #3: drop WEEKEND-dated bars at the write chokepoint. US equities don't trade Sat/Sun, so a
+// weekend-dated bar is a data error (the holiday/weekend-bar corruption the sister app hit). The guard
+// rejects them so they can't poison the deep-history series (and the bulk --backfill path shares it).
+describe("supabase: sanitizePriceRows drops weekend-dated bars (Helm #3)", () => {
+  const base = { ticker: "AAA", close: 10, source: "yahoo" };
+  it("keeps a weekday bar", () => {
+    assert.deepEqual(sanitizePriceRows([{ ...base, d: "2026-06-01" }]), [{ ...base, d: "2026-06-01" }]); // Monday
+  });
+  it("drops a Saturday and a Sunday bar", () => {
+    assert.deepEqual(sanitizePriceRows([{ ...base, d: "2026-06-06" }]), []); // Saturday
+    assert.deepEqual(sanitizePriceRows([{ ...base, d: "2026-06-07" }]), []); // Sunday
+  });
+  it("still drops the existing failure modes (synthetic source, non-finite, bad date)", () => {
+    assert.deepEqual(sanitizePriceRows([{ ...base, d: "2026-06-01", source: "synthetic" }]), []);
+    assert.deepEqual(sanitizePriceRows([{ ...base, d: "2026-06-01", close: 0 }]), []);
+  });
+});

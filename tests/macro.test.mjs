@@ -49,3 +49,23 @@ describe("macro: suppress on any missing input (Helm #1)", () => {
     assert.equal(macroStress({ vix: 30, vix3m: 0, hygMom1m: -0.05 }).available, false);
   });
 });
+
+// Helm #2: the term-structure leg needs PERSISTENCE — require 3 consecutive inverted days when recent
+// history is available, so a lone 1-day VIX spike (even alongside HY stress) is inert. Falls back to
+// today's single ratio when history isn't provided (back-compat).
+describe("macro: term-structure persistence (Helm #2)", () => {
+  const hyStressed = -0.05;
+  it("does NOT fire on a 1-day inversion when prior days were calm (history present)", () => {
+    const m = macroStress({ vix: 30, vix3m: 26, hygMom1m: hyStressed, termRatios: [0.8, 0.85, 30 / 26] });
+    assert.equal(m.term_inverted, false);
+    assert.equal(m.stressed, false);
+  });
+  it("DOES fire when inversion persists 3 consecutive days AND HY is stressed", () => {
+    const m = macroStress({ vix: 30, vix3m: 26, hygMom1m: hyStressed, termRatios: [1.05, 1.1, 1.15] });
+    assert.equal(m.term_inverted, true);
+    assert.equal(m.stressed, true);
+  });
+  it("falls back to today's ratio when no history is supplied", () => {
+    assert.equal(macroStress({ vix: 30, vix3m: 26, hygMom1m: hyStressed }).term_inverted, true);
+  });
+});

@@ -9,7 +9,7 @@
 const HY_VELOCITY = -0.03;   // HYG 1m return at/below this = fast HY widening
 const TERM_INVERT = 1.0;     // VIX / VIX3M at/above this = backwardation
 
-export function macroStress({ vix, vix3m, hygMom1m } = {}) {
+export function macroStress({ vix, vix3m, hygMom1m, termRatios = null, minTermDays = 3 } = {}) {
   // Helm #1: the exit-only brake needs ALL inputs present. If ANY is missing, SUPPRESS it (available:
   // false) rather than evaluating a missing leg to false — "false on missing data" is a silent false-
   // negative (failing to de-risk when the feed is gone). Only an all-inputs-present read is confident;
@@ -20,7 +20,12 @@ export function macroStress({ vix, vix3m, hygMom1m } = {}) {
       term_inverted: null, hy_stressed: null, vix_term: null, hy_mom_1m: hygMom1m ?? null,
       reasons: [`macro overlay suppressed — missing input(s): ${missing.join(", ")}`] };
   }
-  const term_inverted = vix / vix3m >= TERM_INVERT;
+  // Helm #2: the term-structure leg needs PERSISTENCE — when recent VIX/VIX3M history is available,
+  // require minTermDays CONSECUTIVE inverted days so a lone 1-day spike (even alongside HY stress) is
+  // inert. Falls back to today's single ratio when no history is supplied (back-compat).
+  const term_inverted = (Array.isArray(termRatios) && termRatios.length >= minTermDays)
+    ? termRatios.slice(-minTermDays).every((r) => r >= TERM_INVERT)
+    : vix / vix3m >= TERM_INVERT;
   const hy_stressed = hygMom1m <= HY_VELOCITY;
   const reasons = [];
   if (term_inverted) reasons.push(`VIX term-structure inverted (VIX ${(+vix).toFixed(1)} ≥ VIX3M ${(+vix3m).toFixed(1)})`);

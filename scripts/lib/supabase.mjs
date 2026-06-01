@@ -97,10 +97,14 @@ export function dedupePriceRows(rows) {
   return out;
 }
 
+// Helm #3: a weekend-dated bar (US equities don't trade Sat/Sun) is a data error — reject it at the
+// write chokepoint so a holiday/weekend-bar glitch can't poison the deep-history series. (The bulk
+// --backfill path shares this guard, so the import can't bypass it.)
+const isWeekend = (d) => { const day = new Date(d + "T00:00:00Z").getUTCDay(); return day === 0 || day === 6; };
 export function sanitizePriceRows(rows) {
   return (rows || []).filter((r) =>
     r && typeof r.ticker === "string" && r.ticker.length > 0 &&
-    typeof r.d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.d) &&
+    typeof r.d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.d) && !isWeekend(r.d) &&
     Number.isFinite(r.close) && r.close > 0 &&
     TRUSTED_PRICE_SOURCES.has(r.source));
 }
