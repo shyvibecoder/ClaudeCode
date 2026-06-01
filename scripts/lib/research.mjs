@@ -135,7 +135,7 @@ export async function mapLimit(items, limit, fn) {
   return out;
 }
 
-export async function runCommittee({ scarcity, evidence = {}, seats, scorecard = null }) {
+export async function runCommittee({ scarcity, evidence = {}, seats, chair = null, scorecard = null }) {
   const pool = (seats || []).filter(Boolean);
   const roles = ["bull", "bear", "skeptic"];
   const out = { seats: {}, dispersion: null, cio: null, errors: [] };
@@ -153,11 +153,11 @@ export async function runCommittee({ scarcity, evidence = {}, seats, scorecard =
   }));
   if (!Object.keys(out.seats).length) return out;   // every seat failed → caller records no-response
   out.dispersion = dispersion(reads);
-  // CIO call with FAIL-OVER: try the lead model first, then walk the rest of the pool. A dead or
-  // unfunded FRONTIER lead key can't tank the run — it degrades to a free model's CIO instead of
-  // returning cio:null (zero proposals). Every distinct failure is still surfaced in out.errors.
+  // CIO call with FAIL-OVER: try the CHAIR first (an INDEPENDENT judge that didn't write any debate
+  // seat — no self-grading), then walk the debate pool as fallback so a dead chair can't tank the
+  // run. Without a chair (back-compat / single-key), the pool itself chairs. Failures surface in errors.
   const prompt = cioPrompt(scarcity, out.seats, out.dispersion);
-  for (const fn of pool) {
+  for (const fn of [chair, ...pool].filter(Boolean)) {
     try {
       const cio = parseProposal(await fn(prompt)) || null;
       if (cio) { out.cio = cio; break; }
@@ -199,7 +199,7 @@ function noteOf(s, reason, edit, error) {
   };
 }
 
-export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst, analysts = null, redteam, seats = null, cro = null, scorecard = null, minConfidence = 0.6, concurrency = 4 }) {
+export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst, analysts = null, redteam, seats = null, chair = null, cro = null, scorecard = null, minConfidence = 0.6, concurrency = 4 }) {
   const pool = analysts && analysts.length ? analysts : (analyst ? [analyst] : []);
   const primary = pool[0];
   const proposals = [];
@@ -215,7 +215,7 @@ export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst,
   if (seats && seats.length) {
     const results = await mapLimit(scarcities, concurrency, async (s) => {
       const ev = evidence[s.id] || {};
-      const memo = await runCommittee({ scarcity: s, evidence: ev, seats, scorecard });
+      const memo = await runCommittee({ scarcity: s, evidence: ev, seats, chair, scorecard });
       // Health is captured for EVERY scarcity, success or not — this is the fix for the silent-fail
       // trap: a working Bull seat used to mask Bear/Skeptic provider errors, hiding why two seats were
       // empty and making a 1-of-3 monologue look like a real "no changes" result.

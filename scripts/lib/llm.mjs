@@ -14,11 +14,14 @@
 // retirement and zeroed out every research run.
 const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
 const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
-// deepseek/deepseek-v4-flash: a PAID reasoning model (~$0.10/$0.20 per 1M, 1M context, tool calling)
-// from a genuinely different family than Anthropic/OpenAI — the committee's cross-model diversity.
-// The old "deepseek-r1:free" default was the rate-limited free tier that silently dropped seats;
-// a funded key + paid slug is the reliable third voice. Override via OPENROUTER_MODEL repo variable.
-const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash";
+// OpenRouter is ONE key with many families, so it can staff TWO committee seats with DIFFERENT
+// models — more cross-model diversity from a single paid key, no flaky free Groq needed.
+//  #1 deepseek/deepseek-v4-flash — DeepSeek family, reasoning-tuned (~$0.10/$0.20 per 1M, 1M ctx).
+//  #2 qwen/qwen3.6-plus        — a DIFFERENT family (Alibaba Qwen), always-on CoT + native function
+//     calling (~$0.33/$1.95 per 1M, 1M ctx). The old "deepseek-r1:free" default was the rate-limited
+// free tier that silently dropped seats. Both overridable via OPENROUTER_MODEL / OPENROUTER_MODEL_2.
+export const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash";
+export const DEFAULT_OPENROUTER_MODEL_2 = "qwen/qwen3.6-plus";
 
 // Free tiers rate-limit aggressively (Gemini free RPM is tiny). Retry transient throttling/outages
 // with exponential backoff, honoring a server Retry-After when present. A persistent quota error
@@ -44,9 +47,9 @@ export async function fetchRetry(url, opts, label, { tries = 4, base = 2000, max
   throw new Error(last);
 }
 
-async function callGemini(prompt) {
+async function callGemini(prompt, modelOverride) {
   const key = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+  const model = modelOverride || process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   const r = await fetchRetry(url, {
     method: "POST",
@@ -76,16 +79,18 @@ async function callOpenAIChat({ url, key, model, label, extraHeaders = {} }, pro
   return text;
 }
 
-function callGroq(prompt) {
-  const model = process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL;
+function callGroq(prompt, modelOverride) {
+  const model = modelOverride || process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL;
   return callOpenAIChat({ url: "https://api.groq.com/openai/v1/chat/completions", key: process.env.GROQ_API_KEY, model, label: `groq ${model}` }, prompt);
 }
 
 // OpenRouter: one key, MANY free models — DeepSeek R1, Qwen3, GLM, Kimi, Llama. Set OPENROUTER_MODEL
 // to A/B them (default: a free DeepSeek reasoning model). The optional referer/title headers are
 // OpenRouter etiquette for free-tier attribution.
-function callOpenRouter(prompt) {
-  const model = process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL;
+// modelOverride lets one OpenRouter key staff TWO committee seats with different models (planCommittee
+// passes the explicit slug); without it, falls back to the OPENROUTER_MODEL env / default.
+function callOpenRouter(prompt, modelOverride) {
+  const model = modelOverride || process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL;
   return callOpenAIChat({
     url: "https://openrouter.ai/api/v1/chat/completions", key: process.env.OPENROUTER_API_KEY, model, label: `openrouter ${model}`,
     extraHeaders: { "HTTP-Referer": "https://deep-tech-market-research.vercel.app", "X-Title": "deep-tech-market-research" },
@@ -102,8 +107,8 @@ const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6";
 
 // OpenAI is OpenAI-compatible → reuse the shared chat caller.
-function callOpenAI(prompt) {
-  const model = process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
+function callOpenAI(prompt, modelOverride) {
+  const model = modelOverride || process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
   return callOpenAIChat({ url: "https://api.openai.com/v1/chat/completions", key: process.env.OPENAI_API_KEY, model, label: `openai ${model}` }, prompt);
 }
 
@@ -112,8 +117,8 @@ function callOpenAI(prompt) {
 export function parseAnthropic(j) {
   return (j?.content || []).filter((b) => b?.type === "text").map((b) => b.text).join("") || "";
 }
-async function callAnthropic(prompt) {
-  const model = process.env.ANTHROPIC_MODEL || DEFAULT_ANTHROPIC_MODEL;
+async function callAnthropic(prompt, modelOverride) {
+  const model = modelOverride || process.env.ANTHROPIC_MODEL || DEFAULT_ANTHROPIC_MODEL;
   const r = await fetchRetry("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
@@ -151,6 +156,40 @@ export async function llm(prompt, provider) {
   const avail = availableProviders();
   const p = provider && avail.includes(provider) ? provider : avail[0];
   return p ? PROVIDERS[p].call(prompt) : "";
+}
+
+// Bind a provider to a SPECIFIC model → a (prompt) => Promise<string> the committee can use as a
+// seat. This is what lets one OpenRouter key staff two seats with different models. A null model
+// means "use the provider's env/default model".
+export function seatCaller(provider, model = null) {
+  return (prompt) => PROVIDERS[provider].call(prompt, model || undefined);
+}
+
+// COMMITTEE PLAN (honest role assignment, not 1-key-per-seat). Principles:
+//  1. The strongest synthesizer/calibrator CHAIRS (CIO) and is held OUT of the debate so it judges
+//     arguments it didn't author — killing the old chair==bull self-grading bias. Frontier first.
+//  2. The 3 debate seats (bull/bear/skeptic) are filled from the REMAINING providers in preference
+//     order, except OpenRouter expands to TWO seats with DIFFERENT models (one key, many families)
+//     BEFORE we reach for flaky free Groq.
+//  3. Short of 3 debaters, pad by reusing the chair (role structure preserved on fewer models).
+// Pure (no env/network) given the provider list → fully unit-testable.
+export function planCommittee(providers, { openRouterModels } = {}) {
+  if (!providers.length) return { chair: null, seats: [] };
+  const orModels = openRouterModels || [DEFAULT_OPENROUTER_MODEL, DEFAULT_OPENROUTER_MODEL_2];
+  const chairProvider = providers[0];                       // preference-ordered → frontier leads
+  const chair = { provider: chairProvider, model: null };
+  // Debater pool = everyone except the chair; if the chair is the ONLY provider, it also debates.
+  const rest = providers.slice(1);
+  const pool = rest.length ? rest : [chairProvider];
+  // Expand OpenRouter into multiple model "slots" so it can fill more than one seat.
+  const slots = [];
+  for (const p of pool) {
+    if (p === "openrouter") orModels.forEach((m) => slots.push({ provider: "openrouter", model: m }));
+    else slots.push({ provider: p, model: null });
+  }
+  const roles = ["bull", "bear", "skeptic"];
+  const seats = roles.map((role, i) => ({ role, ...(slots[i] || { provider: chairProvider, model: null }) }));
+  return { chair, seats };
 }
 
 // LIVENESS PING (root-cause guard for the recurring "valid key, dead model slug" bug): a 1-token

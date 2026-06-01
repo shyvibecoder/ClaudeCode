@@ -4,7 +4,7 @@
 // a dated proposal report. The workflow opens a PR for HUMAN approval (F9). Best-effort:
 // no-op (writes a stub) when no LLM key is set or evidence is missing.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { llm, availableProviders, probeProviders, resolveLiveSeats } from "./lib/llm.mjs";
+import { llm, availableProviders, probeProviders, planCommittee, seatCaller } from "./lib/llm.mjs";
 import { proposeScarcityEdits } from "./lib/research.mjs";
 import { committeeRoster, researchPreflight } from "./lib/admin.mjs";
 import { newsForQuery } from "./lib/news.mjs";
@@ -116,23 +116,33 @@ const frontier = providers.find((p) => p === "anthropic" || p === "openai") || n
 const probes = await probeProviders(providers);
 const live = Object.fromEntries(probes.map((r) => [r.provider, r.ok]));
 for (const r of probes) console.log(`  ${r.ok ? "✓" : "✗"} ${r.provider} model ${r.ok ? "live" : "DOWN"}${r.ok ? "" : ` — ${r.error}`}`);
-const seatProviders = providers.map((p) => p);              // bull/bear/skeptic → providers[0..2]
-const { seats: liveSeatProviders, swaps } = resolveLiveSeats(seatProviders, live, frontier);
-for (const s of swaps) console.log(`  ⚠ seat fallback: ${s.from} model is down → reassigning that seat to ${s.to} (cross-model diversity reduced, loudly)`);
 
-// Committee mode (Phase 2): each LIVE provider staffs a seat (bull/bear/skeptic → CIO). With 2-3
-// live keys the seats run on DIFFERENT model families (genuine cognitive diversity); dead providers
-// were swapped to the frontier above so a seat can't silently no-op.
-const seats = liveSeatProviders.map((pr) => (p) => llm(p, pr));
-// Chief-Risk-Officer review (trust lever #3): an independent final pass that does the fuzzy checks
-// code can't — hallucinated tickers, illogical thesis, momentum-chasing. It runs ONLY on a FRONTIER
-// model (Anthropic/OpenAI): a free model grading its free-tier siblings isn't a real check, so
-// without a paid key the CRO is disabled (the deterministic gate + committee still run).
+// COMMITTEE PLAN (honest roles): the frontier model CHAIRS (CIO) and is held OUT of the debate so it
+// judges arguments it didn't write; the 3 debate seats are the other providers, with OpenRouter
+// expanding to TWO seats (different models, one key) before any free Groq. See planCommittee().
+const plan = planCommittee(providers);
+// Apply liveness to each debate seat: a dead provider's seat falls back to the live frontier, loudly.
+const swaps = [];
+const liveSeats = plan.seats.map((seat) => {
+  if (live[seat.provider] === false && frontier && live[frontier] && seat.provider !== frontier) {
+    swaps.push({ role: seat.role, from: seat.provider, to: frontier });
+    return { ...seat, provider: frontier, model: null };
+  }
+  return seat;
+});
+for (const s of swaps) console.log(`  ⚠ seat fallback: ${s.from} (${s.role}) model is down → reassigning to ${s.to} (cross-model diversity reduced, loudly)`);
+
+// Build the seat callers (each bound to its specific provider+model) and the INDEPENDENT chair.
+const seats = liveSeats.map((s) => seatCaller(s.provider, s.model));
+const chair = plan.chair && live[plan.chair.provider] ? seatCaller(plan.chair.provider, plan.chair.model) : null;
+// Chief-Risk-Officer review (trust lever #3): independent fuzzy-check pass (hallucinated tickers,
+// illogical thesis, momentum-chasing). Runs ONLY on a LIVE frontier model — a free model grading its
+// siblings isn't a real check; without a live frontier key the CRO is disabled (gate + committee run).
 const cro = frontier && live[frontier] ? (p) => llm(p, frontier) : null;
-// The TRUE live role→provider map for THIS run (after fallback), published to the dashboard so the
-// Research tab shows which LLM actually played each role — not just which key was present.
-const label = (p) => p ? p[0].toUpperCase() + p.slice(1) : null;
-const roster = { ...preflight.roster, bull: label(liveSeatProviders[0]), bear: label(liveSeatProviders[1]), skeptic: label(liveSeatProviders[2]), seat_swaps: swaps };
+// The TRUE role→model map for THIS run (after planning + liveness), published to the dashboard so the
+// Research tab shows which LLM actually played each role + the exact model.
+const lbl = (s) => s ? `${s.provider[0].toUpperCase()}${s.provider.slice(1)}${s.model ? ` (${s.model})` : ""}` : null;
+const roster = { ...preflight.roster, chair: lbl(plan.chair), bull: lbl(liveSeats[0]), bear: lbl(liveSeats[1]), skeptic: lbl(liveSeats[2]), cio: lbl(plan.chair), seat_swaps: swaps };
 // Resilient: a transient LLM/network error must NOT fail the workflow — write a stub + exit 0
 // so the run is green and the evidence summary is still visible.
 try {
@@ -141,7 +151,7 @@ try {
   // set RESEARCH_CONCURRENCY=2 (or 1) for a fresh paid key. Default 4 suits free tiers / higher tiers.
   const concurrency = Math.max(1, Number(process.env.RESEARCH_CONCURRENCY) || 4);
   console.log(`research: committee concurrency=${concurrency}`);
-  const { proposals, report, committeeHealth } = await proposeScarcityEdits({ scarcities: scar.scarcities, evidence, seats, cro, scorecard: sig.scorecard, minConfidence: 0.5, concurrency });
+  const { proposals, report, committeeHealth } = await proposeScarcityEdits({ scarcities: scar.scarcities, evidence, seats, chair, cro, scorecard: sig.scorecard, minConfidence: 0.5, concurrency });
   write(`${date}.md`, report);
   write(`${date}.proposals.json`, JSON.stringify(proposals, null, 2) + "\n");
   // Surface committee health in the LOG too (not just the report) — a degraded run with a flaky free
