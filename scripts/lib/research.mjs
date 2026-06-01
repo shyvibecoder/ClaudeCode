@@ -216,43 +216,53 @@ export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst,
     const results = await mapLimit(scarcities, concurrency, async (s) => {
       const ev = evidence[s.id] || {};
       const memo = await runCommittee({ scarcity: s, evidence: ev, seats, scorecard });
-      if (!memo.cio) return { kind: "considered", entry: noteOf(s, "no-response", null, memo.errors.join(" | ")) };
-      const edit = sanitizeEdit(s, memo.cio);
-      if (memo.dispersion) edit.dispersion = { level: memo.dispersion.level, agreement: memo.dispersion.agreement };
-      const tri = triangulate(ev);
-      if (tri.divergence) edit.divergence_flag = tri.divergence;
-      // DETERMINISTIC VERIFICATION GATE (trust layer): hard-fail kills momentum traps + unsupported
-      // overconfidence outright; soft flags dock confidence and ride on the proposal for the report.
-      const vr = verifyProposal(s, edit, ev);
-      if (vr.flags.length) edit.verify_flags = vr.flags;
-      if (vr.penalty) edit.confidence = +Math.max(0, edit.confidence - vr.penalty).toFixed(3);
-      if (vr.hardFail) {
-        const why = vr.flags.filter((f) => f.code === "price-contradiction" || f.code === "thin-evidence-overconfident");
-        const entry = noteOf(s, "verification-failed", edit);
-        entry.rationale = why.map((f) => `${f.code}: ${f.detail}`).join(" | ");
-        return { kind: "considered", entry };
-      }
-      if (edit && edit.confidence >= minConfidence && changed(s, edit)) {
-        // CRO REVIEW (trust lever #3): only review calls that would actually be proposed (saves a
-        // model call on every no-change). A veto drops it; a revise may push it back below threshold.
-        if (cro) {
-          const rv = await croReview({ scarcity: s, edit, evidence: ev, cro });
-          if (rv.veto) {
-            const entry = noteOf(s, "cro-vetoed", rv.edit);
-            entry.rationale = rv.reason || "CRO veto";
-            return { kind: "considered", entry };
-          }
-          if (rv.edit.confidence < minConfidence) {
-            return { kind: "considered", entry: noteOf(s, "below-confidence", rv.edit) };
-          }
-          return { kind: "proposal", entry: { id: s.id, ...rv.edit, prompt_version: RESEARCH_PROMPT_VERSION } };
+      // Health is captured for EVERY scarcity, success or not — this is the fix for the silent-fail
+      // trap: a working Bull seat used to mask Bear/Skeptic provider errors, hiding why two seats were
+      // empty and making a 1-of-3 monologue look like a real "no changes" result.
+      const health = { roles: Object.keys(memo.seats), errors: memo.errors };
+      // Decide the outcome, then attach health at the single exit so a partial seat failure can
+      // never be dropped no matter which branch we leave through.
+      const decide = async () => {
+        if (!memo.cio) return { kind: "considered", entry: noteOf(s, "no-response", null, memo.errors.join(" | ")) };
+        const edit = sanitizeEdit(s, memo.cio);
+        if (memo.dispersion) edit.dispersion = { level: memo.dispersion.level, agreement: memo.dispersion.agreement };
+        const tri = triangulate(ev);
+        if (tri.divergence) edit.divergence_flag = tri.divergence;
+        // DETERMINISTIC VERIFICATION GATE (trust layer): hard-fail kills momentum traps + unsupported
+        // overconfidence outright; soft flags dock confidence and ride on the proposal for the report.
+        const vr = verifyProposal(s, edit, ev);
+        if (vr.flags.length) edit.verify_flags = vr.flags;
+        if (vr.penalty) edit.confidence = +Math.max(0, edit.confidence - vr.penalty).toFixed(3);
+        if (vr.hardFail) {
+          const why = vr.flags.filter((f) => f.code === "price-contradiction" || f.code === "thin-evidence-overconfident");
+          const entry = noteOf(s, "verification-failed", edit);
+          entry.rationale = why.map((f) => `${f.code}: ${f.detail}`).join(" | ");
+          return { kind: "considered", entry };
         }
-        return { kind: "proposal", entry: { id: s.id, ...edit, prompt_version: RESEARCH_PROMPT_VERSION } };
-      }
-      return { kind: "considered", entry: noteOf(s, !edit || !changed(s, edit) ? "no-change" : "below-confidence", edit) };
+        if (edit && edit.confidence >= minConfidence && changed(s, edit)) {
+          // CRO REVIEW (trust lever #3): only review calls that would actually be proposed (saves a
+          // model call on every no-change). A veto drops it; a revise may push it back below threshold.
+          if (cro) {
+            const rv = await croReview({ scarcity: s, edit, evidence: ev, cro });
+            if (rv.veto) {
+              const entry = noteOf(s, "cro-vetoed", rv.edit);
+              entry.rationale = rv.reason || "CRO veto";
+              return { kind: "considered", entry };
+            }
+            if (rv.edit.confidence < minConfidence) {
+              return { kind: "considered", entry: noteOf(s, "below-confidence", rv.edit) };
+            }
+            return { kind: "proposal", entry: { id: s.id, ...rv.edit, prompt_version: RESEARCH_PROMPT_VERSION } };
+          }
+          return { kind: "proposal", entry: { id: s.id, ...edit, prompt_version: RESEARCH_PROMPT_VERSION } };
+        }
+        return { kind: "considered", entry: noteOf(s, !edit || !changed(s, edit) ? "no-change" : "below-confidence", edit) };
+      };
+      return { ...(await decide()), health };
     });
     for (const r of results) (r.kind === "proposal" ? proposals : considered).push(r.entry);
-    return { proposals, considered, report: buildReport(proposals, scorecard, considered) };
+    const committeeHealth = summarizeHealth(results.map((r) => r.health));
+    return { proposals, considered, committeeHealth, report: buildReport(proposals, scorecard, considered, committeeHealth) };
   }
 
   for (const s of scarcities) {
@@ -299,8 +309,35 @@ export async function proposeScarcityEdits({ scarcities, evidence = {}, analyst,
   return { proposals, considered, report: buildReport(proposals, scorecard, considered) };
 }
 
-export function buildReport(proposals, scorecard, considered = []) {
-  const head = `# Auto-research proposals (prompt v${RESEARCH_PROMPT_VERSION})\n\n` +
+// Roll the per-scarcity committee health into one run summary. `degraded` is the headline signal:
+// the committee's whole point is adversarial dispersion (bull vs bear vs skeptic), so if the
+// CHALLENGE seats (bear/skeptic) went missing on most scarcities, the run was a one-voice monologue
+// and its "no changes" must NOT be trusted as a real null. Pure → unit-testable.
+export function summarizeHealth(healths = []) {
+  const list = healths.filter(Boolean);
+  const roleAnswered = { bull: 0, bear: 0, skeptic: 0 };
+  const errSet = new Set();
+  for (const h of list) {
+    for (const role of h.roles || []) if (role in roleAnswered) roleAnswered[role]++;
+    for (const e of h.errors || []) if (e) errSet.add(e);
+  }
+  const scarcities = list.length;
+  // Degraded when a challenge seat is absent on more than half the scarcities — that's when
+  // dispersion stops being meaningful and the burden-of-proof default silently swallows everything.
+  const half = scarcities / 2;
+  const degraded = scarcities > 0 && (roleAnswered.bear <= half || roleAnswered.skeptic <= half);
+  return { scarcities, roleAnswered, errors: [...errSet], degraded };
+}
+
+export function buildReport(proposals, scorecard, considered = [], health = null) {
+  const banner = health?.degraded
+    ? `\n> ⚠️ **DEGRADED COMMITTEE — treat results with caution.** Challenge seats answered on few scarcities ` +
+      `(bull ${health.roleAnswered.bull}/${health.scarcities}, bear ${health.roleAnswered.bear}/${health.scarcities}, ` +
+      `skeptic ${health.roleAnswered.skeptic}/${health.scarcities}), so there was little real dispersion and a ` +
+      `"no changes" result is NOT a trustworthy null. Provider errors:\n` +
+      health.errors.map((e) => `> - ${e}`).join("\n") + "\n"
+    : "";
+  const head = `# Auto-research proposals (prompt v${RESEARCH_PROMPT_VERSION})\n` + banner + `\n` +
     `Tilt hit-rate prior: ${scorecard?.hit_rate != null ? (scorecard.hit_rate * 100).toFixed(0) + "%" : "n/a"}. ` +
     `Human-approved only; bot-owned fields (priced_in/bind_window/non_consensus) per ARCHITECTURE §1.\n`;
   const body = proposals.length

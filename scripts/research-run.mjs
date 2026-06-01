@@ -131,13 +131,19 @@ try {
   // set RESEARCH_CONCURRENCY=2 (or 1) for a fresh paid key. Default 4 suits free tiers / higher tiers.
   const concurrency = Math.max(1, Number(process.env.RESEARCH_CONCURRENCY) || 4);
   console.log(`research: committee concurrency=${concurrency}`);
-  const { proposals, report } = await proposeScarcityEdits({ scarcities: scar.scarcities, evidence, seats, cro, scorecard: sig.scorecard, minConfidence: 0.5, concurrency });
+  const { proposals, report, committeeHealth } = await proposeScarcityEdits({ scarcities: scar.scarcities, evidence, seats, cro, scorecard: sig.scorecard, minConfidence: 0.5, concurrency });
   write(`${date}.md`, report);
   write(`${date}.proposals.json`, JSON.stringify(proposals, null, 2) + "\n");
+  // Surface committee health in the LOG too (not just the report) — a degraded run with a flaky free
+  // provider must be visible in the Actions output, which is the first place you look.
+  if (committeeHealth?.degraded) {
+    console.log(`research: ⚠ DEGRADED committee — bull=${committeeHealth.roleAnswered.bull} bear=${committeeHealth.roleAnswered.bear} skeptic=${committeeHealth.roleAnswered.skeptic} of ${committeeHealth.scarcities}`);
+    for (const e of committeeHealth.errors) console.log(`  ✗ seat error: ${e}`);
+  }
   // Also publish the latest proposals to the dashboard-readable data tier so the front-end
   // Accept/Reject review can show them (the UI opens a PR via the user's token; F9-guarded).
   writeFileSync(new URL("../web/data/research-proposals.json", import.meta.url),
-    JSON.stringify({ schema_version: 1, generated: date, prompt_version: proposals[0]?.prompt_version ?? null, roster, proposals }, null, 2) + "\n");
+    JSON.stringify({ schema_version: 1, generated: date, prompt_version: proposals[0]?.prompt_version ?? null, roster, committee_health: committeeHealth ?? null, proposals }, null, 2) + "\n");
   console.log(`research: ${proposals.length} proposal(s) written to research/auto/${date}.* + web/data/research-proposals.json`);
 } catch (e) {
   write(`${date}.md`, `# Auto-research ${date}\n\nEvidence gathered (${totalExcerpts} news excerpts, ${totalPassages} filing passages) but the LLM step errored: ${e.message}\n`);

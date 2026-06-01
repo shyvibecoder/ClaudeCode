@@ -198,3 +198,51 @@ describe("research-committee: proposeScarcityEdits in committee mode", () => {
     assert.equal(considered[0].reason, "below-confidence");
   });
 });
+
+// THE BUG THIS GUARDS: when Bull (a healthy provider) answers but Bear+Skeptic (flaky free keys)
+// throw, the run historically took the success path and SILENTLY DROPPED memo.errors — so the
+// report/log never revealed WHY two seats were empty, and a 1-of-3 monologue looked like a real
+// "no changes" result. These assert the errors are surfaced and the run is flagged degraded.
+describe("research-committee: degraded-committee visibility (partial seat failure)", () => {
+  const ev = { copper: { quotes: {}, evidence_count: { news_with_excerpt: 4, filing_passages: 3 } } };
+  // Bull answers (+ provides the CIO call); Bear and Skeptic each throw a distinct provider error.
+  const partialSeats = () => [
+    seatFn({ bull: '{"priced_read":"high","confidence":0.7}', cio: '{"priced_in":"high","confidence":0.7,"rationale":"r"}' }),
+    async () => { throw new Error("groq openai/gpt-oss-120b HTTP 400: model_decommissioned"); },
+    async () => { throw new Error("openrouter deepseek/deepseek-r1:free HTTP 404: No endpoints found"); },
+  ];
+
+  it("surfaces the dropped seat errors in the report even when the committee partially succeeds", async () => {
+    const { report } = await proposeScarcityEdits({ scarcities: [copper], evidence: ev, seats: partialSeats(), minConfidence: 0.5 });
+    assert.match(report, /model_decommissioned/, "Groq seat error must appear in the report");
+    assert.match(report, /No endpoints found/, "OpenRouter seat error must appear in the report");
+  });
+
+  it("flags the run DEGRADED with a loud banner when challenge seats are empty", async () => {
+    const { report, committeeHealth } = await proposeScarcityEdits({ scarcities: [copper], evidence: ev, seats: partialSeats(), minConfidence: 0.5 });
+    assert.ok(committeeHealth, "expected a committeeHealth summary");
+    assert.equal(committeeHealth.degraded, true);
+    assert.match(report, /DEGRADED/, "a degraded run must carry a loud banner, not a clean 'no changes'");
+  });
+
+  it("committeeHealth counts per-role answers and collects the distinct provider errors", async () => {
+    const { committeeHealth } = await proposeScarcityEdits({ scarcities: [copper], evidence: ev, seats: partialSeats(), minConfidence: 0.5 });
+    assert.equal(committeeHealth.scarcities, 1);
+    assert.equal(committeeHealth.roleAnswered.bull, 1);
+    assert.equal(committeeHealth.roleAnswered.bear, 0);
+    assert.equal(committeeHealth.roleAnswered.skeptic, 0);
+    assert.ok(committeeHealth.errors.some((e) => /model_decommissioned/.test(e)));
+    assert.ok(committeeHealth.errors.some((e) => /No endpoints found/.test(e)));
+  });
+
+  it("a healthy 3-seat committee is NOT flagged degraded and shows no banner", async () => {
+    const healthy = [
+      seatFn({ bull: '{"priced_read":"crowded","confidence":0.8}', cio: '{"priced_in":"crowded","confidence":0.8,"rationale":"de-rating","variant_view":"v"}' }),
+      seatFn({ bear: '{"priced_read":"crowded","confidence":0.7}' }),
+      seatFn({ skeptic: '{"priced_read":"crowded","confidence":0.6}' }),
+    ];
+    const { report, committeeHealth } = await proposeScarcityEdits({ scarcities: [copper], evidence: ev, seats: healthy, minConfidence: 0.6 });
+    assert.equal(committeeHealth.degraded, false);
+    assert.doesNotMatch(report, /DEGRADED/);
+  });
+});
