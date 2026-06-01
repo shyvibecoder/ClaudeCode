@@ -137,7 +137,10 @@ const PROVIDERS = {
 // OpenAI) lead when their paid keys are set — they staff the committee's lead seats / the CRO review
 // for materially better reasoning. Then the free tiers: Groq (high free limit, carries bulk),
 // OpenRouter (DeepSeek/Qwen/GLM/Kimi), Gemini (tiny free RPM). Set fewer keys to narrow the pool.
-const PREFERENCE = ["anthropic", "openai", "groq", "openrouter", "gemini"];
+// OpenRouter ranks ABOVE Groq: with a paid OpenRouter key it's the reliable third voice (a distinct
+// DeepSeek/Qwen family), whereas Groq's free tier is best-effort. Gemini's tiny free RPM ranks last.
+// MUST stay in sync with LLM_PREFERENCE in web/admin.mjs (the dashboard roster mirrors this).
+const PREFERENCE = ["anthropic", "openai", "openrouter", "groq", "gemini"];
 export function availableProviders() {
   return PREFERENCE.filter((p) => process.env[PROVIDERS[p].env]);
 }

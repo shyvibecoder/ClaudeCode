@@ -57,8 +57,10 @@ export function browserKeyStatus(keys = {}, hasToken = false) {
 const LLM_PREFERENCE = [
   { secret: "ANTHROPIC_API_KEY", label: "Anthropic", frontier: true },
   { secret: "OPENAI_API_KEY", label: "OpenAI", frontier: true },
-  { secret: "GROQ_API_KEY", label: "Groq", frontier: false },
+  // OpenRouter above Groq: a paid OpenRouter key is the reliable 3rd voice; Groq free is best-effort.
+  // MUST stay in sync with PREFERENCE in scripts/lib/llm.mjs.
   { secret: "OPENROUTER_API_KEY", label: "OpenRouter", frontier: false },
+  { secret: "GROQ_API_KEY", label: "Groq", frontier: false },
   { secret: "GEMINI_API_KEY", label: "Gemini", frontier: false },
 ];
 export function committeeRoster(existingSecrets = []) {

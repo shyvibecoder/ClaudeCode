@@ -17,15 +17,15 @@ describe("llm frontier providers: detection + preference order", () => {
     withEnv({ ...clear, OPENAI_API_KEY: "x" }, () => assert.deepEqual(availableProviders(), ["openai"]));
   });
 
-  it("prefers FRONTIER models first (anthropic > openai > groq > openrouter > gemini)", () => {
+  it("prefers FRONTIER models first, then paid OpenRouter over free Groq (anthropic > openai > openrouter > groq > gemini)", () => {
     withEnv({ ...clear, ANTHROPIC_API_KEY: "a", OPENAI_API_KEY: "o", GROQ_API_KEY: "g", OPENROUTER_API_KEY: "r", GEMINI_API_KEY: "m" }, () => {
-      assert.deepEqual(availableProviders(), ["anthropic", "openai", "groq", "openrouter", "gemini"]);
+      assert.deepEqual(availableProviders(), ["anthropic", "openai", "openrouter", "groq", "gemini"]);
     });
   });
 
   it("staffs committee seats across whatever is set (e.g. frontier bull + free bear/skeptic)", () => {
     withEnv({ ...clear, ANTHROPIC_API_KEY: "a", GROQ_API_KEY: "g", OPENROUTER_API_KEY: "r" }, () => {
-      assert.deepEqual(availableProviders(), ["anthropic", "groq", "openrouter"]);
+      assert.deepEqual(availableProviders(), ["anthropic", "openrouter", "groq"]);
     });
   });
 });
