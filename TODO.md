@@ -64,6 +64,36 @@ writer (Actions → committed `signals.json`). **Shipped (`scripts/lib/marketdat
 - [x] **Provenance** — `source` + `corroboration.sources` per quote; `data_quality` reports ok/flagged/corroborated. EDGAR/news stay read-only (no agentic use) → no prompt-injection path.
 - [ ] **Two-consecutive-scans confirmation** before firing a trigger (extra safety) — still TODO.
 
+### Regime / market-data integrity — full-app audit findings + planned hardening (2026-06-01)
+**What keeps regime ticker data solid TODAY (port these):** (1) corroboration with *outlier exclusion*
+— drop any source >3% off the median, price = consensus of survivors; (2) plausibility floor (finite &
+>0); (3) >35% anomaly-vs-last-run flag; (4) >6-day staleness flag; (5) **regime computed on the ETF
+COMPOSITE, not 19 single names** (one bad ticker is diluted) — highest-value design; (6) no look-ahead
+in technicals; (7) trusted-source persist guard (`sanitizePriceRows`) + first-wins-by-trust de-dupe;
+(8) `data_quality` gate holds auto-triggers on a degraded run.
+
+**Gaps the audit found → PLANNED HARDENING (do NOT port the gaps):**
+- [ ] **Single-source no-op (CRITICAL).** `corroborate` returns `ok:null` for one source → no divergence
+  check, no flag, and it persists as fresh (10/50 tickers on the 05-31 scan). Fix: flag single-source
+  quotes (`single-source` flag), exclude them from firing a trigger, and don't let an uncorroborated
+  bar count as corroborated history. (Foreign tickers are *legitimately* single-source → flag per-ticker,
+  do NOT mark the whole run degraded.)
+- [ ] **V2.3 macro-brake instruments bypass corroboration + anomaly (CRITICAL).** `^VIX`/`^VIX3M`/`HYG`/
+  `QQQ` are single-Yahoo-fetched and written straight to history — one bad VIX print can flip the regime
+  state. Fix: route V2.3/QLD/SGOV bars through plausibility + the >35% anomaly check before they touch
+  `v23State` or the DB.
+- [ ] **Stooq-only staleness gap.** Single-source *Yahoo* keeps `asof` (staleness-checked); only a
+  Stooq-only fallback has `asof:null` and can't be flagged stale. Fix: give Stooq an `asof` or flag
+  freshness-unknown.
+- [ ] **`degraded` blind to coverage.** Doesn't count single-source/uncorroborated → triggers stay armed.
+  Fix: surface a corroboration-coverage signal (without over-triggering on legitimately-foreign tickers).
+- [ ] **Ledgers fail-open to empty** (`forecasts.json`/history) → silent permanent wipe of the track
+  record. Fix: validate + fail-loud on read.
+- [ ] **`meanPrice` price-weights a basket + breaks on changed membership** (`forecast.mjs`) → scorecard
+  on a corrupt stat. Fix: equal-weight per-ticker returns over fixed membership.
+- [ ] **Other audit items:** theta dividend-sign (latent, `options.mjs`); SHA-pin `action-send-mail`;
+  `searchFilings` retry; dedupe `complexMom`; delete dead `runScoutSweep`; direct tests for `annualVol`/`sharpe`.
+
 ### Free market-data sources (multi-source corroboration — all free)
 Build a provider abstraction (like the LLM one) that tries keyless first, optionally free-key, and cross-checks.
 - [x] **Quotes/history (keyless):** Yahoo chart (primary) + Stooq CSV (now a cross-check validator).

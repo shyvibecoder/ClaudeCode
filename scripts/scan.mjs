@@ -12,7 +12,7 @@ import { technicalsFromHistory } from "./lib/technicals.mjs";
 import { reconcileSeries } from "./lib/history-reconcile.mjs";
 import { basketIndex, portfolioMetrics } from "./lib/metrics.mjs";
 import { backtestRegime } from "./lib/backtest.mjs";
-import { getQuotes, providerKeys } from "./lib/marketdata.mjs";
+import { getQuotes, providerKeys, dataQualityGate, plausibleNextBar } from "./lib/marketdata.mjs";
 import { macroStress } from "./lib/macro.mjs";
 import { toUsd, fetchRates } from "./lib/fx.mjs";
 import { newlyFired, confirmFired } from "./lib/alerts.mjs";
@@ -68,10 +68,13 @@ async function v23Series(ticker) {
   try { s = await seriesFor(ticker, { liveRange: "2y", years: 6 }); } catch { /* may be unavailable */ }
   try {
     const q = await fetchYahoo(ticker); // light fetch; latest bar makes the cross-check current
-    if (q && q.price > 0 && q.asof) {
+    // P2 glitch guard: a single bad print on ^VIX/QQQ etc. must not flip the regime or poison history.
+    if (q && q.price > 0 && q.asof && plausibleNextBar(q.price, s?.closes?.[s.closes.length - 1])) {
       if (!s) s = { ticker, dates: [], closes: [], src: "live" };
       if (s.dates[s.dates.length - 1] !== q.asof) { s.dates.push(q.asof); s.closes.push(q.price); }
       v23LatestBars.push({ ticker, d: q.asof, close: q.price, source: q.source || "yahoo" }); // fed to the single top-off
+    } else if (q && q.price > 0 && q.asof) {
+      console.log(`v23: rejected glitch bar ${ticker} ${q.price} (prev ${s?.closes?.[s.closes.length - 1]})`);
     }
   } catch { /* top-up best-effort */ }
   return s;
@@ -159,20 +162,11 @@ for (const t of universe) {
 }
 if (!OFFLINE && supabaseConfigured()) console.log(`Technicals: ${_dbTech}/${Object.keys(enriched).length} from deep DB history (rest live)`);
 
-// Data-quality summary across the universe (drives fail-safe trigger gating below).
-const vals = Object.values(enriched);
-const nOk = vals.filter((q) => q && !q.error).length;
-const nErr = vals.filter((q) => q && q.error).length;
-const nFlagged = vals.filter((q) => q && q.flags?.length).length;
-const corr = vals.filter((q) => q?.corroboration);
-const nCorrob = corr.filter((q) => q.corroboration.ok === true).length;
-const errRate = vals.length ? nErr / vals.length : 1;
-const degraded = OFFLINE || errRate > 0.3 || (nOk > 0 && nFlagged / Math.max(nOk, 1) > 0.25);
-const data_quality = {
-  ok: !degraded, ok_quotes: nOk, errored: nErr, flagged: nFlagged,
-  corroborated: nCorrob, corroborated_of: corr.length,
-  note: degraded ? "degraded — auto-triggers held this run" : `${nOk} ok, ${nFlagged} flagged, ${nCorrob}/${corr.length} cross-source-corroborated`,
-};
+// Data-quality summary across the universe (drives fail-safe trigger gating below). Pure + tested in
+// marketdata.dataQualityGate: degraded trips on bad-data/anomaly or a corroboration-coverage COLLAPSE,
+// not on a few legitimately-foreign single-source tickers (audit P3).
+const data_quality = dataQualityGate(enriched, { offline: OFFLINE });
+const degraded = data_quality.degraded;
 if (!OFFLINE) console.log(`Data quality: ${data_quality.note}`);
 
 // --- SEC EDGAR filings watch (free, keyless): recent 8-K/10-Q/etc per holding ---

@@ -87,8 +87,56 @@ export async function getQuote(ticker, { keys = {}, useKeyed = false } = {}) {
       base = { ...base, price: corroboration.used };
     }
   }
-  if (base.asof) { const age = (Date.now() - Date.parse(base.asof)) / 86400000; if (age > STALE_DAYS) flags.push(`stale last bar ${base.asof}`); }
+  flags.push(...integrityFlags(corroboration, base.asof));
   return { ...base, corroboration, ...(flags.length ? { flags } : {}) };
+}
+
+// Per-quote integrity flags (pure, testable). Audit P1/P3: a SINGLE-SOURCE quote (corroboration.ok ===
+// null — no cross-check possible) was passing unflagged, invisible to data_quality and the trigger
+// path; and a Stooq-only quote (asof null) could never be flagged stale. Both are now flagged. Foreign
+// tickers are *legitimately* single-source, so this flags per-ticker — it does NOT mark the run degraded.
+export function integrityFlags(corroboration, asof, { staleDays = STALE_DAYS, now = Date.now() } = {}) {
+  const flags = [];
+  if (corroboration?.ok === null) flags.push(`single-source (${corroboration.sources?.[0] || "?"}) — uncorroborated`);
+  if (!asof) flags.push("freshness unknown (no dated bar)");
+  else { const age = (now - Date.parse(asof)) / 86400000; if (age > staleDays) flags.push(`stale last bar ${asof}`); }
+  return flags;
+}
+
+// Glitch guard for an appended time-series bar (audit P2 — V2.3 macro-brake instruments fetched with
+// no anomaly check could flip the regime on a bad print). Rejects a non-finite/≤0 price or a clear
+// data glitch (>5x or <0.2x the prior close); a legitimately-sharp but real move (e.g. a +44% VIX day)
+// passes. Pure. Accepts when there is no usable prior close (first bar).
+export function plausibleNextBar(price, prevClose, { maxRatio = 5 } = {}) {
+  if (!(Number.isFinite(price) && price > 0)) return false;
+  if (!(Number.isFinite(prevClose) && prevClose > 0)) return true;
+  const r = price / prevClose;
+  return r <= maxRatio && r >= 1 / maxRatio;
+}
+
+// Pure data-quality gate (audit P3). `degraded` (which HOLDS auto-triggers) trips on: a high error
+// rate, a high BAD-DATA rate (divergence/anomaly — quotes that are actually wrong), OR a corroboration-
+// coverage COLLAPSE (most quotes single-source, e.g. Stooq fully down — the cross-check infra is down).
+// It deliberately does NOT trip on a handful of legitimately-foreign single-source tickers, which would
+// over-hold triggers. Single-source quotes are surfaced separately (uncorroborated count).
+export function dataQualityGate(quotes, { offline = false } = {}) {
+  const vals = Object.values(quotes || {});
+  const nOk = vals.filter((q) => q && !q.error).length;
+  const nErr = vals.filter((q) => q && q.error).length;
+  const nFlagged = vals.filter((q) => q && q.flags?.length).length;
+  const nBadData = vals.filter((q) => q?.flags?.some((f) => /divergence|jump|consensus/.test(f))).length;
+  const corr = vals.filter((q) => q?.corroboration);
+  const nCorrob = corr.filter((q) => q.corroboration.ok === true).length;
+  const nUncorrob = corr.filter((q) => q.corroboration.ok === null).length;
+  const errRate = vals.length ? nErr / vals.length : 1;
+  const corrobRate = corr.length ? nCorrob / corr.length : 0;
+  const degraded = offline || errRate > 0.3 || (nOk > 0 && nBadData / nOk > 0.25) || (corr.length >= 5 && corrobRate < 0.5);
+  return {
+    ok: !degraded, degraded, ok_quotes: nOk, errored: nErr, flagged: nFlagged, bad_data: nBadData,
+    uncorroborated: nUncorrob, corroborated: nCorrob, corroborated_of: corr.length,
+    note: degraded ? "degraded — auto-triggers held this run"
+      : `${nOk} ok, ${nFlagged} flagged (${nUncorrob} single-source), ${nCorrob}/${corr.length} cross-source-corroborated`,
+  };
 }
 
 export async function getQuotes(tickers, { keys = {}, holdings = [] } = {}) {
