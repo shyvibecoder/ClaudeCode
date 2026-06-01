@@ -34,6 +34,81 @@ is the long-form version.
 
 ---
 
+## 1a. The end-to-end workflow (how it all connects)
+
+Puck is **four engines that hand off in a loop**, with you as the only one who ever commits capital or
+edits your book. Discovery widens the funnel → the committee filters it → the scan turns surviving
+theses into sized suggestions → you decide. Three engines run themselves on a schedule; you approve the
+gates between them.
+
+```
+  ┌──────────────┐      ┌──────────────────┐      ┌─────────────────┐      ┌──────────────┐
+  │  1. SCOUT    │  →   │  2. COMMITTEE    │  →   │   3. SCAN       │  →   │   4. YOU     │
+  │  (discover)  │ PR✋ │  (adjudicate)    │ PR✋ │  (score+suggest)│      │  (decide)    │
+  └──────────────┘      └──────────────────┘      └─────────────────┘      └──────────────┘
+   weekly, auto          monthly, auto             daily, auto              manual
+   → scout-candidates    → research-proposals      → signals.json           → portfolio.json
+   Scout tab             Research tab              every tab                 triggers.json
+        │                      │                        │                        │
+        └─ proposes NEW ───────┴─ proposes THESIS ──────┴─ proposes WEIGHTS ─────┘
+           scarcities            edits (priced-in…)        (rebalance) + alerts
+                          ↑ the bot only PROPOSES; nothing touches your book without you ↑
+```
+
+**1. Scout — *find new scarcities*.** Weekly (auto, Mon), the scout reads SEC filings for "constraint
+shadow" language (downstream firms complaining about supply) and drafts **candidate** new scarcities.
+It writes them to a **separate** feed (`scout-candidates.json`), never to your live list. You review
+them in the **Scout** tab (§5d) and click **Accept → opens a PR**. *Merging that PR* is what adds the
+scarcity to `scarcities.json`.
+
+**2. Committee — *pressure-test the theses*.** Monthly (auto, the 1st) — and automatically whenever
+`scarcities.json` changes — a synthetic **bull / bear / skeptic** committee re-reads every scarcity and
+proposes edits to its read (priced-in, durability, confidence). It writes **proposals only**
+(`research-proposals.json`); you review the before→after diffs in the **Research** tab (§5c) and
+**Accept → PR**. Merging applies the edits.
+
+**3. Scan — *score everything + suggest a rebalance*.** Daily (auto, weekdays after the US open), the
+scanner reads your **merged** `scarcities.json` + `portfolio.json` + `triggers.json`, pulls free
+prices, and computes the whole dashboard into `signals.json`: Opportunity scores, crowding, the
+regime/timing posture, **rebalance suggestions** (§5.9), and **trigger status**. If a trigger fires it
+**opens a GitHub issue**. It writes only generated files — *never* your portfolio or triggers.
+
+**4. You — *decide and act*.** You own `portfolio.json` and `triggers.json`. Your jobs: **merge** the
+scout/research PRs, read the **rebalance suggestion** and any **fired-trigger issue**, then place trades
+yourself and update your holdings (via **⚙ Settings** in the browser, or by committing `portfolio.json`).
+**Puck never trades and never edits your book.**
+
+> **Where a NEW *axis* comes from (e.g. the Health + Climate diversifier sleeve).** Adding a whole new
+> sleeve is a bigger decision than a single scarcity, so it goes through the **axis-check** workflow
+> (manual, §below) which back-tests candidate baskets apples-to-apples before any are curated in. That's
+> how the second (diversifier) axis was chosen. Diversifiers then live in `scarcities.json` tagged
+> `axis: "diversifier"` and are **tracked/priced but held out of the AI-capex ranking and sizing** — they
+> earn their place by lowering drawdown, shown with a `◇ diversifier · 2nd axis` badge on the radar.
+
+### What auto-runs vs. what you run
+
+| Engine | Workflow | Auto cadence | Run it yourself | Output file | See it ran (UI) |
+|---|---|---|---|---|---|
+| **Scout** | `scout` | Mondays 07:00 UTC | Actions → *scout* → Run workflow | `scout-candidates.json` | **Scout** tab — "last sweep ⟨date⟩" + new rows |
+| **Committee** | `research` | 1st of month 09:00 UTC *(and on any `scarcities.json` change)* | Actions → *research* → Run workflow | `research-proposals.json` | **Research** tab — "last run ⟨date⟩" + diffs |
+| **Scan** | `scan` | Weekdays 13:00 UTC | Actions → *scan* → Run workflow, **or ⟳ Refresh** in the UI (§10) | `signals.json` (+ history/forecasts/dca) | Header — "· last scan ⟨time⟩"; updates **every** tab |
+| **Axis-check** | `axis-check` | — (manual only) | Actions → *axis-check* → Run workflow | *(run log / summary only)* | Actions run **Summary** (no UI tab) |
+
+**Things only you can do (human-in-the-loop gates):** merge the scout/research PRs; edit
+`portfolio.json` + `triggers.json`; act on rebalance suggestions and fired-trigger issues. Everything
+else happens on the cron schedule with no action from you.
+
+### How to confirm a run actually happened
+
+- **Scan:** the header reads **"· last scan ⟨timestamp⟩"**; if it's >3 days old you get a **⚠ Stale data**
+  banner. In GitHub you'll see a green **scan** run in *Actions* and a `scan: refresh signals` commit on `main`.
+- **Scout:** the **Scout** tab lists candidates with **"last sweep ⟨date⟩"**; commit `scout output ⟨date⟩`.
+- **Committee:** the **Research** tab shows proposals with **"last run ⟨date⟩"**; commit `auto-research proposals ⟨date⟩`.
+- **A trigger fired:** a **GitHub Issue** titled *"Scarcity trigger fired"* appears, and the trigger shows
+  `fired` in **Portfolio & triggers → Triggers** (§5.3).
+
+---
+
 ## 2. Getting started (first 5 minutes)
 
 1. **Open the dashboard** (your Vercel URL). You'll land on the **Scarcity radar**.
