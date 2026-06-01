@@ -8,7 +8,7 @@
 // exits 0 (the scout must never fail the workflow), and it's hard-budgeted so a sweep can't run away.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { availableProviders, probeProviders, planCommittee, seatCaller, llm } from "./lib/llm.mjs";
-import { runScoutSweep, DEFAULT_CONSTRAINT_PHRASES } from "./lib/scout.mjs";
+import { runScoutSweep, DEFAULT_CONSTRAINT_PHRASES, approvedPhrases } from "./lib/scout.mjs";
 import { runCommittee, sanitizeEdit } from "./lib/research.mjs";
 import { searchFts } from "./lib/edgar-fts.mjs";
 import { newsForQuery } from "./lib/news.mjs";
@@ -56,8 +56,15 @@ const evaluate = async (draft) => {
   return { approved: true, proposal: { ...edit, scarcity: draft.scarcity, dispersion: memo.dispersion, complaining_filer: draft.complaining_filer } };
 };
 
+// D1 search gate: search only HUMAN-APPROVED phrases (web/data/scout-phrases.json). Until any are
+// approved, fall back to the seed list so the scout still works — the seed is the bootstrap.
+const phraseDoc = read("scout-phrases.json");
+const phrases = approvedPhrases(phraseDoc, { fallback: DEFAULT_CONSTRAINT_PHRASES });
+const approvedCount = (phraseDoc?.phrases || []).filter((p) => p.status === "approved").length;
+console.log(`scout: phrases = ${phrases.length} ${approvedCount ? "approved (vetted)" : "seed (no approved phrases yet — approve some on the Scout tab)"}`);
+
 try {
-  const out = await runScoutSweep({ phrases: DEFAULT_CONSTRAINT_PHRASES, knownTickers, minPhrases, maxSearches, maxCandidates, searchPhrase, evaluate });
+  const out = await runScoutSweep({ phrases, knownTickers, minPhrases, maxSearches, maxCandidates, searchPhrase, evaluate });
   console.log(`scout: ${out.health.phrasesSearched} phrases → ${out.health.candidates} candidate(s) → ${out.proposals.length} proposal(s); dropped ${out.health.droppedKnown} known. errors=${out.errors.length}`);
   for (const e of out.errors) console.log(`  ⚠ ${e}`);
   // Publish to the SEPARATE scout feed (D3) — distinct from the committee's re-scores of the known 24.

@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "generated": "2026-06-01",
+  "generator": "seed",
+  "phrases": [
+    {
+      "phrase": "lead times extended",
+      "status": "approved",
+      "added": "2026-06-01"
+    },
+    {
+      "phrase": "unable to secure allocation",
+      "status": "approved",
+      "added": "2026-06-01"
+    },
+    {
+      "phrase": "qualified a second source",
+      "status": "approved",
+      "added": "2026-06-01"
+    },
+    {
+      "phrase": "capacity-constrained supplier",
+      "status": "approved",
+      "added": "2026-06-01"
+    },
+    {
+      "phrase": "on allocation",
+      "status": "approved",
+      "added": "2026-06-01"
+    },
+    {
+      "phrase": "took-or-pay",
+      "status": "approved",
+      "added": "2026-06-01"
+    },
+    {
+      "phrase": "single source of supply",
+      "status": "approved",
+      "added": "2026-06-01"
+    },
+    {
+      "phrase": "extended delivery lead times",
+      "status": "approved",
+      "added": "2026-06-01"
+    },
+    {
+      "phrase": "supply remains constrained",
+      "status": "approved",
+      "added": "2026-06-01"
+    },
+    {
+      "phrase": "unable to obtain sufficient quantities",
+      "status": "approved",
+      "added": "2026-06-01"
+    }
+  ]
+}

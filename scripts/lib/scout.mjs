@@ -23,6 +23,68 @@ export const DEFAULT_CONSTRAINT_PHRASES = [
   "unable to obtain sufficient quantities",
 ];
 
+// ── D1: LLM-generated, human-vetted constraint phrases (SCOUT-DESIGN) ──────────────────────────
+// A generated phrase NEVER triggers a search until a human approves it. The model proposes →
+// mergePhraseDoc lands new ones as `pending` → a human approves → approvedPhrases gates the sweep.
+
+// Clean an LLM phrase response (JSON array OR a bulleted/numbered/newline list) into search phrases:
+// strip list markers + quotes, trim, drop too-short/absurd lines, de-dupe case-insensitively.
+export function parsePhrases(text) {
+  let lines = [];
+  const trimmed = String(text || "").trim();
+  if (trimmed.startsWith("[")) { try { lines = JSON.parse(trimmed); } catch { /* fall through */ } }
+  if (!lines.length) lines = trimmed.split(/\r?\n/);
+  const seen = new Set(), out = [];
+  for (const raw of lines) {
+    // Normalize to lowercase — these are case-insensitive FTS search strings, so this de-dupes
+    // near-variants and keeps the list visually consistent with the seed phrases.
+    const p = String(raw).replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").replace(/^["'`]|["'`]$/g, "").trim().toLowerCase();
+    if (p.length < 4 || p.length > 80) continue;
+    if (seen.has(p)) continue;
+    seen.add(p); out.push(p);
+  }
+  return out;
+}
+
+// Merge freshly-generated phrases into the phrase doc: genuinely-new ones become `pending`; phrases
+// already present (any status: approved/pending/rejected) are left untouched so a re-generation can't
+// resurrect a rejected phrase or un-approve an approved one. De-dupe is case-insensitive.
+export function mergePhraseDoc(prevDoc, phrases, { today = new Date().toISOString().slice(0, 10) } = {}) {
+  const existing = (prevDoc?.phrases || []).map((p) => ({ ...p }));
+  const have = new Set(existing.map((p) => p.phrase.toLowerCase()));
+  for (const p of (phrases || [])) {
+    const k = String(p).toLowerCase();
+    if (have.has(k)) continue;
+    have.add(k);
+    existing.push({ phrase: String(p), status: "pending", added: today });
+  }
+  return { schema_version: 1, phrases: existing };
+}
+
+// THE SEARCH GATE: only `approved` phrases are searched. If none are approved yet (fresh repo, or a
+// pending-only doc), fall back to the seed list so the scout never breaks — the seed IS the bootstrap.
+export function approvedPhrases(doc, { fallback = DEFAULT_CONSTRAINT_PHRASES } = {}) {
+  const approved = (doc?.phrases || []).filter((p) => p.status === "approved").map((p) => p.phrase);
+  return approved.length ? approved : fallback;
+}
+
+// Generate candidate constraint phrases via an injected model `complete(prompt) -> text` (the runner
+// wraps Anthropic). Asks for SHORT, scarcity-AGNOSTIC complaint language so the phrases generalize
+// across chokepoints rather than naming a specific material we already track.
+export async function generateConstraintPhrases({ complete, count = 18 } = {}) {
+  const prompt =
+    `You are building a SEC-filing search list to DISCOVER emerging supply constraints. Output ${count} ` +
+    `short verbatim phrases (3-7 words) that companies use in 10-K/10-Q risk factors and MD&A when an ` +
+    `INPUT they depend on is becoming scarce/bottlenecked — e.g. "lead times extended", "unable to ` +
+    `secure allocation", "qualified a second source", "on allocation", "took-or-pay". Rules: generic ` +
+    `COMPLAINT language only — do NOT name specific materials, companies, or products (the phrase must ` +
+    `generalize across many chokepoints). One phrase per line, no numbering, no commentary.`;
+  return parsePhrases(await complete(prompt));
+}
+
+// (approvePendingPhrases — the dashboard approve action — lives in web/scout-review.mjs so the
+// browser can import it without pulling in the node-side scout code.)
+
 // Cluster constraint-phrase search results into candidate leads.
 //   results: [{ phrase, hits: [{ ticker, company, mentions }] }]   (hits = parseFtsHits output)
 // A filer complaining under MANY DISTINCT phrases is feeling broad supply stress → a strong lead;

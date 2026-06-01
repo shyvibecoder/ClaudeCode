@@ -7,7 +7,13 @@ name: scout
 on:
   schedule:
     - cron: "0 7 * * 1"   # 07:00 UTC every Monday
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "sweep = run the scout; generate-phrases = LLM-propose new constraint phrases for review (D1)"
+        type: choice
+        default: sweep
+        options: [sweep, generate-phrases]
 permissions:
   contents: write
 concurrency: { group: scout, cancel-in-progress: false }
@@ -37,17 +43,21 @@ jobs:
           SCOUT_MAX_SEARCHES: ${{ vars.SCOUT_MAX_SEARCHES }}
           SCOUT_MAX_CANDIDATES: ${{ vars.SCOUT_MAX_CANDIDATES }}
           SCOUT_MIN_PHRASES: ${{ vars.SCOUT_MIN_PHRASES }}
+          SCOUT_PHRASE_COUNT: ${{ vars.SCOUT_PHRASE_COUNT }}
+          SCOUT_MODE: ${{ github.event.inputs.mode || 'sweep' }}
         run: |
-          node scripts/scout-run.mjs | tee scout-run.log
+          # generate-phrases (D1): LLM-propose new constraint phrases for human vetting. Else: sweep.
+          if [ "$SCOUT_MODE" = "generate-phrases" ]; then SCRIPT=scripts/scout-phrases-run.mjs; else SCRIPT=scripts/scout-run.mjs; fi
+          node "$SCRIPT" | tee scout-run.log
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cat scout-run.log >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-      - name: "Commit scout candidates (front-end reviews + approves them)"
+      - name: "Commit scout output (front-end reviews + approves it)"
         run: |
           git config user.name "puck-bot"; git config user.email "puck-bot@users.noreply.github.com"
-          git add web/data/scout-candidates.json
-          if git diff --cached --quiet; then echo "no new scout candidates"; exit 0; fi
-          git commit -m "scout candidates $(date +%F) [skip ci]"
+          git add web/data/scout-candidates.json web/data/scout-phrases.json
+          if git diff --cached --quiet; then echo "no new scout output"; exit 0; fi
+          git commit -m "scout output $(date +%F) [skip ci]"
           # Rebase before push so a concurrent commit to main can't reject (R3 race guard).
           for i in 1 2 3; do git pull --rebase origin main && git push && break || sleep $((i*3)); done
       - name: Upload scout output (inspect without a PR)

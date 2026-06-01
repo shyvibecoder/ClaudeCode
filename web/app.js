@@ -17,11 +17,12 @@ let DATA = {};
 const bust = () => `?t=${Date.now()}`; // cache-bust signals.json so reloads see fresh commits
 
 async function fetchData() {
-  const [scar, port, trig, sig, dca, proposals, scout] = await Promise.all(
-    ["scarcities", "portfolio", "triggers", "signals", "dca", "research-proposals", "scout-candidates"].map((f) =>
-      fetch(`data/${f}.json${f === "signals" || f === "research-proposals" || f === "scout-candidates" ? bust() : ""}`).then((r) => r.json()).catch(() => ({})))
+  const live = new Set(["signals", "research-proposals", "scout-candidates", "scout-phrases"]);
+  const [scar, port, trig, sig, dca, proposals, scout, scoutPhrases] = await Promise.all(
+    ["scarcities", "portfolio", "triggers", "signals", "dca", "research-proposals", "scout-candidates", "scout-phrases"].map((f) =>
+      fetch(`data/${f}.json${live.has(f) ? bust() : ""}`).then((r) => r.json()).catch(() => ({})))
   );
-  return { scar, port, trig, sig, dca, proposals, scout };
+  return { scar, port, trig, sig, dca, proposals, scout, scoutPhrases };
 }
 
 async function load() {
@@ -87,14 +88,22 @@ function renderScout() {
   const SC = window.PuckScout;
   const doc = DATA.scout;
   const head = `<h3>Scout — candidate new scarcities <button class="help" data-help="scout">?</button> <span class="foot">— constraint-shadow leads the committee vetted; you approve admission to the watchlist.</span></h3>`;
-  if (!SC || !doc || !DATA.scar?.scarcities) { box.innerHTML = head; return; }
+  // D1 constraint-phrase status: the LLM proposes search phrases; only APPROVED ones get searched.
+  const ph = DATA.scoutPhrases?.phrases || [];
+  const pendingPhrases = ph.filter((p) => p.status === "pending");
+  const approvedN = ph.filter((p) => p.status === "approved").length;
+  const phraseHtml = ph.length ? `<div class="proposal"><div><strong>Constraint phrases</strong> <span class="foot">— ${approvedN} approved (searched)${pendingPhrases.length ? `, ${pendingPhrases.length} pending review` : ""}</span></div>` +
+    (pendingPhrases.length ? `<div class="foot">pending: ${pendingPhrases.slice(0, 12).map((p) => `<code>${esc(p.phrase)}</code>`).join(" ")}</div>
+      <div class="modal-actions"><button class="approve-phrases">✓ Approve pending phrases → open PR</button></div>` : `<div class="foot">All generated phrases vetted. Run the scout workflow with mode <code>generate-phrases</code> to propose more.</div>`) + `</div>` : "";
+  if (!SC || !doc || !DATA.scar?.scarcities) { box.innerHTML = head + phraseHtml; return; }
   const cands = doc.candidates?.length ? SC.scoutCandidateView(doc, DATA.scar) : [];
   if (!cands.length) {
     const considered = (doc.considered || []).length;
-    box.innerHTML = head + `<p class="foot">No open scout candidates (last sweep ${esc(doc.generated || "—")}${considered ? `; ${considered} lead(s) considered, none cleared the committee` : ""}).</p>`;
+    box.innerHTML = head + phraseHtml + `<p class="foot">No open scout candidates (last sweep ${esc(doc.generated || "—")}${considered ? `; ${considered} lead(s) considered, none cleared the committee` : ""}).</p>`;
+    wirePhraseBtn(box);
     return;
   }
-  box.innerHTML = head + cands.map((c, i) => {
+  box.innerHTML = head + phraseHtml + cands.map((c, i) => {
     const fields = [c.priced_in ? `priced_in=<strong class="pi-${esc(c.priced_in)}">${esc(c.priced_in)}</strong>` : "", c.bind_window ? `bind=${esc(c.bind_window)}` : ""].filter(Boolean).join(" · ");
     const phrases = (c.constraint_phrases || []).slice(0, 4).map((p) => `<code>${esc(p)}</code>`).join(" ");
     const disp = c.dispersion ? ` · ${esc(c.dispersion.level)} conviction` : "";
@@ -111,6 +120,10 @@ function renderScout() {
   }).join("");
   $$(".accept-scout", box).forEach((b) => b.onclick = () => acceptScoutCandidate(b.dataset.id));
   $$(".reject-scout", box).forEach((b) => b.onclick = () => { b.closest(".proposal").style.opacity = 0.4; b.closest(".proposal").querySelectorAll("button").forEach((x) => x.disabled = true); });
+  wirePhraseBtn(box);
+}
+function wirePhraseBtn(box) {
+  const b = box.querySelector(".approve-phrases"); if (b) b.onclick = () => approveScoutPhrases();
 }
 
 // V2.3 cross-check + the headline "when to act on a dislocation" verdict.
@@ -771,6 +784,41 @@ async function acceptScoutCandidate(id) {
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = "✓ Accept → open PR (add scarcity)"; }
     alert(`Could not open PR: ${e.message}.\n\nThis usually means the token can read but not write. Check it has write access to ${REPO}:\n• Classic token → the 'repo' scope must be ticked\n• Fine-grained token → Contents + Pull requests, both read/write`);
+  }
+}
+
+// Approve the scout's PENDING constraint phrases (D1 vet-before-search gate): flip pending→approved
+// (in scout-review.mjs) and open a PR updating scout-phrases.json. After merge, the weekly sweep is
+// allowed to search them. Same branch→commit→PR flow as the other accept actions.
+async function approveScoutPhrases() {
+  const SC = window.PuckScout, t = adminToken();
+  if (!t) { alert("Open Settings → Admin and paste a GitHub token first."); return; }
+  const updated = SC.approvePendingPhrases(DATA.scoutPhrases);
+  if (!updated || updated === DATA.scoutPhrases) { alert("No pending phrases to approve."); return; }
+  const btn = document.querySelector(".approve-phrases");
+  if (btn) { btn.disabled = true; btn.textContent = "Opening PR…"; }
+  try {
+    const api = `https://api.github.com/repos/${REPO}`;
+    const meta = await (await fetch(`${api}/contents/web/data/scout-phrases.json`, { headers: ghHeaders(t) })).json();
+    const ref = await (await fetch(`${api}/git/ref/heads/main`, { headers: ghHeaders(t) })).json();
+    const branch = `scout-phrases/${Date.now().toString(36)}`;
+    let r = await fetch(`${api}/git/refs`, { method: "POST", headers: { ...ghHeaders(t), "content-type": "application/json" }, body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: ref.object.sha }) });
+    if (!r.ok) throw new Error(`branch ${r.status}`);
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(updated, null, 2) + "\n")));
+    r = await fetch(`${api}/contents/web/data/scout-phrases.json`, { method: "PUT", headers: { ...ghHeaders(t), "content-type": "application/json" },
+      body: JSON.stringify({ message: "scout: approve constraint phrases", content, sha: meta.sha, branch }) });
+    if (!r.ok) throw new Error(`commit ${r.status}`);
+    const n = (updated.phrases || []).filter((p) => p.status === "approved").length;
+    r = await fetch(`${api}/pulls`, { method: "POST", headers: { ...ghHeaders(t), "content-type": "application/json" },
+      body: JSON.stringify({ title: "Approve scout constraint phrases", head: branch, base: "main",
+        body: `Approves the scout's pending constraint phrases (D1 vet-before-search gate). After merge, the weekly sweep searches all ${n} approved phrases.` }) });
+    const pr = await r.json();
+    if (!r.ok) throw new Error(`PR ${r.status}: ${pr.message || ""}`);
+    if (btn) { btn.textContent = "✓ PR opened"; }
+    window.open(pr.html_url, "_blank", "noopener");
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = "✓ Approve pending phrases → open PR"; }
+    alert(`Could not open PR: ${e.message}.\n\nThe token needs write access to ${REPO} (classic 'repo' scope, or fine-grained Contents + Pull requests read/write).`);
   }
 }
 

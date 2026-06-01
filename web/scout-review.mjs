@@ -54,3 +54,12 @@ export function appendScoutScarcity(scarcitiesDoc, candidate, { today = new Date
   if (RISK.includes(candidate.substitution_risk)) entry.substitution_risk = candidate.substitution_risk;
   return { ...scarcitiesDoc, scarcities: [...scarcitiesDoc.scarcities, entry] };
 }
+
+// D1 dashboard action: flip every `pending` constraint phrase to `approved` (approved/rejected
+// unchanged). Returns a NEW doc (never mutates input); the user commits it via PR, after which the
+// weekly sweep is allowed to SEARCH those phrases. Lives here (browser+node) so the dashboard can
+// import it without the node-side scout code; the generator/runner read the same scout-phrases.json.
+export function approvePendingPhrases(doc, { today = new Date().toISOString().slice(0, 10) } = {}) {
+  if (!doc?.phrases) return doc;
+  return { ...doc, phrases: doc.phrases.map((p) => p.status === "pending" ? { ...p, status: "approved", approved: today } : { ...p }) };
+}

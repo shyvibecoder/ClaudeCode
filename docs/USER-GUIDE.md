@@ -286,6 +286,13 @@ the proposed fields, and the committee's confidence:
 The scout runs **weekly** and never edits the watchlist itself — it only proposes; **you approve**
 admission (F9). Not advice; every candidate is a lead to investigate, and most should fail the committee.
 
+**Constraint phrases (what the scout searches for).** The search phrases are themselves
+**LLM-generated and human-vetted**: run the scout workflow in `generate-phrases` mode and the frontier
+model proposes candidate complaint phrases, which land **pending** on this tab. A generated phrase is
+**never searched until you approve it** — click **✓ Approve pending phrases → open PR** to vet them
+(it opens a PR updating `scout-phrases.json`; after merge the weekly sweep searches them). Until any are
+approved, the scout falls back to a built-in seed list, so it always works.
+
 ## 6. Filings & news
 
 ![Filings and news](img/catalysts.png)
