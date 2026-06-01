@@ -41,8 +41,8 @@ const CANDIDATES = {
   "Health (defensive: pharma/devices)": ["JNJ", "PFE", "MRK", "ABT", "MDT"],
   // Primes + munitions, all ~20-30yr (ITA '06 → ~19yr): LMT, NOC, GD, ITA.
   "Defense / munitions": ["LMT", "NOC", "GD", "ITA"],
-  // Control — overlaps the held book (FIW). Water utilities/infra, ~17-20yr: PHO '05, AWK '08, WTRG decades.
-  "Climate-adaptation / water (control)": ["PHO", "AWK", "WTRG"],
+  // Fresh breadth (NOT held — confirmed no FIW position). Water utilities/infra, ~17-20yr: PHO '05, AWK '08, WTRG decades.
+  "Climate-adaptation / water": ["PHO", "AWK", "WTRG"],
 };
 
 async function loadSeries(tickers) {
@@ -104,7 +104,7 @@ function mdTable(title, cx, rows) {
 // below either alone (the diversification payoff + the −35% objective test)? compρ = how correlated the two
 // components are TO EACH OTHER (lower = more genuine internal breadth, less shared hidden factor).
 const COMBOS = [
-  ["Health (defensive: pharma/devices)", "Climate-adaptation / water (control)"],
+  ["Health (defensive: pharma/devices)", "Climate-adaptation / water"],
   ["Health (defensive: pharma/devices)", "Defense / munitions"], // comparator
 ];
 
@@ -194,7 +194,7 @@ function mdCombos(rows) {
     md += mdTable("Table A — each basket's own max history (windows differ)", cxOwn, rowsOwn);
     md += mdTable(`Table B — apples-to-apples, all from ${commonStart}`, cxC, rowsCommon);
     md += mdCombos(comboRows);
-    md += "_Lowest mktβ + lowest maxDD = best diversifier against a concentrated AI book. Climate/water overlaps held FIW — size around it._\n";
+    md += "_Lowest mktβ + lowest maxDD = best diversifier against a concentrated AI book. All four are fresh breadth (no current overlap with the book)._\n";
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
   }
 })();
