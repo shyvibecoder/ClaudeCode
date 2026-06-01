@@ -18,7 +18,10 @@ jobs:
         with: { node-version: 20 }
       - name: Measure candidate-axis correlation to the AI-capex complex
         env:
-          # Optional free-key corroborators (same as scan); the keyless Yahoo/Stooq feed works without them.
+          # Deep ADJUSTED history corroborator (same secret scan/backfill uses); keyless Yahoo+Stooq carry
+          # the deep daily history when this is unset, so CI works without it.
+          TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
+          # Optional free-key quote corroborators (same as scan).
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
           ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}

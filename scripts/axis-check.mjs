@@ -3,8 +3,28 @@
 // (b) EARN its capital on its own — low correlation to a loser is worthless. So we measure BOTH, over a
 // long (~15-20yr) window. Long-lived pure-plays (not young ETFs) so history isn't truncated to ~2yr.
 // Run with network (GitHub Actions, or local): node scripts/axis-check.mjs
-import { fetchSeries } from "./lib/quotes.mjs";
+import { fetchSeries, fetchStooqHistory, fetchTiingoHistory } from "./lib/quotes.mjs";
+import { reconcileSeries } from "./lib/history-reconcile.mjs";
 import { axisCorrelation, basketStats } from "./lib/axis.mjs";
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Deep daily history the SAME way the price-history backfill builds it (scan.mjs): fetch each provider,
+// then cross-provider reconcile. Yahoo(adj) + Tiingo(adj) are the adjusted corroborating pair; keyless
+// Stooq carries the deep daily history so CI works without secrets. reconcileSeries screens weekend /
+// holiday-fill / spike bars and corroborates — "no synthetic data". This is why range=max alone (monthly
+// for long spans) isn't enough: Stooq supplies the deep daily bars, reconciliation triangulates them.
+async function deepSeries(ticker) {
+  const sources = {};
+  try { sources.yahoo = await fetchSeries(ticker, "max"); } catch { /* skip */ }
+  await sleep(200);
+  try { sources.stooq = await fetchStooqHistory(ticker); } catch { /* skip */ }
+  await sleep(200);
+  if (process.env.TIINGO_API_KEY) { try { sources.tiingo = await fetchTiingoHistory(ticker); } catch { /* skip */ } await sleep(300); }
+  const { rows } = reconcileSeries(ticker, sources);
+  if (rows.length < 250) return null;
+  return { ticker, dates: rows.map((r) => r.d), closes: rows.map((r) => r.close) };
+}
 
 // AI-capex complex proxy — long-lived so the correlation window is ~25yr: QQQ (1999) + SMH semis (2000).
 // (Held theme ETFs like NUKZ/PAVE are young and would truncate the window to ~2yr; semis are the cleanest
@@ -27,9 +47,8 @@ const CANDIDATES = {
 async function loadSeries(tickers) {
   const out = {};
   for (const t of tickers) {
-    try { const s = await fetchSeries(t, "max"); if (s?.closes?.length > 250) out[t] = { dates: s.dates, closes: s.closes }; else console.error(`  (thin/none: ${t} — ${s?.closes?.length || 0} pts)`); }
+    try { const s = await deepSeries(t); if (s) out[t] = { dates: s.dates, closes: s.closes }; else console.error(`  (thin/none: ${t})`); }
     catch (e) { console.error(`  (fetch failed: ${t} — ${e.message.slice(0, 60)})`); }
-    await new Promise((r) => setTimeout(r, 150)); // be polite to Yahoo
   }
   return out;
 }
