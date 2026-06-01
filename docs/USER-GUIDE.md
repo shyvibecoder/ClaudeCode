@@ -173,6 +173,21 @@ A second **Alpha edge** line grades the harder claim. Each **de-rating / inflect
 complex (the theme ETFs)? That relative move, not raw direction, is the thesis's real edge, so it is
 scored separately (de-rating and inflecting buckets). It tells you whether the alpha signal earns its keep.
 
+### 5.1d Factor attribution — alpha or just beta? (G1, the honesty gate's teeth)
+The most important sanity check in the app. A rising basket or a good hit-rate is **not** proof of skill —
+the book could simply be loaded on factors anyone can buy cheaply. So Puck regresses the basket's daily
+return on a small set of **tradeable factors: market (SPY), momentum (MTUM), and — crucially — a thematic
+proxy (QQQ).** The regression's **intercept is the residual alpha**: the return left *after* market,
+momentum, and the AI/tech theme are accounted for. **Including the theme leg is the whole point** — without
+it, this single-factor AI-capex book's beta would masquerade as alpha (exactly the trap an adversarial
+review flagged).
+
+The verdict reads **"genuine alpha"** only when that residual is positive **and** statistically significant
+(|t| ≥ 2); otherwise **"factor/beta — not alpha,"** and the app says so plainly rather than flattering
+itself. It also shows the blunt absolute check: did the basket beat simply buying **QQQ**? *Caveat:* with
+limited, partly-foreign history the estimate is noisy for a while (small sample, wide error band) — early
+readings are indicative, not verdicts. This is the layer that keeps the whole "alpha" claim falsifiable.
+
 ### 5.2 Summary cards
 Sleeve size, IRA vs taxable split, holding count, and a **data-quality** card (✓ OK or ⚠ degraded —
 see §11).

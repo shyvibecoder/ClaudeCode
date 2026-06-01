@@ -12,6 +12,7 @@ import { technicalsFromHistory } from "./lib/technicals.mjs";
 import { reconcileSeries } from "./lib/history-reconcile.mjs";
 import { basketIndex, portfolioMetrics } from "./lib/metrics.mjs";
 import { backtestRegime } from "./lib/backtest.mjs";
+import { returns, alignByDate, factorAttribution, benchmarkRelative } from "./lib/factor.mjs";
 import { getQuotes, providerKeys, dataQualityGate, plausibleNextBar } from "./lib/marketdata.mjs";
 import { macroStress } from "./lib/macro.mjs";
 import { toUsd, fetchRates } from "./lib/fx.mjs";
@@ -312,6 +313,7 @@ if (alerts.newly_fired.length) console.log(`Alerts: newly fired -> ${alerts.newl
 
 // --- Objective metrics: trailing CAGR / maxDD / Calmar / Sortino on the strategy basket ---
 let metrics = null;
+let attribution = null; // G1: factor attribution — is the basket return alpha or just factor/beta?
 if (!OFFLINE) {
   try {
     const etfs = portfolio.holdings.filter((h) => isTradeable(h.ticker) && securities[h.ticker]?.type === "etf");
@@ -334,6 +336,26 @@ if (!OFFLINE) {
         const bt = backtestRegime(idx.values, { maPeriod: mp });
         if (bt) { metrics.backtest = bt; console.log(`Backtest(ma${mp}): braked maxDD ${bt.braked.max_drawdown} vs ${bt.unbraked.max_drawdown}, dd_reduction ${bt.dd_reduction}, whipsaws ${bt.whipsaws}`); }
       }
+      // G1: regress the basket on tradeable factors — MARKET (SPY), MOMENTUM (MTUM), and crucially a
+      // THEME proxy (QQQ). The intercept is residual alpha BEYOND market+momentum+theme exposure — the
+      // test that can actually fail (without the theme leg, this AI-capex book's beta would look like alpha).
+      try {
+        const fseries = {};
+        for (const [nm, tk] of Object.entries({ MKT: "SPY", MOM: "MTUM", THEME: "QQQ" })) {
+          try { const s = await seriesFor(tk, { liveRange: "2y", years: 3 }); if (s?.closes?.length > 60) fseries[nm] = { dates: s.dates, values: s.closes }; } catch { /* skip a missing factor */ }
+        }
+        if (Object.keys(fseries).length >= 2) {
+          const aligned = alignByDate({ ASSET: { dates: idx.dates, values: idx.values }, ...fseries });
+          if (aligned.dates.length > 80) {
+            const facRet = {}; for (const nm of Object.keys(fseries)) facRet[nm] = returns(aligned.cols[nm]);
+            const attr = factorAttribution(returns(aligned.cols.ASSET), facRet);
+            if (attr) {
+              attribution = { ...attr, window: `${aligned.dates[0]}..${aligned.dates[aligned.dates.length - 1]}`, factors: Object.keys(facRet), benchmark_qqq: aligned.cols.THEME ? benchmarkRelative(aligned.cols.ASSET, aligned.cols.THEME) : null };
+              console.log(`Attribution: alpha ${(attr.alpha_annual * 100).toFixed(1)}%/yr (t=${attr.alpha_t}, R²=${attr.r2}, n=${attr.n}) → ${attr.verdict}`);
+            }
+          }
+        }
+      } catch (e) { errors.push(`attribution: ${e.message}`); }
     }
   } catch (e) { errors.push(`metrics: ${e.message}`); }
 }
@@ -609,6 +631,7 @@ const out = {
   alerts,
   regime,
   metrics,
+  attribution,
   scorecard,
   scarcity_signals,
   opportunities,
