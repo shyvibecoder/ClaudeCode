@@ -53,22 +53,26 @@ reorder below puts the two items that *fund honesty* first. **All free-tier-achi
 items touch strategy/vision — discuss before building.
 
 ### 🔴 P0 — PROVE the alpha is real (do FIRST; reframed from "premier enhancement" to correctness)
-- [ ] **G1 — Factor attribution + an EXTERNAL benchmark (the keystone).** Until this exists, the word
-  "alpha" in this app is unfalsifiable. (a) **Define the benchmark** — currently undefined; the honest
-  default today is "vs other AI-capex names," which no CIO accepts. Commit a market/QQQ + **equal-weight
-  thematic-ETF** absolute benchmark series AND a **Fama-French 5 + UMD** factor series (free, keyless: Ken
-  French Data Library daily CSV). (b) Regress the basket/sleeve returns → report market-beta, style
-  loadings, and the **residual (true) alpha with a t-stat**; wire the residual read into the scorecard so
-  any signal that can't beat its factor replication is auto-relabeled "beta," per ALPHA.md's standing rule.
-  *Caveat (review MEDIUM): short/foreign-history basket → the regression is underpowered for years; report
-  CIs and treat early t-stats as indicative.* **This is a correctness prerequisite, not an enhancement.**
-- [ ] **G6 — Historical cross-sectional signal backtest, POINT-IN-TIME (statistical power NOW).** The
-  *regime* backtest exists; the **alpha signals do not** (Opportunity, de-rating/inflecting, forced-flow
-  are graded only forward, and the live ledger is ~empty). Backtest them cross-sectionally on the 31y/57-
-  ticker warehouse for an immediate IC/hit-rate with CIs. **MUST be point-in-time** (review MEDIUM-2): the
-  24 scarcities were chosen in 2026 *knowing* what worked 2024-26 → a naive backtest is survivorship-
-  contaminated and overstates IC. Construct the universe as-of each date or label the IC an explicit upper
-  bound — else it manufactures the false confidence the honesty gate exists to prevent.
+- [x] **G1 — Factor attribution + an EXTERNAL benchmark — SHIPPED (6074d0a).** `scripts/lib/factor.mjs`
+  (OLS + t-stats, no deps) regresses the basket on **market (SPY) + momentum (MTUM) + a THEME proxy (QQQ)**
+  → residual alpha + t-stat + R² + verdict ("genuine alpha" only if alpha>0 AND |t|≥2, else "factor/beta");
+  plus the blunt absolute check vs QQQ. Wired into `scan.mjs` → `signals.json.attribution`, rendered in the
+  Objective scorecard + `?` help + USER-GUIDE 5.1d. The theme leg is the crux — without it the book's beta
+  would masquerade as alpha. **NOTE — divergence from spec:** used tradeable factor-proxy ETFs (warehouse-
+  native, zero new infra) instead of the Ken-French FF5/UMD CSV; the latter is a future precision upgrade
+  (the pure OLS core is source-agnostic). Honest small-n caveat surfaced. *Honesty gate now has teeth.*
+- [x] **G6 — Historical cross-sectional signal backtest — SHIPPED (2c18ffd).** `scripts/lib/xsbacktest.mjs`
+  tests on history whether a basket's trailing relative strength vs the complex predicts its FORWARD
+  relative return → rank IC + hit-rate + 95% CI. Point-in-time on prices (union date axis, no peek);
+  **survivorship caveat baked into the payload + UI** (current-membership universe → IC is an UPPER BOUND).
+  Warehouse-gated in `scan.mjs` → `signals.json.signal_backtest`; scorecard line + `?` help + USER-GUIDE 5.1e.
+- [ ] **(G1 follow-up) Ken-French FF5+UMD precision + scorecard auto-relabel.** Feed the source-agnostic OLS
+  core the canonical FF5+UMD factors, and wire the residual-alpha verdict to auto-relabel a signal class as
+  "beta" in the scorecard when its factor-adjusted edge isn't significant. (The attribution read exists; the
+  *automated relabel* of `by_signal` buckets is still manual-eyeball.)
+- [ ] **(G6 follow-up) Point-in-time universe construction.** v1 uses current-membership (IC labeled an
+  explicit upper bound). A fuller version reconstructs the basket→ticker membership as-of each date to
+  remove the survivorship bias — needs versioned `scarcities.json` history (F4 snapshots are a start).
 
 ### 🟠 P1 — fix the structural concentration (the return engine's real risk)
 - [ ] **Gate the scout NOW (cheap; stops the hole deepening).** The scout's own candidates (transformers,
