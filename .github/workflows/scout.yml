@@ -48,6 +48,9 @@ jobs:
           SCOUT_ENGINES: ${{ vars.SCOUT_ENGINES }}
           SCOUT_MAX_SEEDS: ${{ vars.SCOUT_MAX_SEEDS }}
           SCOUT_MAX_PER_SEED: ${{ vars.SCOUT_MAX_PER_SEED }}
+          # Confidence bar to SURFACE a candidate for review (default 0.4; hard disqualifiers still reject).
+          SCOUT_MIN_CONF: ${{ vars.SCOUT_MIN_CONF }}
+          SCOUT_ARXIV_QUERIES: ${{ vars.SCOUT_ARXIV_QUERIES }}
           SCOUT_MODE: ${{ github.event.inputs.mode || 'sweep' }}
         run: |
           # generate-phrases (D1): LLM-propose new constraint phrases for human vetting. Else: sweep.

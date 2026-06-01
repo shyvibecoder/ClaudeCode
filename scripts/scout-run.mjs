@@ -55,14 +55,20 @@ const searchPhrase = async (phrase) => { const hits = await searchFts(phrase); a
 // The committee IS the gate (committee-first, SCOUT-DESIGN), and a scout candidate now passes the SAME
 // trust layers as a research proposal (F2): committee → deterministic verify gate → CRO review. The
 // CRO's hallucinated-ticker check matters MORE here because scout tickers come from fuzzy FTS discovery.
-const MIN_CONF = 0.5;
+// Discovery bar is LOWER than the research re-rating bar: the hard disqualifiers (CRO veto, verify
+// hardFail) already remove junk, the human is the final gate, and confidence is docked in 3 places
+// (verify/CRO/legibility) on top of inherently-thin new-scarcity evidence — a 0.5 cutoff would make
+// the scout surface ~nothing. Surface moderate leads for review instead. Tunable via SCOUT_MIN_CONF.
+const MIN_CONF = Math.max(0, Number(process.env.SCOUT_MIN_CONF) || 0.4);
 const evaluate = async (draft) => {
   // F4: enrich beyond news-only — pull SEC FILING PASSAGES for the proposed tickers (primary-source
   // evidence the committee can actually read), best-effort + bounded.
   let news = [], filings = [];
   try { news = await newsForQuery(draft.scarcity, { limit: 10 }); } catch { /* best-effort */ }
   const kw = draft.scarcity.toLowerCase().split(/\s+/).filter((w) => w.length > 3).slice(0, 4);
-  for (const t of (draft.tickers || []).slice(0, 2)) {
+  // Bound to the top (highest-signal) ticker — EDGAR load-sheds under volume (R3), and the sweep
+  // already makes many FTS calls; one real filing per candidate is enough primary evidence.
+  for (const t of (draft.tickers || []).slice(0, 1)) {
     try {
       const found = await searchFilings(t, { forms: "10-K,10-Q,8-K", limit: 1 });
       if (found?.[0]) { const passages = await fetchFilingPassages(found[0], kw, { max: 2 }); if (passages?.length) filings.push({ ticker: t, form: found[0].form, date: found[0].date, url: found[0].url, passages }); }

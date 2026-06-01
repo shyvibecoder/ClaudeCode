@@ -113,14 +113,16 @@ console.log(`research evidence: ${totalExcerpts} news excerpts, ${totalPassages}
 // Ping every provider's configured model BEFORE doing 18 min of work; reassign any dead seat to the
 // funded frontier and announce it LOUDLY so degraded diversity is never silent.
 const frontier = providers.find((p) => p === "anthropic" || p === "openai") || null;
-const probes = await probeProviders(providers);
-const live = Object.fromEntries(probes.map((r) => [r.provider, r.ok]));
-for (const r of probes) console.log(`  ${r.ok ? "✓" : "✗"} ${r.provider} model ${r.ok ? "live" : "DOWN"}${r.ok ? "" : ` — ${r.error}`}`);
-
 // COMMITTEE PLAN (honest roles): the frontier model CHAIRS (CIO) and is held OUT of the debate so it
 // judges arguments it didn't write; the 3 debate seats are the other providers, with OpenRouter
 // expanding to TWO seats (different models, one key) before any free Groq. See planCommittee().
 const plan = planCommittee(providers);
+// Probe ONLY the providers that actually staff the chair/a seat — not unused keys (e.g. a 503-ing
+// Gemini that never plays a role), which just waste a call and add noise every run.
+const usedProviders = [...new Set([plan.chair?.provider, ...plan.seats.map((s) => s.provider)].filter(Boolean))];
+const probes = await probeProviders(usedProviders);
+const live = Object.fromEntries(probes.map((r) => [r.provider, r.ok]));
+for (const r of probes) console.log(`  ${r.ok ? "✓" : "✗"} ${r.provider} model ${r.ok ? "live" : "DOWN"}${r.ok ? "" : ` — ${r.error}`}`);
 // Apply liveness to each debate seat: a dead provider's seat falls back to the live frontier, loudly.
 const swaps = [];
 const liveSeats = plan.seats.map((seat) => {
