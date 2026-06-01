@@ -14,7 +14,7 @@ A multi-agent, adversarially-reviewed deep-research study of how the major techn
 
 ## The app — "Puck" scarcity radar (stay on top of it)
 A **$0-to-run** dashboard + scanning engine that keeps this thesis and your portfolio triggers live. See **[`APP.md`](APP.md)** for the full architecture and setup.
-- **`web/`** — static dashboard (deploys on Vercel, zero build): scarcity radar, timeline, portfolio & live trigger status, agent digest.
+- **`web/`** — static dashboard (deploys on Vercel, zero build): scarcity radar, portfolio & live trigger status, agent digest.
 - **`scripts/scan.mjs`** — the scanner: pulls **free** quotes (Stooq/Yahoo, no key), computes crowding scores + auto-triggers, and runs an optional **free-LLM** ("analyst + red-team") digest (Gemini/Groq free tier).
 - **`.github/workflows/scan.yml`** — the "agent worker": a cron GitHub Action (free) that runs the scan, commits results, and opens an alert issue when a trigger fires. *(This is how the long agent runs happen — Vercel hosts the UI; GitHub Actions runs the agents.)*
 - Run locally: `node scripts/scan.mjs` (or `--offline`), then `npm run serve`.

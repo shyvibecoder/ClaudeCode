@@ -202,6 +202,7 @@ function renderStale(sig) {
 function q(ticker) { return DATA.sig?.quotes?.[ticker]; }
 
 function renderRadar() {
+  if (!DATA.scar?.scarcities) { $("#radarTable tbody").innerHTML = ""; return; } // degrade gracefully if scarcities.json failed to load
   const sectors = [...new Set(DATA.scar.scarcities.map((s) => s.sector))].sort();
   const sel = $("#sectorFilter");
   if (sel.options.length <= 1) sectors.forEach((s) => sel.add(new Option(s, s)));
@@ -372,16 +373,16 @@ function renderPortfolio() {
   renderStress();
   renderSizing();
   renderRebalance();
-  const p = DATA.port;
-  $("#portSummary").innerHTML = `
+  const p = DATA.port || {};
+  $("#portSummary").innerHTML = (p.holdings && p.accounts) ? `
     <div class="card"><b>${fmtUsd(p.sleeve_usd)}</b><span>sleeve (~${Math.round(p.sleeve_usd / p.total_portfolio_usd * 100)}% of ${fmtUsd(p.total_portfolio_usd)})</span></div>
     <div class="card"><b>${fmtUsd(p.accounts.ira)}</b><span>IRA / 401k</span></div>
     <div class="card"><b>${fmtUsd(p.accounts.taxable)}</b><span>taxable</span></div>
     <div class="card"><b>${p.holdings.filter(h=>h.tier!=='DRY').length}</b><span>holdings + dry powder</span></div>
-    ${DATA.sig?.data_quality ? `<div class="card ${DATA.sig.data_quality.ok?'':'dq-bad'}"><b>${DATA.sig.data_quality.ok?'✓ OK':'⚠ degraded'} <button class="help" data-help="dataquality">?</button></b><span>data quality · ${DATA.sig.data_quality.note}</span></div>` : ""}`;
+    ${DATA.sig?.data_quality ? `<div class="card ${DATA.sig.data_quality.ok?'':'dq-bad'}"><b>${DATA.sig.data_quality.ok?'✓ OK':'⚠ degraded'} <button class="help" data-help="dataquality">?</button></b><span>data quality · ${DATA.sig.data_quality.note}</span></div>` : ""}` : "";
 
   const tg = $("#triggers"); tg.innerHTML = "";
-  DATA.trig.triggers.forEach((t) => {
+  (DATA.trig?.triggers || []).forEach((t) => {
     const live = DATA.sig?.trigger_status?.[t.id];
     let state = t.status; if (live?.fired) state = "fired";
     // Show the value inline only when it's a compact number (e.g. drawdown %); the
@@ -394,7 +395,7 @@ function renderPortfolio() {
   });
 
   const tb = $("#holdings tbody"); tb.innerHTML = "";
-  p.holdings.forEach((h) => {
+  (p.holdings || []).forEach((h) => {
     const Q = q(h.ticker);
     const ytd = Q?.ytd, off = Q?.pct_off_high;
     const tr = document.createElement("tr");
@@ -407,6 +408,17 @@ function renderPortfolio() {
       <td class="${Q?.pct_vs_ma200>=0?'pos':'neg'}">${fmtPct(Q?.pct_vs_ma200)}</td>
       <td>${Q?.forward_pe ? Q.forward_pe.toFixed(1) + "x" : "—"}</td><td style="color:var(--mut)">${esc(h.role)}</td>`;
     tb.appendChild(tr);
+  });
+  hideEmptyGroups();
+}
+
+// A grouped Portfolio block whose render targets are all empty (e.g. regime "unknown" offline, no holdings)
+// would otherwise show a bald heading + subtitle over nothing. Hide any group with no rendered body.
+function hideEmptyGroups() {
+  document.querySelectorAll("#portfolio .group").forEach((g) => {
+    const body = [...g.children].filter((c) => !c.classList.contains("group-h") && !c.classList.contains("group-sub"));
+    const hasContent = body.some((c) => c.textContent.trim().length > 0 || c.querySelector("table tbody tr, .card, canvas, svg, img"));
+    g.style.display = hasContent ? "" : "none";
   });
 }
 
@@ -944,7 +956,7 @@ const HELP = {
     <li><strong>Scan</strong> (daily, auto) scores everything and suggests a rebalance + fires triggers.</li>
     <li><strong>You</strong> merge the PRs, read the suggestions, and place the trades. Puck never trades for you.</li></ol>
     <p>Full walk-through: the <strong>User Guide §1a</strong>.</p>
-    <ul><li><strong>Scarcity radar / Timeline</strong> — what's scarce, when it binds, and how priced-in it already is.</li>
+    <ul><li><strong>Scarcity radar</strong> — what's scarce, when it binds, and how priced-in it already is.</li>
     <li><strong>Portfolio &amp; triggers</strong> — your sleeve, the <em>timing posture</em> (when to deploy vs. raise cash), and deploy/exit triggers.</li>
     <li><strong>Filings &amp; news</strong> — free SEC EDGAR + news per holding/scarcity.</li>
     <li><strong>Options check</strong> — confirm an option's price is fair before you buy.</li>

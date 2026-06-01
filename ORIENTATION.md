@@ -12,7 +12,7 @@ You are working in **`shyvibecoder/deep-tech-market-research`** (private). It co
 1. **Research** (`research/`): a multi-agent, adversarially-reviewed thesis. Entry point `MASTER-THESIS.md`; full synthesis `SYNTHESIS.md`; 8 sourced sector deep-dives (`deepdives/01-08`); 4 red-team critiques (`redteam/01-04`); `etf-map.md`.
 2. **Investment plan**: `PORTFOLIO.md` + `POSITION-SIZING.md`. Real money: **$1.5M sleeve = $800K IRA + $700K taxable** (~29% of a $5.2M portfolio). Asset location: trim-heavy/cyclical holdings in the IRA (tax-free turnover); buy-and-hold anchors + foreign dividend payers (ASML, Siemens Energy ADR) in taxable (foreign-tax credit). A 9-month DCA deployment calendar + deploy/exit triggers are defined.
 3. **The app "Puck"** (`web/`, `scripts/`, `.github/workflows/scan.yml`): a $0-to-run scarcity radar.
-   - `web/` = static dashboard (radar, timeline, portfolio + live trigger status, agent digest) reading `web/data/*.json`.
+   - `web/` = static dashboard (radar, portfolio + live trigger status, agent digest) reading `web/data/*.json`.
    - `scripts/scan.mjs` (+ `lib/quotes.mjs`, `lib/llm.mjs`) = the scanner: free keyless quotes (Stooq→Yahoo fallback), a crowding score, auto-trigger evaluation, and an optional free-LLM "analyst + red-team" digest (Gemini/Groq).
    - `.github/workflows/scan.yml` = the "agent worker": a free GitHub Actions cron that runs the scan, commits `web/data/signals.json`, and opens an Issue when a trigger fires. (Vercel hosts the UI; GitHub Actions runs the agents.)
 

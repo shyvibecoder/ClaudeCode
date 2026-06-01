@@ -500,7 +500,7 @@
         "blend_with": "health-defensive",
         "blend_maxDD": 0.312,
         "blend_compRho": 0.655,
-        "caveat": "Confirmed NOT held (no FIW position) — genuine fresh breadth, not a double-down. Shares a rates/duration factor with health (compρ 0.655)."
+        "caveat": "Not in the actual book (currently unfunded), BUT the proposed plan already includes FIW (water anchor) — so a water/climate sleeve overlaps it at the PLAN level: size around the planned FIW, do not double-count water. Also shares a rates/duration factor with health (compρ 0.655)."
       },
       "thesis": "SECOND AXIS, not an AI-capex bottleneck — fresh breadth held to LOWER drawdown. Water scarcity / regulated climate-adaptation infrastructure: a durable demand driver largely independent of the AI-capex cycle. axis-check (2008+): LOWEST standalone drawdown of any candidate (34%), mktβ 0.74, robust negative AI-capex loading (aiβ -0.306, t -18.2). Different demand driver from health, so a 50/50 blend cuts the sleeve drawdown to 31% — the diversification payoff. Judge on drawdown reduction, NOT the Opportunity Score."
     }

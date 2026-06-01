@@ -4,7 +4,6 @@ A **$0-to-run** dashboard + scanning engine that keeps the tech-scarcity thesis 
 
 ## What it does
 - **Scarcity radar** — every tracked scarcity with its binding window, priced-in level, durability, substitution risk, and a *live crowding score* (from market data).
-- **Timeline** — scarcities bucketed by when they bind (now → 2027 → 2028-29 → 2030+ → physics floor).
 - **Portfolio & triggers** — your $1.5mm sleeve (IRA + taxable), live prices/YTD/% off high per holding, and the deploy/exit **trigger status** (armed / monitor / fired).
 - **Filings & news** — recent **SEC EDGAR** filings per holding (8-K/10-Q/10-K/6-K/20-F, with 8-K item topics) and **Google-News RSS** headlines keyed off each scarcity's thesis terms (both free, keyless). These also feed the digest.
 - **Agent digest** — an optional free-LLM "analyst + red-team" summary of what changed, prioritizing filings that touch backlog/capacity/guidance/pricing.
