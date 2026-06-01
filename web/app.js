@@ -324,6 +324,24 @@ function renderSizing() {
       : `<p class="foot">No active tilts (regime isn't risk-on and nothing is flagged underweight).</p>`);
 }
 
+function renderRebalance() {
+  const box = $("#rebalanceBox"); if (!box) return;
+  const rb = DATA.sig?.rebalance;
+  if (!rb || !rb.signal?.rows?.length) { box.innerHTML = ""; return; }
+  const fmtK = (n) => (n == null ? "—" : (n < 0 ? "−" : "") + "$" + Math.abs(Math.round(n / 1000)) + "k");
+  const actClass = (a) => /buy/.test(a) ? "pos" : /trim/.test(a) ? "neg" : "";
+  // Show only names the SIGNAL plan wants to move; pair the research-plan delta alongside.
+  const resById = Object.fromEntries(rb.research.rows.map((r) => [r.ticker, r]));
+  const rows = rb.signal.rows.filter((r) => r.action !== "hold").sort((a, b) => Math.abs(b.delta_usd) - Math.abs(a.delta_usd));
+  const s = rb.signal.summary;
+  box.innerHTML = `<h3>Rebalance plan <button class="help" data-help="rebalance">?</button> <span class="foot">— risk-aware target weights → buy/sell, ±${rb.risk_cap_pct}% vol tilt, ${esc(rb.basis || "")}</span></h3>` +
+    `<p class="foot">Signal plan: <span class="pos">buy ${fmtK(s.buy_usd)}</span> · <span class="neg">sell ${fmtK(s.sell_usd)}</span> · net ${fmtK(s.net_usd)}` +
+      (s.blocked_trim_usd ? ` · <span class="neg">${fmtK(s.blocked_trim_usd)} anchor-trim held (taxable bar not met)</span>` : "") + `</p>` +
+    (rows.length ? `<table class="mine"><thead><tr><th>Ticker</th><th>Acct</th><th>Now</th><th>Signal →</th><th>Δ (signal)</th><th>Δ (research)</th><th>Action</th></tr></thead><tbody>${
+      rows.map((r) => `<tr><td><strong>${esc(r.ticker)}</strong></td><td>${esc(r.account)}</td><td>${fmtK(r.current_usd)}</td><td>${fmtK(r.target_usd)}</td><td class="${r.delta_usd >= 0 ? "pos" : "neg"}">${r.delta_usd > 0 ? "+" : ""}${fmtK(r.delta_usd)}</td><td class="foot">${resById[r.ticker] ? (resById[r.ticker].delta_usd > 0 ? "+" : "") + fmtK(resById[r.ticker].delta_usd) : "—"}</td><td class="${actClass(r.action)}">${esc(r.action)}</td></tr>`).join("")
+    }</tbody></table>` : `<p class="foot">No rebalancing suggested — current weights are within tolerance of both target vectors.</p>`);
+}
+
 function renderStress() {
   const box = $("#stressTest"); if (!box) return;
   const S = window.PuckStress; const pos = getPositions().positions || {};
@@ -348,6 +366,7 @@ function renderPortfolio() {
   renderDca();
   renderStress();
   renderSizing();
+  renderRebalance();
   const p = DATA.port;
   $("#portSummary").innerHTML = `
     <div class="card"><b>${fmtUsd(p.sleeve_usd)}</b><span>sleeve (~${Math.round(p.sleeve_usd / p.total_portfolio_usd * 100)}% of ${fmtUsd(p.total_portfolio_usd)})</span></div>
@@ -1017,6 +1036,7 @@ const HELP = {
     <li><strong>🕸 Cross-chokepoint hubs</strong> — second-order mapping: public names that show up across <em>multiple</em> bottlenecks (×degree). A <strong>hub</strong> (≥3) is a diversified "picks-and-shovels" way to play the whole complex; a degree-1 name is a concentrated pure play. The exposure structure the market doesn't index.</li></ul>
     <p>This is the differentiated, hard-to-replicate layer — turning "no clean ETF, sorry" into "here's the best obtainable read." Not advice; discovered proxies are leads to research, not recommendations.</p>` },
   sizing: { title: "Suggested IRA tilts", body: `\n    <p>Turns the per-name <strong>TSMOM tilt</strong> (overweight/underweight) and the <strong>regime</strong> into concrete, bounded allocation deltas: <strong>add</strong> overweights only when the regime is risk-on (don't accelerate into weakness), <strong>trim</strong> underweights in any regime, and leave the <strong>taxable</strong> sleeve as buy-and-hold anchors. Deltas are capped at ±25% of target weight. The last mile from analysis to allocation — graded by the Track record. Not advice.</p>` },
+  rebalance: { title: "Rebalance plan", body: `\n    <p>The last mile from analysis to allocation. Builds two risk-aware target-weight vectors and turns them into concrete buy/sell amounts: the <strong>research</strong> plan is your <code>portfolio.json</code> weights nudged only by a light <strong>±15% inverse-volatility tilt</strong> (so high-vol names like COPX/LEU don't quietly dominate the risk budget); the <strong>signal</strong> plan <em>also</em> moves with the live <strong>Opportunity Score</strong> and <strong>regime tilt</strong>, so a research-committee 'crowded' downgrade shrinks a weight and surfaces a trim — closing the thesis→allocation link. Funding rules: the <strong>IRA</strong> (tax-free) self-funds, with trims paying for buys; the <strong>taxable</strong> sleeve stays buy-and-hold, so a taxable trim is only actioned above a higher bar (a broken thesis or the cost-basis trim rule) and is otherwise shown but held. With <code>positions.local.json</code> it rebalances what you actually hold; without it, it shows the ideal weighting vs your static plan. Advisory only — it never edits your portfolio or places trades. Not advice.</p>` },
   stress: { title: "Stress test", body: `\n    <p>Applies the thesis's named shocks to YOUR sleeve (your positions × latest prices) and shows the drawdown vs the <strong>−35% objective limit</strong>: the 2027–28 AI-capex digestion (the basket's shared failure mode), a 2022-style rate shock, a broad recession, and a China rare-earth 'peace' (subsidy-floor names re-rate). Shock vectors are coarse and documented (high-beta assumptions), not fitted — a feel for tail risk, not a prediction. Runs entirely in your browser. Not advice.</p>` },
   dca: { title: "DCA progress", body: `
     <p>Tracks how much of each holding's <strong>target</strong> you've actually <strong>deployed</strong> (shares × cost basis from your Settings positions), against the 9-month dollar-cost-averaging calendar. The bar + % shows progress to target; the card shows the sleeve total deployed. Helps you stay on the plan and see where dry powder still needs to go.</p>` },

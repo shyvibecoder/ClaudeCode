@@ -18,3 +18,112 @@ export function targetDeltas(holdings, perName, regime, { maxDeltaPct = 0.25 } =
     };
   });
 }
+
+// ───────────────────────────────────────────────────────────────────────────────────────────
+// G3 — risk-aware target weights + an account-aware rebalance plan (analysis → allocation).
+// No tuned constants: every multiplier is coarse, bounded, economically motivated (REGIME/ALPHA.md).
+// Two vectors side by side: RESEARCH (your portfolio.json weights + a LIGHT inverse-vol tilt only)
+// and SIGNAL (research × Opportunity factor × regime tilt × the same risk tilt — so a committee
+// "crowded" downgrade shrinks the weight and surfaces a trim; this closes the thesis→allocation link).
+// Funding: IRA (tax-free) self-funds (trims pay for buys); TAXABLE buys come from cash and a taxable
+// trim only ACTIONS when a higher bar is met (ticker in taxableTrimOk: broken/strong de-rating or the
+// cost-basis trim rule) — else the ideal weight is shown but the action stays "hold (anchor)".
+
+export const clamp = (x, lo, hi) => (x < lo ? lo : x > hi ? hi : x);
+
+// Inverse-volatility tilt, bounded to [1-cap, 1+cap], centered at the geometric-mean vol so the
+// average name is ~1.0 (a tilt, not a re-scale). vols = { ticker: annualizedVol }. Missing → 1.0.
+export function riskFactors(tickers, vols, { cap = 0.15 } = {}) {
+  const valid = (tickers || []).filter((t) => Number.isFinite(vols?.[t]) && vols[t] > 0);
+  const factor = {};
+  for (const t of tickers || []) factor[t] = 1;
+  if (valid.length < 2) return factor; // need a cross-section to tilt against
+  const center = Math.exp(valid.reduce((a, t) => a + Math.log(vols[t]), 0) / valid.length);
+  for (const t of valid) factor[t] = clamp(center / vols[t], 1 - cap, 1 + cap);
+  return factor;
+}
+
+// Opportunity factor from the 0..100 score: crowded(≈0)→1-cap, top(100)→1+cap. Missing → neutral 1.0.
+export function opportunityFactor(score, { cap = 0.30 } = {}) {
+  if (!Number.isFinite(score)) return 1;
+  return clamp(1 - cap + (2 * cap) * (score / 100), 1 - cap, 1 + cap);
+}
+
+// Regime tilt: overweight bites only in a risk-on regime; underweight bites in any regime. ±cap.
+export function regimeFactor(tilt, posture, { cap = 0.15 } = {}) {
+  if (tilt === "overweight") return posture === "risk-on" ? 1 + cap : 1;
+  if (tilt === "underweight") return 1 - cap;
+  return 1;
+}
+
+// Target-weight vector, normalized PER SLEEVE (accounts funded separately). mode ∈ {research, signal}.
+// Returns [{ ticker, account, base_usd, factor, target_weight, target_usd }].
+export function targetWeights(holdings, {
+  mode = "research", vols = {}, perName = [], posture = null, oppByTicker = {},
+  sleeveTotals = null, riskCap = 0.15, oppCap = 0.30, regimeCap = 0.15,
+} = {}) {
+  const hs = (holdings || []).filter((h) => h && h.ticker && h.target_usd > 0);
+  const tilt = Object.fromEntries((perName || []).map((t) => [t.ticker, t.tilt]));
+  const rf = riskFactors(hs.map((h) => h.ticker), vols, { cap: riskCap });
+  const groups = {};
+  for (const h of hs) (groups[h.account || "ungrouped"] ||= []).push(h);
+
+  const out = [];
+  for (const [acct, list] of Object.entries(groups)) {
+    const sleeveTotal = sleeveTotals?.[acct] ?? list.reduce((a, h) => a + h.target_usd, 0);
+    const rows = list.map((h) => {
+      let factor = rf[h.ticker] ?? 1;
+      if (mode === "signal") {
+        factor *= opportunityFactor(oppByTicker[h.ticker], { cap: oppCap });
+        if (acct === "ira") factor *= regimeFactor(tilt[h.ticker], posture, { cap: regimeCap });
+      }
+      return { h, factor, raw: h.target_usd * factor };
+    });
+    const sumRaw = rows.reduce((a, r) => a + r.raw, 0) || 1;
+    for (const r of rows) {
+      out.push({
+        ticker: r.h.ticker, account: acct, base_usd: r.h.target_usd, factor: +r.factor.toFixed(3),
+        target_weight: +((r.raw / sumRaw) * 100).toFixed(1),
+        target_usd: +(sleeveTotal * (r.raw / sumRaw)).toFixed(0),
+      });
+    }
+  }
+  return out;
+}
+
+// Actionable plan vs CURRENT holdings (marketValue per ticker; defaults to base target when absent,
+// so the plan shows how risk/signal weighting differs from the static research plan). Applies funding.
+export function rebalancePlan(targets, { currentUsd = {}, taxableTrimOk = [] } = {}) {
+  const okSet = new Set(taxableTrimOk);
+  let buy = 0, sell = 0, blocked = 0;
+  const rows = (targets || []).map((t) => {
+    const current = Number.isFinite(currentUsd[t.ticker]) ? currentUsd[t.ticker] : t.base_usd;
+    const delta = +(t.target_usd - current).toFixed(0);
+    let action, actioned = delta;
+    if (delta > 0) { action = "buy"; buy += delta; }
+    else if (delta < 0) {
+      if (t.account === "taxable" && !okSet.has(t.ticker)) {
+        action = "hold (anchor — trim bar not met)"; actioned = 0; blocked += -delta;
+      } else { action = t.account === "ira" ? "trim (funds buys)" : "trim (high-conviction)"; sell += -delta; }
+    } else action = "hold";
+    return {
+      ticker: t.ticker, account: t.account, target_weight: t.target_weight,
+      current_usd: +current.toFixed(0), target_usd: t.target_usd,
+      delta_usd: delta, actioned_usd: actioned, action,
+    };
+  });
+  return { rows, summary: {
+    buy_usd: +buy.toFixed(0), sell_usd: +sell.toFixed(0),
+    net_usd: +(buy - sell).toFixed(0), blocked_trim_usd: +blocked.toFixed(0),
+  } };
+}
+
+// Both columns + plans in one call (what the scan and dashboard consume).
+export function rebalanceBoth(holdings, inputs = {}) {
+  const planArgs = { currentUsd: inputs.currentUsd, taxableTrimOk: inputs.taxableTrimOk };
+  return {
+    research: rebalancePlan(targetWeights(holdings, { ...inputs, mode: "research" }), planArgs),
+    signal: rebalancePlan(targetWeights(holdings, { ...inputs, mode: "signal" }), planArgs),
+    risk_cap_pct: +((inputs.riskCap ?? 0.15) * 100).toFixed(0),
+  };
+}

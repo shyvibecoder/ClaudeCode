@@ -240,6 +240,27 @@ The last mile from analysis to allocation: per-name **TSMOM tilt × regime** →
 weight deltas. **Add** overweights only in a risk-on regime; **trim** underweights in any regime; the
 **taxable** sleeve stays buy-and-hold. Graded over time by the Track record. Not advice.
 
+### 5.9 Rebalance plan (G3 — risk-aware target weights → buy/sell)
+The fuller allocation engine: it builds **two** risk-aware target-weight vectors and turns each into a
+concrete **buy/sell dollar plan**, shown side by side so you can see how the signals move your book:
+- **Research plan** — your `portfolio.json` weights nudged only by a **light ±15% inverse-volatility
+  tilt**, so high-vol names (COPX/LEU/MP) don't silently dominate the risk budget. Your conviction stays
+  primary.
+- **Signal plan** — the research weight **also** moved by the live **Opportunity Score** and **regime
+  tilt**. A research-committee "crowded" downgrade lowers a name's Opportunity → shrinks its weight here →
+  surfaces a trim. This is what **closes the thesis→allocation link** (when theses change, the suggested
+  allocation changes too).
+
+**Funding rules (so the plan is realistic, not just ideal weights):**
+- The **IRA** (tax-free) **self-funds** — trims pay for buys within the sleeve.
+- The **taxable** sleeve stays **buy-and-hold anchors**: a taxable **trim is only actioned above a higher
+  bar** (a *broken* thesis or the cost-basis trim rule). Otherwise the ideal weight is shown but the
+  action stays "hold (anchor)", and the held amount is reported as `anchor-trim held`.
+
+With a `positions.local.json` it rebalances **what you actually hold** (live market value); without it, it
+shows the **ideal weighting vs your static plan**. The plan is **advisory only** — it never edits your
+portfolio or places trades (you stay in control, per the ownership model). Not advice.
+
 ## 5c. Research (LLM proposals you approve)
 The **Research** tab surfaces the monthly research engine's proposed reassessments. The engine runs the
 free LLMs (deep-dive → cross-model red-team → synthesis) over **deep evidence** — multi-angle news

@@ -31,6 +31,7 @@ import { newsForQuery } from "./lib/news.mjs";
 import { chokepointHeat } from "./lib/chokepoints.mjs";
 import { rankOpportunities, opportunityScore } from "./lib/opportunity.mjs";
 import { forcedFlowSignal, reconcileWithTiming } from "./lib/forced-flow.mjs";
+import { rebalanceBoth } from "./lib/sizing.mjs";
 import { v23State, dislocationEntryWindow, compositeStress } from "./lib/v23.mjs";
 import { supabaseConfigured, seriesToRows, upsertPriceHistory, sanitizePriceRows, dedupePriceRows, readSeries } from "./lib/supabase.mjs";
 import { discoverProxies, rankProxies, proxyGraph } from "./lib/edgar-fts.mjs";
@@ -429,6 +430,55 @@ const anyDislocation = Object.values(scarcity_signals).some((x) => x.forced_flow
 if (!OFFLINE) console.log(`Forced-flow: ${Object.values(scarcity_signals).filter((x) => x.forced_flow?.flag === "accumulate").length} thesis-intact dislocation(s) (accumulate)`);
 if (!OFFLINE) console.log(`Opportunity Score: top = ${opportunities.slice(0, 3).map((o) => `${o.id} ${o.score}`).join(", ")}`);
 
+// --- G3: risk-aware target weights + an account-aware rebalance plan (analysis → allocation) ---
+// Two columns: RESEARCH (your portfolio.json weights + a LIGHT ±15% inverse-vol tilt) and SIGNAL
+// (also moved by the live Opportunity Score + regime tilt — so a committee "crowded" downgrade
+// shrinks the weight HERE and surfaces a trim, closing the thesis→allocation link). Advisory: it
+// never edits portfolio.json or trades (F9). Funding: IRA self-funds (trims pay for buys); a TAXABLE
+// trim only ACTIONS above a higher bar (broken thesis or the cost-basis trim rule).
+let rebalance = null;
+try {
+  const reHoldings = portfolio.holdings.filter((h) => isTradeable(h.ticker) && h.target_usd > 0);
+  const vols = {};
+  for (const h of reHoldings) { const v = enriched[h.ticker]?.vol_1y; if (Number.isFinite(v)) vols[h.ticker] = v; }
+  // Opportunity per ticker = the best (max) live score among the scarcities that name it.
+  const oppByTicker = {};
+  for (const s of scarcities.scarcities) {
+    const sc = scarcity_signals[s.id]?.score;
+    if (!Number.isFinite(sc)) continue;
+    for (const t of s.tickers || []) if (!Number.isFinite(oppByTicker[t]) || sc > oppByTicker[t]) oppByTicker[t] = sc;
+  }
+  // Live $ per holding (USD) from the optional local positions; when present, sleeve totals follow
+  // the actual market value so the plan rebalances what you hold (else it shows ideal vs the plan).
+  const currentUsd = {};
+  if (positions?.positions) {
+    for (const h of reHoldings) {
+      const p = positions.positions[h.ticker], q = enriched[h.ticker];
+      if (p?.shares && q?.price) {
+        const usd = toUsd(q.price * p.shares, q.currency || (securities[h.ticker]?.foreign ? "UNKNOWN" : "USD"), fxRates);
+        if (usd != null) currentUsd[h.ticker] = usd;
+      }
+    }
+  }
+  const haveCur = Object.keys(currentUsd).length > 0;
+  const sleeveTotals = haveCur
+    ? reHoldings.reduce((acc, h) => { if (currentUsd[h.ticker] != null) acc[h.account] = (acc[h.account] || 0) + currentUsd[h.ticker]; return acc; }, {})
+    : null;
+  // Higher bar for a TAXABLE sell: a BROKEN thesis or the cost-basis trim rule — not routine tilts.
+  const taxableTrimOk = new Set(trimHits.map((t) => t.ticker));
+  for (const s of scarcities.scarcities) {
+    if (scarcity_signals[s.id]?.forced_flow?.flag === "broken") for (const t of s.tickers || []) taxableTrimOk.add(t);
+  }
+  rebalance = rebalanceBoth(reHoldings, {
+    vols, perName: regime?.per_name || [], posture: regime?.posture, oppByTicker,
+    currentUsd: haveCur ? currentUsd : undefined, sleeveTotals,
+    taxableTrimOk: [...taxableTrimOk], riskCap: 0.15,
+  });
+  rebalance.basis = haveCur ? "live positions (positions.local.json)" : "static plan (portfolio.json targets)";
+  rebalance.taxable_trim_ok = [...taxableTrimOk];
+  if (!OFFLINE) console.log(`Rebalance(${rebalance.basis}): signal buys $${Math.round(rebalance.signal.summary.buy_usd / 1e3)}k / sells $${Math.round(rebalance.signal.summary.sell_usd / 1e3)}k` + (rebalance.signal.summary.blocked_trim_usd ? `, $${Math.round(rebalance.signal.summary.blocked_trim_usd / 1e3)}k anchor-trim blocked` : ""));
+} catch (e) { errors.push(`rebalance: ${e.message}`); }
+
 // --- V2.3 cross-check + dislocation-entry timing: a FAITHFUL REPLICA of the owner's F+C Thrust
 // rule recomputed on QQQ (200-DMA trend, 252-day/60-day-vol crash, rising-20-DMA thrust + exit-only
 // composite-stress overlay), to sanity-check Puck's regime; and the answer to "WHEN do I take
@@ -543,6 +593,7 @@ const out = {
   scorecard,
   scarcity_signals,
   opportunities,
+  rebalance,
   v23,
   dislocation_entry,
   chokepoints,
