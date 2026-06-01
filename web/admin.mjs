@@ -63,15 +63,32 @@ const LLM_PREFERENCE = [
   { secret: "GROQ_API_KEY", label: "Groq", frontier: false },
   { secret: "GEMINI_API_KEY", label: "Gemini", frontier: false },
 ];
+// Roster = which model plays each role. MUST mirror planCommittee() in scripts/lib/llm.mjs exactly:
+//  - frontier CHAIRS (CIO) and is held OUT of the debate (judges arguments it didn't write);
+//  - the 3 debate seats come from the OTHER providers, with OpenRouter expanding to TWO seats (one
+//    key, many families) before any free Groq; <3 debaters → pad by reusing the chair.
+// (Logic is duplicated rather than imported to keep this browser module free of the node LLM code;
+// the "committeeRoster equals planCommittee" drift-lock test in tests/admin.test.mjs guards the two.)
 export function committeeRoster(existingSecrets = []) {
   const ss = new Set(existingSecrets);
   const present = LLM_PREFERENCE.filter((p) => ss.has(p.secret));
   const providers = present.map((p) => p.label);
-  const at = (i) => providers[i] || providers[0] || null;   // degrade: reuse the lead model
   const frontier = present.find((p) => p.frontier) || null; // Anthropic preferred over OpenAI
+  if (!providers.length) {
+    return { providers, bull: null, bear: null, skeptic: null, cio: null, cro: null, croAvailable: false, singleModel: false };
+  }
+  const chair = providers[0];                               // preference-ordered → frontier leads
+  const rest = providers.slice(1);
+  const pool = rest.length ? rest : [chair];                // single key → chair also debates
+  const slots = [];
+  for (const p of pool) {
+    if (p === "OpenRouter") { slots.push("OpenRouter"); slots.push("OpenRouter"); } // 2 seats, 2 models
+    else slots.push(p);
+  }
+  const seat = (i) => slots[i] || chair;                    // <3 debaters → pad with the chair
   return {
     providers,
-    bull: at(0), bear: at(1), skeptic: at(2), cio: providers[0] || null,
+    bull: seat(0), bear: seat(1), skeptic: seat(2), cio: chair,
     cro: frontier ? frontier.label : null,        // null unless a frontier key is set
     croAvailable: !!frontier,
     singleModel: providers.length === 1,
@@ -91,7 +108,7 @@ export function researchPreflight(existingSecrets = [], existingVariables = []) 
   if (!roster.croAvailable) warnings.push("CRO risk review is OFF — it needs a frontier key (ANTHROPIC_API_KEY or OPENAI_API_KEY). Only the deterministic gate will run.");
   if (!vs.has("SEC_USER_AGENT")) warnings.push("SEC_USER_AGENT not set — filing-passage fetches still work but aren't identifying you politely to SEC EDGAR.");
   const summary = roster.providers.length
-    ? `committee: bull=${roster.bull} bear=${roster.bear} skeptic=${roster.skeptic} cio=${roster.cio} | CRO: ${roster.cro || "DISABLED (needs Anthropic/OpenAI)"}`
+    ? `committee: chair/cio=${roster.cio} | debate seats: bull=${roster.bull} bear=${roster.bear} skeptic=${roster.skeptic} | CRO: ${roster.cro || "DISABLED (needs Anthropic/OpenAI)"}`
     : "committee: (no providers)";
   return {
     ok: errors.length === 0,

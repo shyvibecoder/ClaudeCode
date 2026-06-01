@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { configStatus, browserKeyStatus, committeeRoster, researchPreflight, REPO_SECRETS, REPO_VARIABLES } from "../scripts/lib/admin.mjs";
+import { planCommittee } from "../scripts/lib/llm.mjs";
 
 describe("admin: configuration status", () => {
   it("marks a secret configured when GitHub reports its name", () => {
@@ -25,13 +26,21 @@ describe("admin: configuration status", () => {
   });
 });
 
-describe("admin: committeeRoster — which LLM plays each role (mirrors llm.mjs preference)", () => {
-  it("assigns seats in preference order: frontier first, then free tiers", () => {
+describe("admin: committeeRoster — which LLM plays each role (mirrors planCommittee in llm.mjs)", () => {
+  it("frontier CHAIRS (held out of debate); OpenRouter fills two seats before Groq", () => {
+    const r = committeeRoster(["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"]);
+    assert.equal(r.cio, "Anthropic");          // independent chair
+    assert.equal(r.bull, "OpenAI");            // chair is NOT a debater
+    assert.equal(r.bear, "OpenRouter");
+    assert.equal(r.skeptic, "OpenRouter");     // 2nd OpenRouter seat (different model)
+  });
+
+  it("falls back to Groq for a debate seat only when OpenRouter is absent; pads with the chair", () => {
     const r = committeeRoster(["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY"]);
-    assert.equal(r.bull, "Anthropic");
-    assert.equal(r.bear, "OpenAI");
-    assert.equal(r.skeptic, "Groq");
-    assert.equal(r.cio, "Anthropic");        // the lead model chairs
+    assert.equal(r.cio, "Anthropic");
+    assert.equal(r.bull, "OpenAI");
+    assert.equal(r.bear, "Groq");
+    assert.equal(r.skeptic, "Anthropic");      // <3 debaters → pad with the chair
   });
 
   it("CRO REQUIRES a frontier key (Anthropic/OpenAI) — null without one, even with 3 free models", () => {
@@ -43,13 +52,39 @@ describe("admin: committeeRoster — which LLM plays each role (mirrors llm.mjs 
     assert.equal(paid.croAvailable, true);
   });
 
-  it("degrades when fewer keys: roles reuse the lead model, and it's honest about that", () => {
+  it("degrades when one key: chair and all seats reuse the only model, honestly flagged", () => {
     const one = committeeRoster(["GROQ_API_KEY"]);
+    assert.equal(one.cio, "Groq");
     assert.equal(one.bull, "Groq");
-    assert.equal(one.bear, "Groq");            // reuses the only model
+    assert.equal(one.bear, "Groq");
     assert.equal(one.skeptic, "Groq");
     assert.equal(one.cro, null);               // no frontier → no CRO
     assert.equal(one.singleModel, true);
+  });
+
+  // DRIFT LOCK: the preflight LOG/dashboard (committeeRoster) must match the ACTUAL committee that
+  // runs (planCommittee). They disagreed once — the log said bear=OpenAI skeptic=OpenRouter while the
+  // run did bull=OpenAI bear+skeptic=OpenRouter — which is exactly the "seats look wrong" report.
+  it("committeeRoster role→provider mapping equals planCommittee for every key combo", () => {
+    // planCommittee returns lowercase provider IDs; committeeRoster uses display labels — normalize.
+    const LABEL = { anthropic: "Anthropic", openai: "OpenAI", openrouter: "OpenRouter", groq: "Groq", gemini: "Gemini" };
+    const cap = (p) => (p ? LABEL[p] : null);
+    const secretFor = { anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY", openrouter: "OPENROUTER_API_KEY", groq: "GROQ_API_KEY", gemini: "GEMINI_API_KEY" };
+    const combos = [
+      ["anthropic", "openai", "openrouter"],
+      ["anthropic", "openai", "groq"],
+      ["anthropic", "openai", "openrouter", "groq", "gemini"],
+      ["anthropic"],
+      ["openai", "openrouter"],
+    ];
+    for (const provs of combos) {
+      const plan = planCommittee(provs);
+      const r = committeeRoster(provs.map((p) => secretFor[p]));
+      assert.equal(r.cio, cap(plan.chair?.provider), `cio mismatch for ${provs}`);
+      assert.equal(r.bull, cap(plan.seats[0]?.provider), `bull mismatch for ${provs}`);
+      assert.equal(r.bear, cap(plan.seats[1]?.provider), `bear mismatch for ${provs}`);
+      assert.equal(r.skeptic, cap(plan.seats[2]?.provider), `skeptic mismatch for ${provs}`);
+    }
   });
 
   it("reports no providers cleanly when no LLM key is set", () => {
