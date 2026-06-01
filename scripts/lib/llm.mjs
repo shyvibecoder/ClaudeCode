@@ -14,7 +14,11 @@
 // retirement and zeroed out every research run.
 const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
 const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
-const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-r1:free"; // free reasoning model; override via OPENROUTER_MODEL
+// deepseek/deepseek-v4-flash: a PAID reasoning model (~$0.10/$0.20 per 1M, 1M context, tool calling)
+// from a genuinely different family than Anthropic/OpenAI — the committee's cross-model diversity.
+// The old "deepseek-r1:free" default was the rate-limited free tier that silently dropped seats;
+// a funded key + paid slug is the reliable third voice. Override via OPENROUTER_MODEL repo variable.
+const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash";
 
 // Free tiers rate-limit aggressively (Gemini free RPM is tiny). Retry transient throttling/outages
 // with exponential backoff, honoring a server Retry-After when present. A persistent quota error
@@ -90,7 +94,11 @@ function callOpenRouter(prompt) {
 
 // --- Optional FRONTIER providers (paid) — materially better reasoning than the free tiers. Set a
 // key to opt in; they're preferred first so they staff the committee's lead seats / the CRO review.
-const DEFAULT_OPENAI_MODEL = "gpt-5.1";
+// gpt-5.4-mini: cheapest OpenAI model that fully covers a committee seat — reasoning + structured
+// JSON output + 400K context at $0.75/$4.50 per 1M (vs ~6x for flagship 5.5). The seat's job (read
+// evidence, emit a ~500-token JSON call) doesn't need the flagship; nano is too weak for sharp
+// adversarial argument. Override via OPENAI_MODEL repo variable when the lineup moves on.
+const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6";
 
 // OpenAI is OpenAI-compatible → reuse the shared chat caller.
