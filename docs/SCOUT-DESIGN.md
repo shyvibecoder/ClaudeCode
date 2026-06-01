@@ -20,17 +20,33 @@ it hunts the wild for things that *would* score high if they were on the list, a
 ## Architecture: widen the funnel, reuse the trusted back-end
 
 ```
-  candidate engines  →  dedupe + novelty + anti-consensus  →  EXISTING committee  →  human PR
-  (find leads)          (drop knowns/priced; cap budget)       (Bull/Bear/Skeptic       (F9: approve
-                                                                + CRO + verify gate)     into scarcities.json)
+1. candidate engines    →  find raw leads (constraint clusters / ladder hops / patent signals)
+2. SYNTHESIZE draft     →  turn each lead into a committee-ingestible DRAFT scarcity object
+   (the real new work)     (propose tickers via discoverProxies, a thesis, FIRST-GUESS
+                            bind_window/durability/substitution_risk) + an evidence bundle
+                            (reuse buildEvidenceBundle: news + filing passages + quotes)
+3. dedupe + anti-consensus → drop knowns/rejected (D2 memory); soft legibility penalty (D-gate); cap budget
+4. EXISTING committee   →  runCommittee(draft, evidence): Bull/Bear/Skeptic → CRO → verify gate.
+                            IDENTICAL machinery — it just receives a scout draft instead of a
+                            human-curated scarcity, and corrects the draft fields.
+5. SEPARATE scout feed  →  survivors published with the committee's verdict + dispersion +
+                            kill-criterion + legibility tag + complaining filers/ladder path (D3)
+6. human PR (F9)        →  YOU approve → admitted to scarcities.json (human-owned fields)
 ```
 
-The scout has **no judgment of its own.** It emits *candidates*; the hardened committee + deterministic
-verification gate + CRO is what kills the ~90% that are false scarcities (the Bear seat's mandate —
-"supply response / substitution / policy reversal" — is exactly that filter). Falsifiability is
-unchanged: each surviving candidate carries a pre-registered kill-criterion and is graded by the
-scorecard. **If scout-originated scarcities don't outperform over time, the ledger says so and we
-kill the scout.**
+**Approval ordering = committee-FIRST (decided).** Your approval is the LAST step and the only real
+one (admit to the watchlist). You never review raw leads — only candidates that already survived the
+same adversarial Bull/Bear/Skeptic + CRO scrutiny applied to the existing 24. The Bear seat's mandate
+("the specific thing that kills it — supply response / substitution / policy reversal") is exactly the
+filter that kills the ~90% false scarcities *before* they reach you, so your review time goes only to
+vetted ideas. (The alternative — human triage of raw leads first — was rejected: lower signal, two
+approval steps, and it wastes the adversarial committee's whole purpose.)
+
+The scout has **no judgment of its own** and needs **no new evaluation machinery** — step 2 (synthesize
+the draft) is the only genuinely new piece; everything downstream is the existing trusted back-end.
+Falsifiability is unchanged: each surviving candidate carries a pre-registered kill-criterion and is
+graded by the scorecard. **If scout-originated scarcities don't outperform over time, the ledger says
+so and we kill the scout.**
 
 ## Candidate engines (v1 = the three selected; news-sweep deliberately excluded as the "trend trap")
 
