@@ -70,6 +70,35 @@ export function corroborateValuation({ edgar = null, tiingo = null } = {}, diver
   };
 }
 
+// --- Thin fetchers (live only in the scanner; the sandbox is network-allowlisted so these aren't unit-run;
+//     the PARSERS above are the tested part). EDGAR is keyless (needs a descriptive UA); Tiingo uses the key. ---
+const SEC_UA = process.env.SEC_USER_AGENT || "puck-deep-tech-research (set SEC_USER_AGENT with contact)";
+
+export async function fetchEdgarFacts(cik) {
+  const r = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`, { headers: { "user-agent": SEC_UA, accept: "application/json" }, signal: AbortSignal.timeout(15000) });
+  if (!r.ok) throw new Error(`companyfacts ${r.status}`);
+  return r.json();
+}
+
+export async function fetchTiingoFundamentalsDaily(ticker, { key = process.env.TIINGO_API_KEY } = {}) {
+  if (!key) return null;
+  const r = await fetch(`https://api.tiingo.com/tiingo/fundamentals/${encodeURIComponent(ticker)}/daily?token=${key}`, { signal: AbortSignal.timeout(12000) });
+  if (!r.ok) return null; // free tier covers a limited universe → 404 → single-source (EDGAR) fallback
+  return r.json();
+}
+
+// Orchestrate one name → corroborated trailing valuation (or null). Each source is best-effort.
+export async function getValuation(ticker, { cik = null, price = null, tiingoKey = process.env.TIINGO_API_KEY } = {}) {
+  let edgar = null, tiingo = null;
+  if (cik) { try { edgar = parseEdgarFacts(await fetchEdgarFacts(cik), { price }); } catch { /* skip */ } }
+  try { const rows = await fetchTiingoFundamentalsDaily(ticker, { key: tiingoKey }); if (rows) tiingo = parseTiingoFundamentals(rows); } catch { /* skip */ }
+  const cor = corroborateValuation({ edgar, tiingo });
+  if (cor) return cor;
+  // No P/E from either, but EDGAR may still have growth/margin — carry it (pe null).
+  if (edgar && (edgar.revenue_yoy != null || edgar.net_margin != null)) return { pe: null, sources: [], n: 0, single_source: true, ok: null, revenue_yoy: edgar.revenue_yoy, net_margin: edgar.net_margin };
+  return null;
+}
+
 // Label P/E relative to the plan's PEER MEDIAN when given (more honest than absolute thresholds across very
 // different businesses); else a crude absolute band. Returns { tag: cheap|fair|rich, label }.
 export function valuationLabel(v, { peerMedianPe = null } = {}) {

@@ -21,7 +21,8 @@ import { newlyFired, confirmFired } from "./lib/alerts.mjs";
 import { fetchAtmIv } from "./lib/iv.mjs";
 import { analystRedteamDigest, llmAvailable } from "./lib/llm.mjs";
 import { validateInputs, validateSignals, validatePositions, validateSecurities, assertValid, SCHEMA_VERSION } from "./lib/schema.mjs";
-import { watchFilings } from "./lib/edgar.mjs";
+import { watchFilings, loadTickerMap } from "./lib/edgar.mjs";
+import { getValuation, valuationLabel } from "./lib/valuation.mjs";
 import { watchNews } from "./lib/news.mjs";
 import { getForwardPEs } from "./lib/fundamentals.mjs";
 import { computeRegime } from "./lib/regime.mjs";
@@ -214,6 +215,30 @@ if (!OFFLINE) {
     }
     console.log(`Forward P/E: ${got}/${holdTickers.length} resolved`);
   } catch (e) { errors.push(`fwdpe: ${e.message}`); }
+}
+
+// --- Trailing valuation (EDGAR XBRL + Tiingo, corroborated) for the per-name ENTRY read ("is it expensive?") ---
+if (!OFFLINE) {
+  const valTickers = portfolio.holdings.map((h) => h.ticker)
+    .filter((t) => isTradeable(t) && securities[t]?.type !== "etf");
+  try {
+    const cikMap = await loadTickerMap().catch(() => ({}));
+    let got = 0;
+    for (const t of valTickers) {
+      if (!enriched[t] || enriched[t].error) continue;
+      const v = await getValuation(t, { cik: cikMap[t.toUpperCase()] || null, price: enriched[t].price, tiingoKey: process.env.TIINGO_API_KEY });
+      if (v) { enriched[t].valuation = v; if (Number.isFinite(v.pe)) got++; }
+      await new Promise((r) => setTimeout(r, 120)); // be polite to SEC/Tiingo
+    }
+    // Peer-median P/E across the resolved names → label each cheap/fair/rich relative to its peers.
+    const pes = valTickers.map((t) => enriched[t]?.valuation?.pe).filter((x) => Number.isFinite(x) && x > 0).sort((a, b) => a - b);
+    const peerMed = pes.length ? pes[Math.floor((pes.length - 1) / 2)] : null;
+    for (const t of valTickers) {
+      const v = enriched[t]?.valuation; if (!v?.pe) continue;
+      const lab = valuationLabel(v, { peerMedianPe: peerMed }); v.tag = lab.tag; v.label = lab.label;
+    }
+    console.log(`Valuation: ${got}/${valTickers.length} P/E corroborated (peer median ${peerMed ?? "–"}x)`);
+  } catch (e) { errors.push(`valuation: ${e.message}`); }
 }
 
 // --- Real ATM implied vol (free, keyless Yahoo options endpoint) for holdings ---

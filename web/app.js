@@ -418,7 +418,17 @@ function renderAssetLocation() {
   for (const h of (p.holdings || [])) if (!(h.ticker in sleeveOf)) sleeveOf[h.ticker] = isDivH(h) ? "div" : "bld";
   const sleevePill = (t) => sleeveOf[t] === "div" ? `<span class="spill div" title="Diversifier sleeve — drawdown hedge (2nd axis)">◇ Diversifier</span>`
     : sleeveOf[t] === "bld" ? `<span class="spill bld" title="Deep-tech build-out sleeve — the alpha engine">Build-out</span>` : "";
-  const legend = `<p class="foot spill-legend"><span class="spill bld">Build-out</span> alpha engine (~85%) · <span class="spill div">◇ Diversifier</span> drawdown hedge (~15%)</p>`;
+  // PER-NAME ENTRY QUALITY — is now a good time to buy THIS name? (the composite "ACT NOW" doesn't say). We
+  // blend dislocation/trend/momentum + corroborated valuation (from the scan) → good/fair/stretched, and
+  // STAGE the buy: a good entry deploys now, a stretched one mostly DCAs (so a lump-sum doesn't buy the top).
+  const E = window.PuckEntry;
+  const entryCache = {};
+  const entryFor = (t) => { if (!E) return null; if (!(t in entryCache)) { const Q = q(t) || {}; entryCache[t] = E.entryQuality({ pctOffHigh: Q.pct_off_high, aboveMa200: Q.above_ma200, mom12m: Q.mom_12m, mom1m: Q.mom_1m, relStrength: null, valuation: Q.valuation?.tag ? { tag: Q.valuation.tag, label: Q.valuation.label } : null }); } return entryCache[t]; };
+  const entryPill = (e) => (e && e.label !== "n/a") ? `<span class="epill ${e.label}" title="${esc((e.reasons || []).join(" · "))} — entry score ${e.score}/100">${e.label === "good" ? "good entry" : e.label}</span>` : "";
+  const stageOf = (t, amt) => (E ? E.stageBuy(entryFor(t)?.label || "good", amt) : { now: amt, dca: 0 });
+  let deployNow = 0, dcaLater = 0;
+  for (const r of res.rows) if (r.action === "buy") { const st = stageOf(r.ticker, r.amount); deployNow += st.now; dcaLater += st.dca; }
+  const legend = `<p class="foot spill-legend"><span class="spill bld">Build-out</span> alpha engine (~85%) · <span class="spill div">◇ Diversifier</span> drawdown hedge (~15%) · <span class="epill good">good entry</span><span class="epill fair">fair</span><span class="epill stretched">stretched</span> = per-name timing (stretched names are staged/DCA'd)</p>`;
   // Group BUY + SELL/trim by account. Buys show the tax shelter; sells/trims show why (or why blocked).
   const ACT_RANK = { buy: 0, trim: 1, "sell (not in plan)": 1 };
   const tbody = [["roth", "Roth", cfg.roth], ["traditional", "Traditional", cfg.traditional], ["taxable", "Taxable", cfg.taxable]].filter(([, , b]) => b > 0).map(([key, label, bal]) => {
@@ -428,14 +438,19 @@ function renderAssetLocation() {
     return `<tr class="hgroup"><td colspan="4">${esc(label)} — buy ${fmtUsd(buy)}${sell ? ` · sell ${fmtUsd(sell)}` : ""} of ${fmtUsd(bal)}</td></tr>` +
       (rs.length ? rs.map((r) => {
         const isBuy = r.action === "buy";
-        const tag = isBuy ? "" : ` <span class="${r.blocked ? "foot" : "neg"}">${esc(r.action)}</span>`;
+        const e = isBuy ? entryFor(r.ticker) : null;
+        const st = isBuy ? stageOf(r.ticker, r.amount) : null;
+        const tag = isBuy ? entryPill(e) : ` <span class="${r.blocked ? "foot" : "neg"}">${esc(r.action)}</span>`;
+        const amtCell = isBuy
+          ? (st && st.dca > 0 ? `${fmtUsd(st.now)} <span class="foot">now · DCA ${fmtUsd(st.dca)}</span>` : fmtUsd(r.amount))
+          : `−${fmtUsd(r.amount)}`;
         const note = isBuy ? (r.annual_drag_avoided ? "shelters $" + r.annual_drag_avoided.toLocaleString() + "/yr" : "—") : (r.blocked ? "held (no trim)" : "frees cash");
-        return `<tr class="sleeve-${sleeveOf[r.ticker] || "na"}"><td><strong>${esc(r.ticker)}</strong> ${sleevePill(r.ticker)}${tag}</td><td class="${isBuy ? "pos" : "neg"}">${isBuy ? "" : "−"}${fmtUsd(r.amount)}</td><td>${r.yieldPct ? (r.yieldPct * 100).toFixed(1) + "%" : "—"}</td><td class="foot">${note}</td></tr>`;
+        return `<tr class="sleeve-${sleeveOf[r.ticker] || "na"}"><td><strong>${esc(r.ticker)}</strong> ${sleevePill(r.ticker)}${isBuy ? " " + tag : tag}</td><td class="${isBuy ? "pos" : "neg"}">${amtCell}</td><td>${r.yieldPct ? (r.yieldPct * 100).toFixed(1) + "%" : "—"}</td><td class="foot">${note}</td></tr>`;
       }).join("") : `<tr><td colspan="4" class="foot">— nothing assigned here —</td></tr>`);
   }).join("");
   const sm = res.summary;
   box.innerHTML = head + inputs + `
-    <p class="foot">${hasHeld ? "Rebalancing your book toward" : "Deploying <strong>" + fmtUsd(deployTotal) + "</strong> cash into"} the plan${sigTot > 0 ? ", <strong>committee-adjusted</strong> (build-out weights from the scan's signal — a crowded downgrade shrinks that buy)" : ""}, tax-located (Roth ← highest after-tax growth · Traditional ← income · taxable ← tax-efficient)${excl.size ? ` · <strong>excluding ${esc([...excl].join(", "))}</strong> (held elsewhere)` : ""}. Buy <strong>${fmtUsd(sm.buy_usd)}</strong>${sm.sell_usd ? ` · sell <strong>${fmtUsd(sm.sell_usd)}</strong>` : ""}${sm.blocked_usd ? ` · <span class="foot">${fmtUsd(sm.blocked_usd)} held (taxable anchor — trim bar not met)</span>` : ""}${sm.needs_new_cash_usd ? ` · <span class="neg">needs ${fmtUsd(sm.needs_new_cash_usd)} more cash</span>` : ""} · shelters <strong>$${(sm.annual_drag_avoided || 0).toLocaleString()}/yr</strong> of tax drag.</p>
+    <p class="foot">${hasHeld ? "Rebalancing your book toward" : "Deploying <strong>" + fmtUsd(deployTotal) + "</strong> cash into"} the plan${sigTot > 0 ? ", <strong>committee-adjusted</strong> (build-out weights from the scan's signal — a crowded downgrade shrinks that buy)" : ""}, tax-located (Roth ← highest after-tax growth · Traditional ← income · taxable ← tax-efficient)${excl.size ? ` · <strong>excluding ${esc([...excl].join(", "))}</strong> (held elsewhere)` : ""}. Buy <strong>${fmtUsd(sm.buy_usd)}</strong>${dcaLater > 0 ? ` (<strong>${fmtUsd(deployNow)}</strong> now · <strong>${fmtUsd(dcaLater)}</strong> DCA'd — stretched entries staged)` : ""}${sm.sell_usd ? ` · sell <strong>${fmtUsd(sm.sell_usd)}</strong>` : ""}${sm.blocked_usd ? ` · <span class="foot">${fmtUsd(sm.blocked_usd)} held (taxable anchor — trim bar not met)</span>` : ""}${sm.needs_new_cash_usd ? ` · <span class="neg">needs ${fmtUsd(sm.needs_new_cash_usd)} more cash</span>` : ""} · shelters <strong>$${(sm.annual_drag_avoided || 0).toLocaleString()}/yr</strong> of tax drag.</p>
     ${legend}
     <div class="tscroll"><table class="mine"><thead><tr><th>Trade</th><th>Amount</th><th>Yield</th><th>Tax shelter / note</th></tr></thead><tbody>${tbody}</tbody></table></div>
     <p class="foot">${hasHeld ? "Position-aware: net buys + tax-aware sells vs your held lots (taxable lots are buy-and-hold unless the scan's trim bar is met). " : "All-cash deploy — once you add holdings in Settings, this nets sells too. "}Advisory — not tax advice; doesn't model exact bracket arbitrage, RMDs, or estate plan.</p>`;
@@ -1175,6 +1190,7 @@ const HELP = {
   location: { title: "Tax-located buy plan", body: `
     <p>Deploys your cash into the committee's suggested plan (build-out + the diversifier sleeve), placing <strong>each name in the account that maximizes after-tax terminal value</strong> — then a <strong>buy list grouped by account</strong>. Two robust rules: <strong>(1)</strong> shelter the annual dividend <em>tax drag</em> — income-heavy names go to a tax-advantaged account, tax-efficient (low-yield) names to <strong>taxable</strong> (qualified rates, step-up, loss-harvesting); <strong>(2)</strong> within tax-advantaged the <strong>highest-growth</strong> names go to <strong>Roth</strong> (biggest balance compounding tax-free), income/lower-growth to <strong>Traditional</strong>.</p>
     <p>Enter your <strong>Roth / Traditional / taxable</strong> cash + marginal rate + horizon. <strong>Exclude</strong> tickers you already own elsewhere (e.g. <code>SMH</code>) — they're dropped and the rest renormalized. Rebalancing later keeps these locations. The <strong>drag avoided</strong> is the dividend tax sheltering removes, compounded over your horizon; growth (build-out ~9%, defensive ~4%) and yield use per-axis defaults where live data is absent.</p>
+    <p><strong>Per-name entry timing.</strong> The composite "ACT NOW" card says deploy-in-general; each row also gets its OWN read — <span class="epill good">good entry</span> / <span class="epill fair">fair</span> / <span class="epill stretched">stretched</span> — blending <strong>dislocation</strong> (% off 52w high), <strong>trend</strong> (vs 200-DMA), <strong>momentum</strong> (12m, penalized if it just ran up), and <strong>valuation</strong> (trailing P/E vs its peers, corroborated across <strong>SEC EDGAR XBRL + Tiingo</strong>). A <em>stretched</em> name is <strong>staged</strong>: only part deploys now, the rest is DCA'd ("$X now · DCA $Y") so a lump-sum doesn't buy the top. Hover a pill for its reasons + score. Valuation is trailing (forward P/E isn't available keyless); it fills in once the daily scan resolves it.</p>
     <p><strong>Advisory, not tax advice.</strong> It's the robust location lever — it doesn't model your exact bracket arbitrage (withdrawal vs contribution rate), RMDs, or estate plan.</p>` },
   diversifier: { title: "Diversifier sleeve — funding the 2nd axis", body: `
     <p>The second axis is a <strong>defensive sleeve</strong> (health, water…) held to <strong>lower the book's drawdown</strong>, not to chase alpha — so it has its own funding pipeline, separate from the build-out Opportunity logic.</p>

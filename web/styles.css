@@ -92,6 +92,11 @@ tr.aloc-move td{background:#1d2530}
 .spill.bld{background:rgba(81,207,102,.14);color:var(--good)}
 .spill.div{background:rgba(151,117,250,.18);color:var(--floor)}
 .spill-legend{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 6px}
+/* Per-name entry-quality pill: good (deploy now) / fair / stretched (stage-DCA). */
+.epill{display:inline-block;font-size:10px;padding:1px 7px;border-radius:999px;font-weight:700;vertical-align:middle;white-space:nowrap;line-height:1.5}
+.epill.good{background:rgba(81,207,102,.16);color:var(--good)}
+.epill.fair{background:rgba(255,212,59,.16);color:var(--y28)}
+.epill.stretched{background:rgba(255,107,107,.16);color:var(--now)}
 table.mine tr.sleeve-bld td:first-child{box-shadow:inset 3px 0 0 rgba(81,207,102,.55)}
 table.mine tr.sleeve-div td:first-child{box-shadow:inset 3px 0 0 rgba(151,117,250,.6)}
 table.mine tr.sleeve-bld td:first-child,table.mine tr.sleeve-div td:first-child{padding-left:13px}

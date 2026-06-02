@@ -408,6 +408,17 @@ across accounts** so capacity is filled exactly.
 plus a subtle left accent so you can scan which sleeve a name belongs to even though rows are grouped by
 account. A small legend sits above the table.
 
+**Per-name entry timing (is it a good time to buy *this* name?).** The composite Dislocation card says
+"deploy in general"; each buy row also carries its **own** read — **good entry** / **fair** / **stretched** —
+blending **dislocation** (% off the 52-week high), **trend** (vs the 200-DMA, a gate not a reward),
+**momentum** (12-month, penalized when the name just ran up in the last month), and **valuation**. A
+*stretched* name is **staged**: only part deploys now and the rest is **DCA'd** (shown as "$X now · DCA $Y"),
+so a lump-sum doesn't buy the top; the header totals "deploy now" vs "DCA'd." Hover a pill for its reasons +
+0–100 score. **Valuation is trailing P/E corroborated across two sources — SEC EDGAR XBRL (authoritative
+reported earnings) and Tiingo** — flagged single-source when one is missing, exactly like price
+corroboration. *Forward* P/E isn't used because no keyless source provides it (Yahoo's endpoint is
+crumb-gated); the valuation leg fills in once the daily scan resolves it.
+
 **A true optimizer, not a rule of thumb.** Puck models each name's **after-tax terminal multiple** in every
 account over your horizon — Roth `(1+g)^N` (tax-free forever), Traditional `(1+g)^N·(1−rate)` (ordinary rate
 on withdrawal), taxable `1+((1+g−yield·rate)^N−1)·(1−LTCG)` (annual qualified-dividend drag + a final LTCG
