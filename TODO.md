@@ -30,6 +30,17 @@ chokepoints. Real alpha is spotting the *next* bottleneck before consensus.
   - [x] Exit-only, **AND-gated macro-stress overlay**: VIX/VIX3M ≥1.0 **and** HYG 1m ≤ −3% → force defensive. Keyless Yahoo `^VIX`/`^VIX3M`/`HYG`. (`scripts/lib/macro.mjs`; TDD-tested.)
   - [x] **Fast re-entry override** — ≥60% of names above 20-DMA → re-risk one notch (macro brake wins). TDD-tested.
   - [ ] Compute regime on a **clean composite underlying**, not an average of 19 noisy names.
+  - [ ] **Regime instruments panel — QQQ / TQQQ / SQQQ daily technicals (USER-REQUESTED).** The regime +
+    V2.3 macro overlay factor the **QQQ** complex, but the underlying technicals aren't surfaced anymore — the
+    user wants daily sight of them. Build a **Regime UI panel** (on the Timing/regime view, where it makes most
+    sense) showing, per instrument, the technicals the regime reads: **price, % vs 200/50/20-DMA, above/below
+    200-DMA, %-off-52w-high, 12m/1m momentum, vol-state — and RSI (new; RSI-14 not currently computed, add to
+    the technicals lib)**, daily-updated from the scan.
+    - **QQQ** = the regime's reference underlying (trend/momentum/vol read here); **TQQQ/SQQQ** = the 3× long/
+      short proxies (the actionable risk-on/brake instruments) — add both to the scan fetch universe (they're
+      not currently fetched). Note the leverage-decay caveat in the UI (TQQQ/SQQQ are tactical, not buy-hold).
+    - Tie it visually to the posture (risk-on → TQQQ context; defensive/brake → SQQQ/hedge context) so the
+      panel explains *why* the regime reads the way it does. Make the relationship to the posture explicit.
   - [ ] **Account-aware posture**: timing drives the IRA/Roth sleeve; taxable = buy-and-hold anchors.
   - [x] **Options fair-value module** — Black-Scholes IV vs realized-vol "cheap/fair/rich" verdict + greeks (`web/options.mjs`, **Options check** tab; CI-tested via parity + IV round-trip).
   - [x] **Options-based action suggestions** — `suggestOptionStructure(posture,{macroStressed})` (shared `web/options.mjs`, TDD-tested) emits a defined-risk structure + delta/DTE band; carried in `regime.options_suggestion` and shown on the Options tab. No naked options.
