@@ -391,6 +391,10 @@ With a `positions.local.json` it rebalances **what you actually hold**; without 
 weighting vs your static plan. **Advisory only** — it never edits your portfolio or places trades. Not advice.
 
 ### 4.10 Asset location (Roth / Traditional / taxable)
+Find it in the **Portfolio** tab, between **🎯 Suggestions** and **🔔 Triggers**. You don't tell anyone your
+tax rate ahead of time — the **marginal rate, horizon, and account balances are inline inputs** in this
+section (browser-stored; defaults 35% / 20yr), so it recomputes as you type.
+
 Same holdings, smarter **accounts** — where a name sits changes its **after-tax terminal value**. This
 suggests the account for each name on two robust rules: **(1)** shelter the annual **tax drag** (high
 dividend-yield / high-turnover names → a tax-advantaged account; tax-efficient names → **taxable**, where

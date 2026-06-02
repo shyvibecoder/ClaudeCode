@@ -359,15 +359,10 @@ function getAloc() { try { return { ...ALOC_DEFAULTS, ...JSON.parse(localStorage
 
 function renderAssetLocation() {
   const box = $("#assetLocation"); if (!box) return;
-  const L = window.PuckLocation, p = DATA.port;
-  if (!L || !p?.holdings?.length) { box.innerHTML = ""; return; }
+  const L = window.PuckLocation, p = DATA.port || {};
   const cfg = getAloc();
-  // Use the balances you enter; until you split Roth/Traditional, fall back to the plan's combined accounts.
-  const caps = (cfg.roth || cfg.traditional || cfg.taxable)
-    ? { roth: cfg.roth, traditional: cfg.traditional, taxable: cfg.taxable }
-    : { ira: p.accounts?.ira || 0, taxable: p.accounts?.taxable || 0 };
-  const res = L.locateAssets(p.holdings, { capacities: caps, tax: { ordinary: cfg.ordinary / 100, qualified: cfg.qualified / 100, ltcg: cfg.ltcg / 100 }, horizonYears: cfg.horizon, sleeveUsd: p.sleeve_usd || 0 });
-  const lbl = { roth: "Roth", traditional: "Traditional", taxable: "Taxable", "tax-advantaged": "Tax-advantaged", ira: "IRA" };
+  // Inputs render unconditionally (so the section + where to enter balances is ALWAYS visible, even before
+  // the module loads — otherwise hideEmptyGroups would hide the whole group).
   const inputs = `<div class="controls aloc-inputs">
     <label>Roth $ <input data-aloc="roth" type="number" step="any" value="${cfg.roth || ""}" placeholder="0" /></label>
     <label>Traditional $ <input data-aloc="traditional" type="number" step="any" value="${cfg.traditional || ""}" placeholder="0" /></label>
@@ -375,12 +370,23 @@ function renderAssetLocation() {
     <label>Marginal % <input data-aloc="ordinary" type="number" step="any" value="${cfg.ordinary}" /></label>
     <label>Horizon yr <input data-aloc="horizon" type="number" step="1" value="${cfg.horizon}" /></label>
   </div>`;
+  const wire = () => box.querySelectorAll("[data-aloc]").forEach((inp) => inp.onchange = () => { const c = getAloc(); c[inp.dataset.aloc] = parseFloat(inp.value) || 0; localStorage.setItem(ALOC_KEY, JSON.stringify(c)); renderAssetLocation(); });
+  if (!L || !p.holdings?.length) {
+    box.innerHTML = inputs + `<p class="foot">${!p.holdings?.length ? "Add your plan holdings to see placement." : "Loading the asset-location module…"} Set your marginal rate &amp; horizon above (defaults 35% / 20yr).</p>`;
+    wire(); return;
+  }
+  // Use the balances you enter; until you split Roth/Traditional, fall back to the plan's combined accounts.
+  const caps = (cfg.roth || cfg.traditional || cfg.taxable)
+    ? { roth: cfg.roth, traditional: cfg.traditional, taxable: cfg.taxable }
+    : { ira: p.accounts?.ira || 0, taxable: p.accounts?.taxable || 0 };
+  const res = L.locateAssets(p.holdings, { capacities: caps, tax: { ordinary: cfg.ordinary / 100, qualified: cfg.qualified / 100, ltcg: cfg.ltcg / 100 }, horizonYears: cfg.horizon, sleeveUsd: p.sleeve_usd || 0 });
+  const lbl = { roth: "Roth", traditional: "Traditional", taxable: "Taxable", "tax-advantaged": "Tax-advantaged", ira: "IRA" };
   const rows = res.rows.map((r) => `<tr class="${r.mislocated ? "aloc-move" : ""}"><td><strong>${esc(r.ticker)}</strong></td><td>${fmtUsd(r.value)}</td><td>${esc(lbl[r.account_now] || r.account_now)}</td><td>${r.mislocated ? "→ " : ""}<strong>${esc(lbl[r.suggested] || r.suggested)}</strong></td><td>${(r.yieldPct * 100).toFixed(1)}%</td><td>${r.annual_drag_avoided ? "$" + r.annual_drag_avoided.toLocaleString() : "—"}</td></tr>`).join("");
   box.innerHTML = `${inputs}
     <p class="foot">${res.three_way ? "<strong>3-way</strong>: Roth ← highest growth · Traditional ← income/drag · taxable ← tax-efficient" : esc(res.summary.note)} · est. tax drag avoided <strong>$${res.summary.annual_drag_avoided.toLocaleString()}/yr</strong> (~$${res.summary.horizon_drag_avoided.toLocaleString()} over ${res.horizon_years}yr) · <strong>${res.summary.mislocated}</strong> to move</p>
     <div class="tscroll"><table class="mine"><thead><tr><th>Ticker</th><th>Value</th><th>Now</th><th>Suggested</th><th>Yield</th><th>Drag avoided/yr</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="foot">Advisory, using your inputs above — not tax advice. Doesn't model your exact bracket arbitrage, RMDs, or estate plan.</p>`;
-  box.querySelectorAll("[data-aloc]").forEach((inp) => inp.onchange = () => { const c = getAloc(); c[inp.dataset.aloc] = parseFloat(inp.value) || 0; localStorage.setItem(ALOC_KEY, JSON.stringify(c)); renderAssetLocation(); });
+  wire();
 }
 
 function renderStress() {
