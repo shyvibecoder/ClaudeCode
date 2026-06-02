@@ -41,56 +41,51 @@ export function annualDragRate(p, tax = DEFAULT_TAX) {
   return p.yieldPct * tax.qualified + p.turnover * TURNOVER_REALIZED * tax.ltcg;
 }
 
-// Locate each holding. `capacities` = {roth, traditional, taxable} in $. If roth+traditional are both 0 we
-// fall back to a 2-way split (one combined tax-advantaged bucket vs taxable) and flag it.
+// Locate each holding's dollars across accounts to maximize after-tax terminal value. FRACTIONAL: a single
+// name can split across accounts, so capacity is always filled exactly — an oversized name never strands
+// tax-advantaged room or dumps into taxable (the old whole-name greedy could). `capacities` = {roth,
+// traditional, taxable} in $; if roth & traditional aren't both given we run a 2-way (combined
+// tax-advantaged vs taxable) split. Returns one row per (ticker × account) allocation with value > 0.
 export function locateAssets(holdings, { capacities = {}, tax = DEFAULT_TAX, horizonYears = 20, quotes = {}, overrides = {}, sleeveUsd = 0 } = {}) {
   const cap = { roth: +capacities.roth || 0, traditional: +capacities.traditional || 0, taxable: +capacities.taxable || 0, ira: +capacities.ira || 0 };
   const threeWay = cap.roth > 0 && cap.traditional > 0; // need BOTH split out for a Roth-vs-Traditional decision
-  const rows = (holdings || [])
+  const items = (holdings || [])
     .filter((h) => h && h.ticker && (h.weight > 0 || h.target_usd > 0))
     .map((h) => {
       const value = Number.isFinite(h.target_usd) && h.target_usd > 0 ? h.target_usd : (h.weight || 0) * sleeveUsd;
       const p = taxProfile(h, { quotes, overrides });
-      return { ticker: h.ticker, account_now: h.account || "taxable", value, ...p, dragRate: annualDragRate(p, tax) };
+      return { ticker: h.ticker, value, yieldPct: p.yieldPct, growth: p.growth, dragRate: annualDragRate(p, tax) };
     });
 
-  // Greedy placement (whole names): Roth ← highest growth; Traditional ← highest remaining drag; rest → taxable.
-  let rothLeft = cap.roth, tradLeft = cap.traditional, taxLeft = cap.taxable;
-  const place = {};
+  const rem = new Map(items.map((it) => [it, it.value]));
+  const alloc = []; // { ticker, account, value, yieldPct, growth, dragRate }
+  const place = (it, account, amt) => { if (amt > 1e-6) { alloc.push({ ticker: it.ticker, account, value: amt, yieldPct: it.yieldPct, growth: it.growth, dragRate: it.dragRate }); rem.set(it, rem.get(it) - amt); } };
+  const fill = (account, budget, order) => { let left = budget; for (const it of order) { if (left <= 1e-6) break; const amt = Math.min(rem.get(it), left); place(it, account, amt); left -= amt; } };
+  const byGrowth = [...items].sort((a, b) => b.growth - a.growth);
+  const byDrag = [...items].sort((a, b) => b.dragRate - a.dragRate);
   if (threeWay) {
-    for (const r of [...rows].sort((a, b) => b.growth - a.growth)) { if (rothLeft >= r.value) { place[r.ticker] = "roth"; rothLeft -= r.value; } }
-    for (const r of [...rows].filter((r) => !place[r.ticker]).sort((a, b) => b.dragRate - a.dragRate)) { if (tradLeft >= r.value) { place[r.ticker] = "traditional"; tradLeft -= r.value; } }
-    for (const r of rows) if (!place[r.ticker]) place[r.ticker] = "taxable";
+    fill("roth", cap.roth, byGrowth);            // Roth ← highest expected growth (tax-free compounding)
+    fill("traditional", cap.traditional, byDrag); // Traditional ← highest dividend/income drag (sheltered)
+    for (const it of items) place(it, "taxable", rem.get(it)); // rest → taxable (tax-efficient, qualified rates, step-up)
   } else {
-    // 2-way: only a combined tax-advantaged balance is known (old "ira" = Roth+Traditional undistinguished).
-    // Shelter the highest-drag names there, rest taxable.
-    let taLeft = cap.roth + cap.traditional + cap.ira;
-    for (const r of [...rows].sort((a, b) => b.dragRate - a.dragRate)) { if (taLeft >= r.value) { place[r.ticker] = "tax-advantaged"; taLeft -= r.value; } else place[r.ticker] = "taxable"; }
+    fill("tax-advantaged", cap.roth + cap.traditional + cap.ira, byDrag);
+    for (const it of items) place(it, "taxable", rem.get(it));
   }
 
-  const out = rows.map((r) => {
-    const suggested = place[r.ticker];
-    const sheltered = suggested !== "taxable";
-    // Drag avoided this year by sheltering vs leaving it taxable (0 if it lands in taxable anyway).
-    const annual_drag_avoided = sheltered ? +(r.value * r.dragRate).toFixed(0) : 0;
-    return { ticker: r.ticker, value: Math.round(r.value), account_now: r.account_now, suggested, sheltered, yieldPct: r.yieldPct, growth: r.growth, drag_rate: +r.dragRate.toFixed(4), annual_drag_avoided, mislocated: norm(r.account_now) !== norm(suggested) };
-  });
+  const rows = alloc.map((a) => ({
+    ticker: a.ticker, account: a.account, value: Math.round(a.value), yieldPct: a.yieldPct, growth: a.growth,
+    drag_rate: +a.dragRate.toFixed(4), annual_drag_avoided: a.account === "taxable" ? 0 : Math.round(a.value * a.dragRate),
+  })).sort((a, b) => b.annual_drag_avoided - a.annual_drag_avoided || b.value - a.value);
 
-  const annual = out.reduce((a, r) => a + r.annual_drag_avoided, 0);
-  // Compounded value of avoiding that drag over the horizon (a simple annuity-style growth of the saving).
-  const horizon_value = +(annual * ((Math.pow(1 + (tax.qualified ? 0.06 : 0.06), horizonYears) - 1) / 0.06)).toFixed(0);
+  const annual = rows.reduce((s, r) => s + r.annual_drag_avoided, 0);
+  // Future value of avoiding that yearly dividend drag, as an N-year ordinary annuity reinvested at 6%.
+  const horizon_value = +(annual * ((Math.pow(1.06, horizonYears) - 1) / 0.06)).toFixed(0);
   return {
-    three_way: threeWay, horizon_years: horizonYears, tax,
-    rows: out.sort((a, b) => b.annual_drag_avoided - a.annual_drag_avoided || b.value - a.value),
+    three_way: threeWay, horizon_years: horizonYears, tax, rows,
     summary: {
       annual_drag_avoided: +annual.toFixed(0),
       horizon_drag_avoided: horizon_value,
-      mislocated: out.filter((r) => r.mislocated).length,
       note: threeWay ? "Roth ← highest growth, Traditional ← income/drag, taxable ← tax-efficient." : "Only a combined tax-advantaged balance was given — add Roth + Traditional balances for the full 3-way split.",
     },
   };
 }
-
-// Treat "ira" (the old combined bucket) as matching either tax-advantaged suggestion so we don't flag every
-// IRA holding as mislocated before the user splits Roth/Traditional.
-function norm(a) { return a === "ira" ? "tax-advantaged" : (a === "roth" || a === "traditional") ? "tax-advantaged" : a; }

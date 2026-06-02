@@ -319,38 +319,8 @@ function renderMetrics() {
 // (Removed: "Suggested IRA tilts" — its per-name TSMOM × regime tilt is already applied to the IRA sleeve
 // in the Rebalance plan's SIGNAL column, so a standalone table just duplicated it. One "what to change" view.)
 
-function renderRebalance() {
-  const box = $("#rebalanceBox"); if (!box) return;
-  const rb = DATA.sig?.rebalance;
-  if (!rb || !rb.signal?.rows?.length) { box.innerHTML = ""; return; }
-  const fmtK = (n) => (n == null ? "—" : (n < 0 ? "−" : "") + "$" + Math.abs(Math.round(n / 1000)) + "k");
-  const actClass = (a) => /buy/.test(a) ? "pos" : /trim/.test(a) ? "neg" : "";
-  // Show only names the SIGNAL plan wants to move; pair the research-plan delta alongside.
-  const resById = Object.fromEntries(rb.research.rows.map((r) => [r.ticker, r]));
-  const rows = rb.signal.rows.filter((r) => r.action !== "hold").sort((a, b) => Math.abs(b.delta_usd) - Math.abs(a.delta_usd));
-  const s = rb.signal.summary;
-  const grade = rb.graded && rb.tilt_grade
-    ? `graded: ${rb.tilt_grade.hits}/${rb.tilt_grade.n} tilt-beats-baseline (${Math.round((rb.tilt_grade.hit_rate || 0) * 100)}%)`
-    : "<strong>advisory · ungraded</strong> (recording — grades accrue ~42d)";
-  const rowTr = (r) => `<tr><td><strong>${esc(r.ticker)}</strong></td><td>${esc(r.account)}</td><td>${fmtK(r.current_usd)}</td><td>${fmtK(r.target_usd)}</td><td class="${r.delta_usd >= 0 ? "pos" : "neg"}">${r.delta_usd > 0 ? "+" : ""}${fmtK(r.delta_usd)}</td><td class="foot">${resById[r.ticker] ? (resById[r.ticker].delta_usd > 0 ? "+" : "") + fmtK(resById[r.ticker].delta_usd) : "—"}</td><td class="${actClass(r.action)}">${esc(r.action)}</td></tr>`;
-  // ALWAYS separate the two sub-sleeves. Derive each row's axis from the row, else from the plan holding's
-  // role/axis (so it still groups on a pre-axis signals.json), and label both sleeves explicitly.
-  const ph = DATA.port?.holdings || [];
-  const axisOf = (r) => { if (r.axis) return r.axis; const h = ph.find((x) => x.ticker === r.ticker); return (h?.axis === "diversifier" || /diversifier|de-correlator/i.test(h?.role || "")) ? "diversifier" : "deep-tech"; };
-  const bldRows = rows.filter((r) => axisOf(r) !== "diversifier"), divRows = rows.filter((r) => axisOf(r) === "diversifier");
-  const planHasDiv = ph.some((h) => h.axis === "diversifier" || /diversifier|de-correlator/i.test(h.role || ""));
-  let tbody = "";
-  if (bldRows.length) tbody += `<tr class="hgroup"><td colspan="7">Deep-tech build-out — within the build-out sleeve</td></tr>` + bldRows.map(rowTr).join("");
-  if (divRows.length) tbody += `<tr class="hgroup"><td colspan="7">◇ Diversifier · 2nd axis — within the 15% sleeve</td></tr>` + divRows.map(rowTr).join("");
-  else if (planHasDiv) tbody += `<tr class="hgroup foot"><td colspan="7">◇ Diversifier · 2nd axis — no moves this scan (within tolerance)</td></tr>`;
-  else tbody += `<tr class="hgroup foot"><td colspan="7">◇ Diversifier · 2nd axis — not funded yet · fund it in the Diversifier tab</td></tr>`;
-  box.innerHTML = `<h3>Rebalance plan <button class="help" data-help="rebalance">?</button> <span class="foot">— volatility-tilted target weights → buy/sell · ${grade} · ±${rb.risk_cap_pct}% vol tilt · ${esc(rb.basis || "")}</span></h3>` +
-    `<p class="foot">Signal plan: <span class="pos">buy ${fmtK(s.buy_usd)}</span> · <span class="neg">sell ${fmtK(s.sell_usd)}</span> · net ${fmtK(s.net_usd)}` +
-      (s.blocked_trim_usd ? ` · <span class="neg">${fmtK(s.blocked_trim_usd)} anchor-trim held</span>` : "") +
-      (s.needs_new_cash_usd ? ` · <span class="neg">needs new cash ${fmtK(s.needs_new_cash_usd)}</span>` : "") + `</p>` +
-    (rows.length ? `<table class="mine"><thead><tr><th>Ticker</th><th>Acct</th><th>Now</th><th>Signal →</th><th>Δ (signal)</th><th>Δ (research)</th><th>Action</th></tr></thead><tbody>${tbody}</tbody></table>`
-      : `<p class="foot">No rebalancing suggested — current weights are within tolerance of both target vectors.</p>`);
-}
+// (The standalone "Rebalance plan" table was removed — the single Tax-located buy plan below IS the
+// buy/rebalance view. The scan still emits signals.json.rebalance for the record; the UI no longer renders it.)
 
 // ---------- Asset location (Roth / Traditional / taxable) → maximize after-tax terminal value ----------
 const ALOC_KEY = "puck.assetloc";
@@ -379,16 +349,19 @@ function renderAssetLocation() {
     wire(); return;
   }
   // Combined target = the build-out plan + the diversifier funding proposal (if any); drop names you hold
-  // ELSEWHERE, then renormalize so the cash deploys across what's left.
+  // ELSEWHERE, then renormalize so the cash deploys across what's left. WIRING: once you MERGE the
+  // diversifier PR, those names are already in portfolio.json — re-applying would double-count (scale the
+  // build-out twice), so apply the proposal only while it's still PENDING (names not yet in the plan).
   const funding = DATA.diversifier?.funding;
-  const combined = (funding && DV) ? DV.applyDiversifierFunding(p, funding) : p;
+  const alreadyFunded = funding?.newHoldings?.length && funding.newHoldings.every((h) => (p.holdings || []).some((ph) => ph.ticker === h.ticker));
+  const combined = (funding && DV && !alreadyFunded) ? DV.applyDiversifierFunding(p, funding) : p;
   const kept = (combined.holdings || []).filter((h) => h.ticker && (h.weight > 0) && !excl.has(h.ticker) && h.tier !== "DRY" && !/^CASH/i.test(h.ticker));
   const wsum = kept.reduce((a, h) => a + (h.weight || 0), 0) || 1;
   const holdings = kept.map((h) => ({ ...h, target_usd: Math.round((h.weight / wsum) * deployTotal) }));
   const res = L.locateAssets(holdings, { capacities: { roth: cfg.roth, traditional: cfg.traditional, taxable: cfg.taxable }, tax: { ordinary: cfg.ordinary / 100, qualified: cfg.qualified / 100, ltcg: cfg.ltcg / 100 }, horizonYears: cfg.horizon, sleeveUsd: deployTotal });
   // Group the BUY list by account (Roth / Traditional / taxable), each showing $ used vs balance.
   const tbody = [["roth", "Roth", cfg.roth], ["traditional", "Traditional", cfg.traditional], ["taxable", "Taxable", cfg.taxable]].filter(([, , b]) => b > 0).map(([key, label, bal]) => {
-    const rs = res.rows.filter((r) => r.suggested === key).sort((a, b) => b.value - a.value);
+    const rs = res.rows.filter((r) => r.account === key).sort((a, b) => b.value - a.value);
     const used = rs.reduce((a, r) => a + r.value, 0);
     return `<tr class="hgroup"><td colspan="4">${esc(label)} — buy ${fmtUsd(used)} of ${fmtUsd(bal)}${used > bal * 1.005 ? " ⚠ over capacity" : ""}</td></tr>` +
       (rs.length ? rs.map((r) => `<tr><td><strong>${esc(r.ticker)}</strong></td><td>${fmtUsd(r.value)}</td><td>${(r.yieldPct * 100).toFixed(1)}%</td><td class="foot">${r.annual_drag_avoided ? "shelters $" + r.annual_drag_avoided.toLocaleString() + "/yr" : "—"}</td></tr>`).join("") : `<tr><td colspan="4" class="foot">— nothing assigned here —</td></tr>`);
@@ -423,7 +396,6 @@ function renderPortfolio() {
   renderMyHoldings();
   renderDca();
   renderStress();
-  renderRebalance();
   renderAssetLocation();
   const p = DATA.port || {};
   const isDiv = (h) => h.axis === "diversifier" || /diversifier|de-correlator/i.test(h.role || ""); // axis tag or role
@@ -449,34 +421,6 @@ function renderPortfolio() {
     tg.appendChild(d);
   });
 
-  const tb = $("#holdings tbody"); tb.innerHTML = "";
-  const rowHtml = (h) => {
-    const Q = q(h.ticker);
-    const ytd = Q?.ytd, off = Q?.pct_off_high;
-    const warn = Q?.flags?.length ? `<span class="dq-warn" title="${esc(Q.flags.join("; "))}">⚠</span>` : "";
-    return `<td><strong>${esc(h.ticker)}</strong>${warn}</td><td>${esc(h.name)}</td><td>${esc(h.account)}</td>
-      <td>${fmtUsd(h.target_usd)}</td><td>${(h.weight*100).toFixed(1)}%</td><td>${esc(h.tier)}</td>
-      <td>${Q?.price ? "$" + Q.price.toFixed(2) : "—"}</td>
-      <td class="${ytd>=0?'pos':'neg'}">${fmtPct(ytd)}</td>
-      <td class="${off<0?'neg':''}">${fmtPct(off)}</td>
-      <td class="${Q?.pct_vs_ma200>=0?'pos':'neg'}">${fmtPct(Q?.pct_vs_ma200)}</td>
-      <td>${Q?.forward_pe ? Q.forward_pe.toFixed(1) + "x" : "—"}</td><td style="color:var(--mut)">${esc(h.role)}</td>`;
-  };
-  // Group the plan by axis with a subtotal header per group, so the diversifier sleeve reads as a labelled
-  // sub-section whose weight subtotal = its sleeve % (7% today with just FIW; 15% once the sleeve is funded).
-  const groups = [
-    { label: "Deep-tech build-out", rows: (p.holdings || []).filter((h) => !isDiv(h)) },
-    { label: "◇ Diversifier · 2nd axis", rows: (p.holdings || []).filter(isDiv) },
-  ];
-  for (const g of groups) {
-    if (!g.rows.length) continue;
-    const wt = g.rows.reduce((a, h) => a + (h.weight || 0), 0);
-    const usd = g.rows.reduce((a, h) => a + (h.target_usd || 0), 0);
-    const hr = document.createElement("tr"); hr.className = "hgroup";
-    hr.innerHTML = `<td colspan="3">${esc(g.label)}</td><td>${fmtUsd(usd)}</td><td>${(wt * 100).toFixed(1)}%</td><td colspan="7"></td>`;
-    tb.appendChild(hr);
-    g.rows.forEach((h) => { const tr = document.createElement("tr"); tr.innerHTML = rowHtml(h); tb.appendChild(tr); });
-  }
   hideEmptyGroups();
 }
 
@@ -627,8 +571,8 @@ function renderHoldEditor() {
   const tb = $("#holdEdit tbody"); tb.innerHTML = "";
   Object.entries(pos.positions || {}).forEach(([t, h]) => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td><strong>${t}</strong></td><td>${h.account || "—"}</td><td>${h.shares ?? "—"}</td><td>${h.cost_basis != null ? "$" + h.cost_basis : "—"}</td>
-      <td><button data-rm="${t}" class="danger sm">✕</button></td>`;
+    tr.innerHTML = `<td><strong>${esc(t)}</strong></td><td>${esc(h.account || "—")}</td><td>${h.shares != null ? esc(String(h.shares)) : "—"}</td><td>${h.cost_basis != null ? "$" + esc(String(h.cost_basis)) : "—"}</td>
+      <td><button data-rm="${esc(t)}" class="danger sm">✕</button></td>`;
     tb.appendChild(tr);
   });
   $("#hCash").value = pos.cash_usd ?? "";
@@ -745,7 +689,7 @@ function renderMyHoldings() {
     const tgt = targets[t];
     const rb = rebalMap[t];
     const rbCell = rb?.flagged ? `<span class="${rb.action==='trim'?'neg':'pos'}">⚖ ${rb.action} (${rb.drift>0?'+':''}${rb.drift}%)</span>` : (rb ? "in band" : "—");
-    rows.push(`<tr><td><strong>${t}</strong></td><td>${h.account}</td><td>${h.shares ?? "—"}</td>
+    rows.push(`<tr><td><strong>${esc(t)}</strong></td><td>${esc(h.account || "—")}</td><td>${h.shares != null ? esc(String(h.shares)) : "—"}</td>
       <td>${price ? "$" + price.toFixed(2) : "—"}</td><td>${mv ? fmtUsd(mv) : "—"}</td>
       <td class="${gain>=0?'pos':'neg'}">${gain==null?"—":(gain*100).toFixed(0)+"%"}</td>
       <td>${tgt ? Math.round((mv||0)/tgt*100)+"% of target" : "—"}</td><td>${rbCell}</td></tr>`);

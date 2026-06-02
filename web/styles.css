@@ -81,7 +81,7 @@ button.hiw:hover{border-color:var(--y30)}
 .group > .card, .group > div > .v23-card{margin-top:0}
 .group h3{font-size:13.5px;margin:16px 0 8px}
 .group h3:first-of-type{margin-top:4px}
-/* Axis sub-group subtotal rows in the holdings plan table (AI-capex vs ◇ diversifier, each with a % subtotal). */
+/* Axis sub-group subtotal rows in the holdings plan table (Deep-tech build-out vs ◇ diversifier, each with a % subtotal). */
 tr.hgroup td{background:#11161e;color:var(--ink);font-weight:700;border-top:2px solid var(--line);font-size:12px}
 /* Asset-location: compact inputs row + highlight rows whose account should change. */
 .aloc-inputs{flex-wrap:wrap;gap:10px}.aloc-inputs input{width:90px}
@@ -102,7 +102,7 @@ table.cfg{font-size:12.5px;margin:8px 0}table.cfg td{padding:3px 8px;border-bott
 table.cfg th{text-align:left;color:var(--y30);padding:8px 8px 3px;border-bottom:1px solid var(--line)}
 table.cfg code{font-size:11px}#adminStatus a{color:var(--y30)}
 /* Wide tables scroll horizontally instead of overflowing the page (mobile-safe). */
-.tscroll,#myHoldings,#dcaProgress,#optResult,#adminStatus,#rebalanceBox,#diversifierReview,#researchReview,#scoutReview,#objMetrics{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+.tscroll,#myHoldings,#dcaProgress,#optResult,#adminStatus,#rebalanceBox,#diversifierReview,#researchReview,#scoutReview,#objMetrics,#stressTest{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 @media(max-width:800px){.tcol{grid-template-columns:1fr}}
 @media(max-width:760px){
   body{font-size:14px}
