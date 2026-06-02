@@ -366,6 +366,12 @@ The fuller allocation engine: it builds **two** target-weight vectors and turns 
   tilt) and the **regime tilt**. A research-committee "crowded" downgrade lowers a name's thesis
   Opportunity → shrinks its weight here → surfaces a trim. This **closes the thesis→allocation link**.
 
+**Grouped by sleeve.** The buy/sell rows are split into **Deep-tech build-out** and **◇ Diversifier · 2nd
+axis** sub-sections, each rebalanced *within its own budget* — so the diversifier sleeve is held to its
+target % and never drifts into the build-out under the inverse-vol/opportunity tilts (and the opportunity
+tilt is never applied to the diversifier). The diversifier line reads "no moves this scan" or "not funded
+yet" when it has nothing to change.
+
 **Funding rules (so the plan is realistic, not just ideal weights):**
 - The **IRA** (tax-free) **self-funds** — trims pay for buys within the sleeve (buys ≈ sells exactly).
 - The **taxable** sleeve stays **buy-and-hold anchors**: a taxable **trim is only actioned above a higher
