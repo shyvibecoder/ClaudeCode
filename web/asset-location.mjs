@@ -89,3 +89,59 @@ export function locateAssets(holdings, { capacities = {}, tax = DEFAULT_TAX, hor
     },
   };
 }
+
+// Tax-located REBALANCE [D2]: net the committee-aware target against what you ACTUALLY hold (per account) →
+// BUY rows (net-new dollars located into AVAILABLE room: Roth←growth, Traditional←income, taxable←efficient)
+// and SELL/trim rows (in-place; a taxable lot is buy-and-hold unless its ticker is in `taxableAnchorTrimOk`
+// — we don't realize gains just to relocate). All-cash reduces to the deploy plan (held empty → all buys).
+// `held` = { ticker: { roth, traditional, taxable, ira } } in $. Pure + deterministic.
+export function rebalanceLocated(holdings, { held = {}, capacities = {}, tax = DEFAULT_TAX, taxableAnchorTrimOk = [], quotes = {}, overrides = {} } = {}) {
+  const cap = { roth: +capacities.roth || 0, traditional: +capacities.traditional || 0, taxable: +capacities.taxable || 0, ira: +capacities.ira || 0 };
+  const threeWay = cap.roth > 0 && cap.traditional > 0;
+  const capOf = threeWay ? { roth: cap.roth, traditional: cap.traditional, taxable: cap.taxable } : { "tax-advantaged": cap.roth + cap.traditional + cap.ira, taxable: cap.taxable };
+  const accts = Object.keys(capOf);
+  const bookTotal = accts.reduce((a, k) => a + capOf[k], 0);
+  const normAcct = (k) => k === "taxable" ? "taxable" : (threeWay ? (k === "ira" ? "traditional" : k) : "tax-advantaged");
+  const okSet = new Set(taxableAnchorTrimOk);
+
+  const items = (holdings || []).filter((h) => h && h.ticker && h.weight > 0).map((h) => { const p = taxProfile(h, { quotes, overrides }); return { ticker: h.ticker, weight: h.weight, growth: p.growth, yieldPct: p.yieldPct, dragRate: annualDragRate(p, tax) }; });
+  const wsum = items.reduce((a, it) => a + it.weight, 0) || 1;
+  items.forEach((it) => { it.target = (it.weight / wsum) * bookTotal; });
+
+  const heldA = {}; // ticker -> { acct: $ } (normalized to capOf's account keys)
+  for (const t in (held || {})) { heldA[t] = {}; for (const k in held[t]) { const a = normAcct(k); heldA[t][a] = (heldA[t][a] || 0) + (held[t][k] || 0); } }
+  const heldTot = (t) => Object.values(heldA[t] || {}).reduce((a, b) => a + b, 0);
+  const heldInAcct = {}; accts.forEach((a) => heldInAcct[a] = 0);
+  for (const t in heldA) for (const a in heldA[t]) heldInAcct[a] = (heldInAcct[a] || 0) + heldA[t][a];
+
+  const rows = [], buyLegs = [];
+  const sellOrder = [...accts].sort((a, b) => (a === "taxable" ? 1 : 0) - (b === "taxable" ? 1 : 0)); // sell tax-advantaged first, taxable last
+  const sellName = (t, amount, yieldPct, notInPlan) => {
+    let need = amount;
+    for (const a of sellOrder) { if (need <= 1) break; const have = Math.round(heldA[t]?.[a] || 0); if (have <= 0) continue; const amt = Math.min(have, need); const blocked = a === "taxable" && !okSet.has(t); rows.push({ ticker: t, account: a, action: blocked ? "hold (taxable anchor — trim bar not met)" : (notInPlan ? "sell (not in plan)" : "trim"), amount: amt, blocked, yieldPct }); need -= amt; }
+  };
+  for (const it of items) { const d = Math.round(it.target - heldTot(it.ticker)); if (d < -1) sellName(it.ticker, -d, it.yieldPct, false); else if (d > 1) buyLegs.push({ ...it, buy: d }); }
+  for (const t in heldA) if (!items.some((it) => it.ticker === t)) sellName(t, Math.round(heldTot(t)), 0, true); // held but dropped from the plan → exit
+
+  // Buys go into AVAILABLE room only: capacity − held + (non-blocked sells that free cash in that account).
+  const freed = {}; accts.forEach((a) => freed[a] = 0);
+  for (const r of rows) if (!r.blocked && (r.action === "trim" || r.action.startsWith("sell"))) freed[r.account] += r.amount;
+  const avail = {}; accts.forEach((a) => avail[a] = Math.max(0, capOf[a] - heldInAcct[a] + freed[a]));
+  const rem = new Map(buyLegs.map((b) => [b, b.buy]));
+  const fill = (acct, order) => { let left = avail[acct]; for (const b of order) { if (left <= 1) break; const amt = Math.min(rem.get(b), left); if (amt > 1) { rows.push({ ticker: b.ticker, account: acct, action: "buy", amount: Math.round(amt), yieldPct: b.yieldPct, annual_drag_avoided: acct === "taxable" ? 0 : Math.round(amt * b.dragRate) }); rem.set(b, rem.get(b) - amt); left -= amt; } } };
+  if (threeWay) { fill("roth", [...buyLegs].sort((a, b) => b.growth - a.growth)); fill("traditional", [...buyLegs].sort((a, b) => b.dragRate - a.dragRate)); fill("taxable", [...buyLegs].sort((a, b) => a.yieldPct - b.yieldPct)); }
+  else { fill("tax-advantaged", [...buyLegs].sort((a, b) => b.dragRate - a.dragRate)); fill("taxable", buyLegs); }
+  const needs_new_cash = [...rem.values()].reduce((a, b) => a + Math.max(0, b), 0); // buys that didn't fit available room
+
+  const sumOf = (pred) => Math.round(rows.filter(pred).reduce((a, r) => a + r.amount, 0));
+  return {
+    three_way: threeWay, rows,
+    summary: {
+      buy_usd: sumOf((r) => r.action === "buy"),
+      sell_usd: sumOf((r) => !r.blocked && (r.action === "trim" || r.action.startsWith("sell"))),
+      blocked_usd: sumOf((r) => r.blocked),
+      needs_new_cash_usd: Math.round(needs_new_cash),
+      annual_drag_avoided: rows.reduce((a, r) => a + (r.annual_drag_avoided || 0), 0),
+    },
+  };
+}

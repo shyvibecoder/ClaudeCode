@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { taxProfile, annualDragRate, locateAssets, DEFAULT_TAX } from "../scripts/lib/asset-location.mjs";
+import { taxProfile, annualDragRate, locateAssets, rebalanceLocated, DEFAULT_TAX } from "../scripts/lib/asset-location.mjs";
 
 const holds = [
   { ticker: "GEV", account: "ira", role: "Anchor — build-out", weight: 0.10 },                              // build-out: high growth, low yield, tactical
@@ -64,5 +64,51 @@ describe("asset-location: 2-way fallback (no Roth/Traditional split yet)", () =>
   });
   it("shelters the highest-drag name first", () => {
     assert.ok(r.rows.some((x) => x.ticker === "NEE" && x.account === "tax-advantaged")); // NEE: diversifier + tactical → highest drag
+  });
+});
+
+describe("asset-location: tax-located REBALANCE (net held → buy + sell) [D2]", () => {
+  const BLD = { ticker: "BLD", weight: 0.85, role: "build-out" };           // high growth, low yield
+  const DIV = { ticker: "DIV", weight: 0.15, role: "non-build-out de-correlator" }; // low growth, high yield
+  const cap = { roth: 100_000, traditional: 100_000, taxable: 100_000 };    // bookTotal 300k
+
+  it("all-cash reduces to the deploy: all buys, no sells, sums to the book; growth→Roth, income→tax-advantaged", () => {
+    const r = rebalanceLocated([BLD, DIV], { held: {}, capacities: cap });
+    assert.equal(r.summary.sell_usd, 0);
+    assert.equal(r.summary.needs_new_cash_usd, 0);
+    assert.ok(Math.abs(r.summary.buy_usd - 300_000) < 5);
+    assert.ok(r.rows.some((x) => x.ticker === "BLD" && x.account === "roth" && x.action === "buy"));     // growth → Roth
+    assert.ok(r.rows.some((x) => x.ticker === "DIV" && x.account === "traditional" && x.action === "buy")); // income → Traditional
+    assert.ok(!r.rows.some((x) => x.ticker === "DIV" && x.account === "taxable"));                        // dividends not stranded in taxable
+  });
+  it("an overweight tax-advantaged holding produces a TRIM (in-place, not blocked)", () => {
+    const r = rebalanceLocated([{ ticker: "BLD", weight: 1.0 }], { held: { BLD: { traditional: 150_000 } }, capacities: { roth: 50_000, traditional: 50_000, taxable: 0 } }); // target 100k, held 150k
+    const trim = r.rows.find((x) => x.ticker === "BLD" && x.action === "trim");
+    assert.ok(trim && trim.account === "traditional" && Math.abs(trim.amount - 50_000) < 5);
+    assert.ok(Math.abs(r.summary.sell_usd - 50_000) < 5);
+  });
+  it("a taxable overweight is BLOCKED (buy-and-hold anchor) unless its ticker is trim-OK", () => {
+    const held = { BLD: { taxable: 150_000 } }, capacities = { roth: 60_000, traditional: 40_000, taxable: 0 }; // target 100k
+    const blocked = rebalanceLocated([{ ticker: "BLD", weight: 1.0 }], { held, capacities });
+    const row = blocked.rows.find((x) => x.ticker === "BLD" && x.account === "taxable");
+    assert.ok(row.blocked && /anchor/.test(row.action));
+    assert.equal(blocked.summary.sell_usd, 0);
+    assert.ok(blocked.summary.blocked_usd > 0);
+    const allowed = rebalanceLocated([{ ticker: "BLD", weight: 1.0 }], { held, capacities, taxableAnchorTrimOk: ["BLD"] });
+    assert.ok(allowed.rows.some((x) => x.ticker === "BLD" && x.action === "trim" && !x.blocked));
+  });
+  it("an underweight name is BOUGHT and the buy is located into available room (no account over capacity)", () => {
+    const r = rebalanceLocated([{ ticker: "BLD", weight: 0.5 }, { ticker: "DIV", weight: 0.5, role: "de-correlator" }],
+      { held: { BLD: { taxable: 100_000 }, DIV: { taxable: 50_000 } }, capacities: { roth: 100_000, traditional: 100_000, taxable: 200_000 } });
+    for (const a of ["roth", "traditional", "taxable"]) {
+      const heldA = a === "taxable" ? 150_000 : 0;
+      const boughtA = r.rows.filter((x) => x.account === a && x.action === "buy").reduce((s, x) => s + x.amount, 0);
+      assert.ok(heldA + boughtA <= ({ roth: 100_000, traditional: 100_000, taxable: 200_000 })[a] + 5, `${a} over capacity`);
+    }
+    assert.ok(r.rows.some((x) => x.ticker === "BLD" && x.account === "roth" && x.action === "buy")); // new growth → Roth
+  });
+  it("a holding dropped from the plan is sold/exited", () => {
+    const r = rebalanceLocated([{ ticker: "BLD", weight: 1.0 }], { held: { OLD: { roth: 50_000 } }, capacities: { roth: 100_000, traditional: 50_000, taxable: 0 } });
+    assert.ok(r.rows.some((x) => x.ticker === "OLD" && /sell|not in plan/.test(x.action)));
   });
 });
