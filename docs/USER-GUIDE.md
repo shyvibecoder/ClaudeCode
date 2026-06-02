@@ -390,42 +390,57 @@ falsifiable *"signal weights beat the research baseline"* claim into the Track r
 With a `positions.local.json` it rebalances **what you actually hold**; without it, it shows the ideal
 weighting vs your static plan. **Advisory only** — it never edits your portfolio or places trades. Not advice.
 
-### 4.10 Tax-located buy plan (Roth / Traditional / taxable)
+### 4.10 Tax-located buy/rebalance plan (Roth / Traditional / taxable)
 Inside **🎯 Suggestions** — the **single** buy/rebalance view (the old Holdings-plan and Rebalance-plan
 tables fold into this one). It takes the committee's suggested holdings (build-out + the diversifier
-sleeve), spreads your cash across the target weights, and **places each name in the account that maximizes
-after-tax terminal value** — shown as a **buy list grouped by account**. Each name's dollars can **split
-across accounts** so capacity is filled exactly (no account is over/under-filled).
+sleeve), targets each name's weight against your **total account balances**, and **places every dollar in
+the account that maximizes after-tax terminal value** — grouped by account. Each name's dollars can **split
+across accounts** so capacity is filled exactly.
 
-**Committee-aware.** The build-out names are weighted by the **scan's signal-adjusted target** (your
-plan weight × thesis-Opportunity × regime — `signals.json.rebalance.signal`), so when the committee marks a
-scarcity **crowded** the next scan shrinks that name's weight → a **smaller buy** here (the thesis→allocation
-link reaches the screen). Diversifier names keep their funding weights; offline it falls back to plan weights.
+**A true optimizer, not a rule of thumb.** Puck models each name's **after-tax terminal multiple** in every
+account over your horizon — Roth `(1+g)^N` (tax-free forever), Traditional `(1+g)^N·(1−rate)` (ordinary rate
+on withdrawal), taxable `1+((1+g−yield·rate)^N−1)·(1−LTCG)` (annual qualified-dividend drag + a final LTCG
+that step-up would only reduce) — then solves the placement as a **transportation problem** (the global
+optimum for those multiples, verified against brute force). Two forces fall out of the math:
+- **Roth goes to your highest-EXPECTED-RETURN names.** Tax-free compounding is worth the most on the asset
+  that compounds the most, so the build-out (high-growth) names win scarce Roth space before a low-growth,
+  high-yield diversifier does — even though the diversifier "looks" like the dividend-tax-shelter candidate.
+- **What spills to TAXABLE is the lowest-yield name** — it loses the least to the annual dividend drag there
+  and keeps qualified rates, step-up at death, and loss-harvesting (most valuable on the volatile hedge).
+
+The header reports the **after-tax terminal $ this placement adds** vs a pro-rata baseline (so it credits the
+Roth growth benefit, not just dividend drag) plus the annual tax drag sheltered.
+
+**Position-aware.** It nets the target against **what you already hold** (your Settings positions × latest
+scan prices, by account): all-cash → a pure **deploy** (all buys); once you hold lots it nets **buys + tax-
+aware sells/trims**. Selling inside Roth/Traditional is free (no tax), so it trims there first; a **taxable**
+lot is **buy-and-hold** — it's only trimmed when the scan's trim bar is met (broken thesis / strong de-rating
+/ over the sleeve cap; `signals.json.rebalance.taxable_trim_ok`), otherwise it's shown **held** and the
+header notes the dollars it left in place. If buys exceed your free room it tells you how much **new cash** is
+needed.
+
+**Committee-aware.** The build-out names are weighted by the **scan's signal-adjusted target** (your plan
+weight × thesis-Opportunity × regime — `signals.json.rebalance.signal`), so when the committee marks a
+scarcity **crowded** the next scan shrinks that name's weight → a **smaller buy** here. Diversifier names keep
+their funding weights; offline it falls back to plan weights.
 
 **As you accept PRs:** the plan always reads your live `portfolio.json`, so any portfolio-changing PR
 re-reviews it. While the diversifier funding PR is *pending* it previews the funded target; once you
 **merge** it, those names are in `portfolio.json` and the plan uses it as-is (it won't double-count). The
-build-out's plan, by contrast, is changed by editing `portfolio.json` — research/scout PRs edit the
-*research* (`scarcities.json`), not your holdings. *(Today it deploys from cash; netting buy/sell deltas
-against positions you already hold is the next step.)*
-
-Two robust rules: **(1)** shelter the annual **dividend tax drag** — income-heavy names → a tax-advantaged
-account; tax-efficient (low-yield) names → **taxable** (qualified rates, step-up at death, loss-harvesting);
-**(2)** within tax-advantaged, **highest-growth → Roth** (the biggest balance compounds tax-free), income/
-lower-growth → **Traditional**.
+build-out's plan is changed by editing `portfolio.json` — research/scout PRs edit the *research*
+(`scarcities.json`), not your holdings.
 
 Inline inputs (browser-stored; defaults 35% / 20yr) — so you never tell anyone your tax rate ahead of time:
-- **Roth $ / Traditional $ / Taxable $** — your cash in each account (the deployable capacity).
-- **Marginal % · Horizon yr** — drive the tax-drag estimate.
+- **Roth $ / Traditional $ / Taxable $** — your **total balance** in each account (deployable capacity).
+- **Marginal % · Horizon yr** — drive the after-tax multiples.
 - **Exclude (own elsewhere)** — tickers you already hold in your broader portfolio (e.g. `SMH`); they're
   dropped and the remaining weights renormalized.
 
-Each account block shows what to **buy** there, the $ amount, yield, and the dividend tax it shelters/yr;
-the header reports drag avoided per year + compounded over your horizon. **Rebalancing later keeps these
-locations.** Until you split Roth vs Traditional it runs a 2-way (tax-advantaged vs taxable) split and says so.
+Until you split Roth vs Traditional it runs a 2-way (tax-advantaged vs taxable) split and says so.
 
 **Advisory, not tax advice.** It's the robust *location* lever; it does **not** model your exact bracket
-arbitrage (withdrawal vs contribution rate), RMDs, or estate plan. Inputs live only in your browser.
+arbitrage (withdrawal vs contribution rate), RMDs, contributions, or estate plan. Inputs live only in your
+browser.
 
 ## 4c. Research (LLM proposals you approve)
 The **Research** tab surfaces the monthly research engine's proposed reassessments. The engine runs the
@@ -560,8 +575,9 @@ instead of silently producing nothing.
 Everything here is stored **only in this browser** (localStorage) and **never committed**.
 
 ### 8.1 Your holdings (per account)
-Add each holding: **ticker, account (IRA/Roth or Taxable), shares, cost basis**, plus your **dry-powder
-cash**. Live prices come from the latest scan.
+Add each holding: **ticker, account (Roth / Traditional IRA / Taxable), shares, cost basis**, plus your
+**dry-powder cash**. The account you pick feeds the position-aware rebalance (§4.10) — selling inside
+Roth/Traditional is free, taxable lots are buy-and-hold. Live prices come from the latest scan.
 - **⬇ Export positions.local.json** — download your positions in the exact shape the scanner reads, so
   the *server-side* trim rule and sleeve-cap can compute against your real lots. (Drop the file into
   `web/data/` — it's gitignored, so it's never committed.)

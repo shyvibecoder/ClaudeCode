@@ -39,7 +39,7 @@
       </tr></thead><tbody></tbody></table>
       <div class="row-add">
         <input id="hTicker" placeholder="TICKER" maxlength="12" />
-        <select id="hAccount"><option value="ira">IRA/Roth</option><option value="taxable">Taxable</option></select>
+        <select id="hAccount"><option value="roth">Roth</option><option value="traditional">Traditional IRA</option><option value="taxable">Taxable</option></select>
         <input id="hShares" type="number" step="any" placeholder="shares" />
         <input id="hCost" type="number" step="any" placeholder="cost/sh" />
         <button id="hAdd">+ Add</button>
@@ -216,6 +216,6 @@
   <script type="module">import { proposalDiffs, applyAcceptance, BOT_OWNED_FIELDS } from "./research-review.mjs"; window.PuckResearch = { proposalDiffs, applyAcceptance, BOT_OWNED_FIELDS };</script>
   <script type="module">import { scoutCandidateView, appendScoutScarcity, approvePendingPhrases } from "./scout-review.mjs"; window.PuckScout = { scoutCandidateView, appendScoutScarcity, approvePendingPhrases };</script>
   <script type="module">import { diversifierFundingView, applyDiversifierFunding } from "./diversifier-review.mjs"; window.PuckDiversifier = { diversifierFundingView, applyDiversifierFunding };</script>
-  <script type="module">import { locateAssets } from "./asset-location.mjs"; window.PuckLocation = { locateAssets };</script>
+  <script type="module">import { locateAssets, rebalanceLocated } from "./asset-location.mjs"; window.PuckLocation = { locateAssets, rebalanceLocated };</script>
 </body>
 </html>
