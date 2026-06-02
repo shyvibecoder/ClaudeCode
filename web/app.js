@@ -333,12 +333,17 @@ function renderRebalance() {
     ? `graded: ${rb.tilt_grade.hits}/${rb.tilt_grade.n} tilt-beats-baseline (${Math.round((rb.tilt_grade.hit_rate || 0) * 100)}%)`
     : "<strong>advisory · ungraded</strong> (recording — grades accrue ~42d)";
   const rowTr = (r) => `<tr><td><strong>${esc(r.ticker)}</strong></td><td>${esc(r.account)}</td><td>${fmtK(r.current_usd)}</td><td>${fmtK(r.target_usd)}</td><td class="${r.delta_usd >= 0 ? "pos" : "neg"}">${r.delta_usd > 0 ? "+" : ""}${fmtK(r.delta_usd)}</td><td class="foot">${resById[r.ticker] ? (resById[r.ticker].delta_usd > 0 ? "+" : "") + fmtK(resById[r.ticker].delta_usd) : "—"}</td><td class="${actClass(r.action)}">${esc(r.action)}</td></tr>`;
-  // Group the plan by axis (sub-headers only when the diversifier sleeve actually has moves), so each
-  // sleeve's buys/sells read separately and you can see the 15% is rebalanced within itself.
-  const divRows = rows.filter((r) => r.axis === "diversifier"), bldRows = rows.filter((r) => r.axis !== "diversifier");
-  const tbody = (divRows.length && bldRows.length)
-    ? [["Deep-tech build-out", bldRows], ["◇ Diversifier · 2nd axis", divRows]].map(([label, rs]) => `<tr class="hgroup"><td colspan="7">${esc(label)}</td></tr>` + rs.map(rowTr).join("")).join("")
-    : rows.map(rowTr).join("");
+  // ALWAYS separate the two sub-sleeves. Derive each row's axis from the row, else from the plan holding's
+  // role/axis (so it still groups on a pre-axis signals.json), and label both sleeves explicitly.
+  const ph = DATA.port?.holdings || [];
+  const axisOf = (r) => { if (r.axis) return r.axis; const h = ph.find((x) => x.ticker === r.ticker); return (h?.axis === "diversifier" || /diversifier|de-correlator/i.test(h?.role || "")) ? "diversifier" : "deep-tech"; };
+  const bldRows = rows.filter((r) => axisOf(r) !== "diversifier"), divRows = rows.filter((r) => axisOf(r) === "diversifier");
+  const planHasDiv = ph.some((h) => h.axis === "diversifier" || /diversifier|de-correlator/i.test(h.role || ""));
+  let tbody = "";
+  if (bldRows.length) tbody += `<tr class="hgroup"><td colspan="7">Deep-tech build-out — within the build-out sleeve</td></tr>` + bldRows.map(rowTr).join("");
+  if (divRows.length) tbody += `<tr class="hgroup"><td colspan="7">◇ Diversifier · 2nd axis — within the 15% sleeve</td></tr>` + divRows.map(rowTr).join("");
+  else if (planHasDiv) tbody += `<tr class="hgroup foot"><td colspan="7">◇ Diversifier · 2nd axis — no moves this scan (within tolerance)</td></tr>`;
+  else tbody += `<tr class="hgroup foot"><td colspan="7">◇ Diversifier · 2nd axis — not funded yet · fund it in the Diversifier tab</td></tr>`;
   box.innerHTML = `<h3>Rebalance plan <button class="help" data-help="rebalance">?</button> <span class="foot">— volatility-tilted target weights → buy/sell · ${grade} · ±${rb.risk_cap_pct}% vol tilt · ${esc(rb.basis || "")}</span></h3>` +
     `<p class="foot">Signal plan: <span class="pos">buy ${fmtK(s.buy_usd)}</span> · <span class="neg">sell ${fmtK(s.sell_usd)}</span> · net ${fmtK(s.net_usd)}` +
       (s.blocked_trim_usd ? ` · <span class="neg">${fmtK(s.blocked_trim_usd)} anchor-trim held</span>` : "") +
