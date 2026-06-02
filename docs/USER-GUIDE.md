@@ -488,9 +488,11 @@ risk-on → LEAPS call).
 
 ![Agent digest](img/digest.png)
 
-An optional LLM **"analyst + red-team"** summary of what materially changed (quotes, filings, news,
-regime) and whether any trigger looks closer. With **two** free keys it runs **cross-model** — the
-analyst on one model, the red-team on another — so it isn't a model grading itself.
+An optional **"analyst + red-team"** read of what materially changed this scan for the **deep-tech
+build-out** sleeve (quotes incl. forward P/E, SEC filings, news, regime) and whether any trigger looks
+closer. With **two** keys it runs **cross-model** — the analyst on one model, the red-team on another —
+so it isn't a model grading itself. It works with your **free or paid** models, and the diversifier
+sleeve isn't summarized here (it's judged on drawdown reduction, not narrative).
 
 It uses the **latest free thinking models** by default — Gemini 3.5 Flash and Groq's gpt-oss-120b — so
 the analysis actually reasons rather than pattern-matches. Both are overridable via the `GEMINI_MODEL`

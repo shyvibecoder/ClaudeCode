@@ -470,7 +470,7 @@ function renderDigest() {
   const d = DATA.sig?.digest;
   const unset = !d || /^\(no LLM key|^\(no digest/i.test(d);
   $("#digestBox").textContent = unset
-    ? "No digest yet.\n\nThe Agent digest is an optional LLM 'analyst + red-team' summary of what changed this scan.\nTurn it on either way:\n  • In your browser — ⚙ Settings → add a free Gemini key → click “✦ Digest in browser”.\n  • Automated — add GEMINI_API_KEY (or GROQ/OPENROUTER) as a GitHub repo secret; the daily scan then writes it here.\nWith two keys it runs cross-model (analyst on one, red-team on another)."
+    ? "No digest yet.\n\nThe Agent digest is an optional analyst + red-team read of what changed this scan for the deep-tech build-out sleeve.\nTurn it on either way:\n  • In your browser — ⚙ Settings → add an LLM key (free Gemini, or a paid key) → click “✦ Digest in browser”.\n  • Automated — add an LLM key as a GitHub repo secret (GEMINI/GROQ/OPENROUTER, or ANTHROPIC/OPENAI); the daily scan then writes it here.\nWith two keys it runs cross-model (analyst on one model, red-team rebuts on another)."
     : d;
   if (DATA.sig?.errors?.length) $("#digestBox").textContent += `\n\n--- scan errors ---\n${DATA.sig.errors.join("\n")}`;
 }
@@ -1015,7 +1015,9 @@ const HELP = {
     <p><strong>How to use:</strong> pick the underlying (S &amp; realized vol auto-fill), enter type/strike/days-to-expiry/option price → Evaluate. You get IV, fair value at realized vol, the edge vs that, a verdict, and greeks (delta/vega/theta).</p>
     <p><strong>Defined-risk only — no naked options.</strong> Use long calls/puts, debit spreads, collars, covered calls, cash-secured puts. Caveats: realized vol is backward-looking and options also carry event/skew premia, so treat this as a sanity check, not a price oracle. Not advice.</p>` },
   digest: { title: "Agent digest", body: `
-    <p>An optional LLM "analyst + red-team" summary of what changed (quotes, filings, news, regime). With <strong>two</strong> free keys it's <em>cross-model</em> — the analyst runs on one model and the red-team on another, so it isn't a model grading itself. Set keys in ⚙ Settings (in-browser, Gemini) or as GitHub repo secrets (automated scanner).</p>` },
+    <p>An optional <strong>analyst + red-team</strong> read of <em>what changed this scan</em> for the <strong>deep-tech build-out</strong> sleeve: fresh quotes (incl. forward P/E), recent SEC filings (8-K/10-Q items — backlog, capacity, guidance, pricing), news headlines, and whether any deploy/exit <strong>trigger</strong> looks closer.</p>
+    <p>With <strong>two</strong> keys it runs <em>cross-model</em> — the analyst writes on one model, a skeptical red-team rebuts on another (not a model grading itself). It uses whatever you've configured, <strong>free or paid</strong> (Gemini / Groq / OpenRouter, or Anthropic / OpenAI); the header names the exact models used.</p>
+    <p>The <strong>diversifier</strong> sleeve isn't summarized here — it's judged on drawdown reduction, not narrative. Enable the digest with a key in ⚙ Settings (in-browser) or as GitHub repo secrets (the automated scanner).</p>` },
   research: { title: "Research proposals — how the committee works", body: `
     <p>The monthly research engine doesn't just ask one model. For each scarcity it runs an <strong>investment committee</strong> over <strong>deep evidence</strong> (multi-angle news excerpts + SEC filing passages + live price signals), then proposes reassessments of only three <strong>bot-owned</strong> fields — <strong>priced-in / bind-window / non-consensus</strong>. It only PROPOSES; you APPROVE.</p>
     <p><strong>The committee (4 seats + 2 checks):</strong></p>
