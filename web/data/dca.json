@@ -1,22 +1,22 @@
 {
   "schema_version": 1,
-  "updated": "2026-06-01",
+  "updated": "2026-06-02",
   "note": "Planned DCA schedule derived from portfolio tiers (A/D=100% now; B=50% now+m1-3; C=25% now+m1-9; DRY=held). Deployed side comes from positions.local.json (v4 view).",
   "holdings": {
     "PAVE": {
       "tier": "A",
-      "target_usd": 225000,
+      "target_usd": 205650,
       "account": "taxable",
       "schedule": {
-        "now": 225000
+        "now": 205650
       }
     },
     "GRID": {
       "tier": "A",
-      "target_usd": 165000,
+      "target_usd": 150750,
       "account": "taxable",
       "schedule": {
-        "now": 165000
+        "now": 150750
       }
     },
     "FIW": {
@@ -29,49 +29,49 @@
     },
     "SHLD": {
       "tier": "C",
-      "target_usd": 75000,
+      "target_usd": 68550,
       "account": "taxable",
       "schedule": {
-        "now": 18750,
-        "m1": 6250,
-        "m2": 6250,
-        "m3": 6250,
-        "m4": 6250,
-        "m5": 6250,
-        "m6": 6250,
-        "m7": 6250,
-        "m8": 6250,
-        "m9": 6250
+        "now": 17138,
+        "m1": 5712,
+        "m2": 5712,
+        "m3": 5712,
+        "m4": 5712,
+        "m5": 5712,
+        "m6": 5712,
+        "m7": 5712,
+        "m8": 5712,
+        "m9": 5717
       }
     },
     "ASML": {
       "tier": "A",
-      "target_usd": 60000,
+      "target_usd": 54900,
       "account": "taxable",
       "schedule": {
-        "now": 60000
+        "now": 54900
       }
     },
     "SMNEY": {
       "tier": "C",
-      "target_usd": 45000,
+      "target_usd": 41100,
       "account": "taxable",
       "schedule": {
-        "now": 11250,
-        "m1": 3750,
-        "m2": 3750,
-        "m3": 3750,
-        "m4": 3750,
-        "m5": 3750,
-        "m6": 3750,
-        "m7": 3750,
-        "m8": 3750,
-        "m9": 3750
+        "now": 10275,
+        "m1": 3425,
+        "m2": 3425,
+        "m3": 3425,
+        "m4": 3425,
+        "m5": 3425,
+        "m6": 3425,
+        "m7": 3425,
+        "m8": 3425,
+        "m9": 3425
       }
     },
     "CASH-MUNI": {
       "tier": "DRY",
-      "target_usd": 25000,
+      "target_usd": 23250,
       "account": "taxable",
       "schedule": {
         "now": 0
@@ -79,149 +79,251 @@
     },
     "SMH": {
       "tier": "C",
-      "target_usd": 165000,
+      "target_usd": 150750,
       "account": "ira",
       "schedule": {
-        "now": 41250,
-        "m1": 13750,
-        "m2": 13750,
-        "m3": 13750,
-        "m4": 13750,
-        "m5": 13750,
-        "m6": 13750,
-        "m7": 13750,
-        "m8": 13750,
-        "m9": 13750
+        "now": 37688,
+        "m1": 12562,
+        "m2": 12562,
+        "m3": 12562,
+        "m4": 12562,
+        "m5": 12562,
+        "m6": 12562,
+        "m7": 12562,
+        "m8": 12562,
+        "m9": 12567
       }
     },
     "COPX": {
       "tier": "C",
-      "target_usd": 150000,
+      "target_usd": 137100,
       "account": "ira",
       "schedule": {
-        "now": 37500,
-        "m1": 12500,
-        "m2": 12500,
-        "m3": 12500,
-        "m4": 12500,
-        "m5": 12500,
-        "m6": 12500,
-        "m7": 12500,
-        "m8": 12500,
-        "m9": 12500
+        "now": 34275,
+        "m1": 11425,
+        "m2": 11425,
+        "m3": 11425,
+        "m4": 11425,
+        "m5": 11425,
+        "m6": 11425,
+        "m7": 11425,
+        "m8": 11425,
+        "m9": 11425
       }
     },
     "NUKZ": {
       "tier": "C",
-      "target_usd": 90000,
+      "target_usd": 82200,
       "account": "ira",
       "schedule": {
-        "now": 22500,
-        "m1": 7500,
-        "m2": 7500,
-        "m3": 7500,
-        "m4": 7500,
-        "m5": 7500,
-        "m6": 7500,
-        "m7": 7500,
-        "m8": 7500,
-        "m9": 7500
+        "now": 20550,
+        "m1": 6850,
+        "m2": 6850,
+        "m3": 6850,
+        "m4": 6850,
+        "m5": 6850,
+        "m6": 6850,
+        "m7": 6850,
+        "m8": 6850,
+        "m9": 6850
       }
     },
     "MU": {
       "tier": "B",
-      "target_usd": 90000,
+      "target_usd": 82200,
       "account": "ira",
       "schedule": {
-        "now": 45000,
-        "m1": 15000,
-        "m2": 15000,
-        "m3": 15000
+        "now": 41100,
+        "m1": 13700,
+        "m2": 13700,
+        "m3": 13700
       }
     },
     "GEV": {
       "tier": "B",
-      "target_usd": 60000,
+      "target_usd": 54900,
       "account": "ira",
       "schedule": {
-        "now": 30000,
-        "m1": 10000,
-        "m2": 10000,
-        "m3": 10000
+        "now": 27450,
+        "m1": 9150,
+        "m2": 9150,
+        "m3": 9150
       }
     },
     "CEG": {
       "tier": "A",
-      "target_usd": 60000,
+      "target_usd": 54900,
       "account": "ira",
       "schedule": {
-        "now": 60000
+        "now": 54900
       }
     },
     "EME": {
       "tier": "A",
-      "target_usd": 30000,
+      "target_usd": 27450,
       "account": "ira",
       "schedule": {
-        "now": 30000
+        "now": 27450
       }
     },
     "MP": {
       "tier": "C",
-      "target_usd": 30000,
+      "target_usd": 27450,
       "account": "ira",
       "schedule": {
-        "now": 7500,
-        "m1": 2500,
-        "m2": 2500,
-        "m3": 2500,
-        "m4": 2500,
-        "m5": 2500,
-        "m6": 2500,
-        "m7": 2500,
-        "m8": 2500,
-        "m9": 2500
+        "now": 6863,
+        "m1": 2287,
+        "m2": 2287,
+        "m3": 2287,
+        "m4": 2287,
+        "m5": 2287,
+        "m6": 2287,
+        "m7": 2287,
+        "m8": 2287,
+        "m9": 2292
       }
     },
     "LEU": {
       "tier": "C",
-      "target_usd": 30000,
+      "target_usd": 27450,
       "account": "ira",
       "schedule": {
-        "now": 7500,
-        "m1": 2500,
-        "m2": 2500,
-        "m3": 2500,
-        "m4": 2500,
-        "m5": 2500,
-        "m6": 2500,
-        "m7": 2500,
-        "m8": 2500,
-        "m9": 2500
+        "now": 6863,
+        "m1": 2287,
+        "m2": 2287,
+        "m3": 2287,
+        "m4": 2287,
+        "m5": 2287,
+        "m6": 2287,
+        "m7": 2287,
+        "m8": 2287,
+        "m9": 2292
       }
     },
     "ROBO": {
       "tier": "D",
-      "target_usd": 30000,
+      "target_usd": 27450,
       "account": "ira",
       "schedule": {
-        "now": 30000
+        "now": 27450
       }
     },
     "UFO": {
       "tier": "D",
-      "target_usd": 15000,
+      "target_usd": 13650,
       "account": "ira",
       "schedule": {
-        "now": 15000
+        "now": 13650
       }
     },
     "CASH-MMF": {
       "tier": "DRY",
-      "target_usd": 50000,
+      "target_usd": 45300,
       "account": "ira",
       "schedule": {
         "now": 0
+      }
+    },
+    "JNJ": {
+      "tier": "C",
+      "target_usd": 22800,
+      "account": "taxable",
+      "schedule": {
+        "now": 5700,
+        "m1": 1900,
+        "m2": 1900,
+        "m3": 1900,
+        "m4": 1900,
+        "m5": 1900,
+        "m6": 1900,
+        "m7": 1900,
+        "m8": 1900,
+        "m9": 1900
+      }
+    },
+    "WMT": {
+      "tier": "C",
+      "target_usd": 18450,
+      "account": "taxable",
+      "schedule": {
+        "now": 4613,
+        "m1": 1537,
+        "m2": 1537,
+        "m3": 1537,
+        "m4": 1537,
+        "m5": 1537,
+        "m6": 1537,
+        "m7": 1537,
+        "m8": 1537,
+        "m9": 1542
+      }
+    },
+    "KO": {
+      "tier": "C",
+      "target_usd": 21300,
+      "account": "taxable",
+      "schedule": {
+        "now": 5325,
+        "m1": 1775,
+        "m2": 1775,
+        "m3": 1775,
+        "m4": 1775,
+        "m5": 1775,
+        "m6": 1775,
+        "m7": 1775,
+        "m8": 1775,
+        "m9": 1775
+      }
+    },
+    "PEP": {
+      "tier": "C",
+      "target_usd": 20250,
+      "account": "taxable",
+      "schedule": {
+        "now": 5063,
+        "m1": 1687,
+        "m2": 1687,
+        "m3": 1687,
+        "m4": 1687,
+        "m5": 1687,
+        "m6": 1687,
+        "m7": 1687,
+        "m8": 1687,
+        "m9": 1692
+      }
+    },
+    "MRK": {
+      "tier": "C",
+      "target_usd": 16800,
+      "account": "taxable",
+      "schedule": {
+        "now": 4200,
+        "m1": 1400,
+        "m2": 1400,
+        "m3": 1400,
+        "m4": 1400,
+        "m5": 1400,
+        "m6": 1400,
+        "m7": 1400,
+        "m8": 1400,
+        "m9": 1400
+      }
+    },
+    "PG": {
+      "tier": "C",
+      "target_usd": 20400,
+      "account": "taxable",
+      "schedule": {
+        "now": 5100,
+        "m1": 1700,
+        "m2": 1700,
+        "m3": 1700,
+        "m4": 1700,
+        "m5": 1700,
+        "m6": 1700,
+        "m7": 1700,
+        "m8": 1700,
+        "m9": 1700
       }
     }
   }
