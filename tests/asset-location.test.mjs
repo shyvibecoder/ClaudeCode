@@ -63,24 +63,36 @@ describe("asset-location: optimizeLocation is the true optimum (transportation L
     assert.ok(Math.abs(rows.reduce((s, r) => s + r.value, 0) - 60) < 1e-6);
     assert.ok(Math.abs(unplaced.A - 40) < 1e-6);
   });
-  it("[OPTIMALITY] beats every random feasible allocation across many random instances", () => {
+  it("[CRITICAL regression] does not strand a placeable item in overflow (no IEEE-754 SINK absorption)", () => {
+    // Audit repro: with a -1e18 SINK penalty the cross-SINK swap gain rounded to 0, dumping i1 (which loves
+    // taxable@4.59) entirely into overflow for objective 127.99 — far below a random feasible 196.82.
+    const { rows, objective } = optimizeLocation(
+      [{ key: "i0", value: 48, mult: { roth: 4.07, traditional: 4.52, taxable: 1.26 } },
+       { key: "i1", value: 31, mult: { roth: 2.73, traditional: 3.55, taxable: 4.59 } }],
+      { roth: 11, traditional: 12, taxable: 23 });
+    assert.ok(objective > 196.82, `objective ${objective.toFixed(2)} should beat the random-feasible 196.82`);
+    assert.ok(rows.some((r) => r.key === "i1" && r.account === "taxable"), "i1 must occupy its best real account, not overflow");
+  });
+  it("[OPTIMALITY] beats every random feasible allocation — including the overflow (needs-new-cash) regime", () => {
     const rnd = (seed => () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)(42);
     const accts = ["roth", "traditional", "taxable"];
-    for (let trial = 0; trial < 60; trial++) {
+    for (let trial = 0; trial < 120; trial++) {
       const nItems = 2 + Math.floor(rnd() * 4);
       const items = Array.from({ length: nItems }, (_, i) => ({ key: "i" + i, value: 10 + Math.floor(rnd() * 90), mult: Object.fromEntries(accts.map((a) => [a, 1 + rnd() * 4])) }));
       const totalVal = items.reduce((s, it) => s + it.value, 0);
-      // capacities sum to >= total value so everything is placeable
-      const raw = accts.map(() => rnd());
-      const rsum = raw.reduce((a, b) => a + b, 0);
-      const caps = Object.fromEntries(accts.map((a, k) => [a, Math.ceil((raw[k] / rsum) * totalVal) + 5]));
+      // Half the trials UNDER-fund capacity (SINK active → overflow), half over-fund (everything placeable).
+      const overflow = trial % 2 === 0;
+      const target = overflow ? totalVal * (0.4 + rnd() * 0.4) : totalVal + 10;
+      const raw = accts.map(() => rnd()); const rsum = raw.reduce((a, b) => a + b, 0);
+      const caps = Object.fromEntries(accts.map((a, k) => [a, Math.max(1, Math.round((raw[k] / rsum) * target))]));
+      const totalCap = accts.reduce((s, a) => s + caps[a], 0);
       const { rows, objective } = optimizeLocation(items, caps);
-      // feasibility
+      // feasibility: never over capacity; placed total = min(value, capacity)
       for (const a of accts) assert.ok(rows.filter((r) => r.account === a).reduce((s, r) => s + r.value, 0) <= caps[a] + 1e-6, "capacity respected");
-      assert.ok(Math.abs(rows.reduce((s, r) => s + r.value, 0) - totalVal) < 1e-3, "all placed");
-      // optimality: no random feasible allocation does better
+      assert.ok(Math.abs(rows.reduce((s, r) => s + r.value, 0) - Math.min(totalVal, totalCap)) < 1e-2, "fills exactly min(value,capacity)");
+      // optimality: no random feasible allocation does better (random pours items into real caps; overflow scores 0)
       let bestRandom = -Infinity;
-      for (let s = 0; s < 400; s++) {
+      for (let s = 0; s < 600; s++) {
         const slack = { ...caps }; let obj = 0;
         for (const it of [...items].sort(() => rnd() - 0.5)) {
           let left = it.value;
@@ -88,7 +100,33 @@ describe("asset-location: optimizeLocation is the true optimum (transportation L
         }
         if (obj > bestRandom) bestRandom = obj;
       }
-      assert.ok(objective >= bestRandom - 1e-6, `trial ${trial}: optimizer ${objective.toFixed(2)} < random ${bestRandom.toFixed(2)}`);
+      assert.ok(objective >= bestRandom - 1e-6, `trial ${trial} (${overflow ? "overflow" : "slack"}): optimizer ${objective.toFixed(2)} < random ${bestRandom.toFixed(2)}`);
+    }
+  });
+  it("[OPTIMALITY] matches an EXACT brute-force optimum on small integer cases (slack + overflow)", () => {
+    const accts = ["roth", "traditional", "taxable"];
+    const brute = (items, caps) => { // exhaustive over integer allocations
+      let best = -Infinity;
+      const rec = (i, rem, obj) => {
+        if (i === items.length) { best = Math.max(best, obj); return; }
+        const dist = (ai, left, o, r) => {
+          const a = accts[ai];
+          if (ai === accts.length - 1) { if (left <= r[a]) rec(i + 1, { ...r, [a]: r[a] - left }, o + left * (items[i].mult[a] ?? -1)); return; }
+          for (let put = 0; put <= Math.min(left, r[a]); put++) dist(ai + 1, left - put, o + put * (items[i].mult[a] ?? -1), { ...r, [a]: r[a] - put });
+        };
+        dist(0, items[i].value, obj, rem);
+      };
+      rec(0, { ...caps }, 0); return best;
+    };
+    const rnd = (s => () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)(7);
+    for (let t = 0; t < 50; t++) {
+      const ni = 2 + Math.floor(rnd() * 2);
+      const items = Array.from({ length: ni }, (_, i) => ({ key: "i" + i, value: 2 + Math.floor(rnd() * 5), mult: Object.fromEntries(accts.map((a) => [a, +(1 + rnd() * 4).toFixed(2)])) }));
+      const tv = items.reduce((s, it) => s + it.value, 0);
+      const target = rnd() < 0.5 ? Math.max(1, Math.round(tv * (0.4 + rnd() * 0.4))) : tv + 3; // overflow vs slack
+      const raw = accts.map(() => rnd()); const rs = raw.reduce((a, b) => a + b, 0);
+      const caps = Object.fromEntries(accts.map((a, k) => [a, Math.max(1, Math.round(raw[k] / rs * target))]));
+      assert.ok(optimizeLocation(items, caps).objective >= brute(items, caps) - 1e-6, `trial ${t}: below brute-force optimum`);
     }
   });
 });

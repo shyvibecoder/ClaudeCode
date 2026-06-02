@@ -361,7 +361,9 @@ function renderAssetLocation() {
   // account×axis cell, so we use each row's DOLLAR share of the whole signal plan (not the cell %).
   const sigRows = DATA.sig?.rebalance?.signal?.rows || [];
   const sigTot = sigRows.reduce((a, r) => a + (r.target_usd || 0), 0);
-  const sigShare = {}; if (sigTot > 0) for (const r of sigRows) sigShare[r.ticker] = (r.target_usd || 0) / sigTot;
+  // targetWeights emits one row per (ticker × account), so a name split across accounts has >1 signal row —
+  // SUM them (not assign, which kept only the last row and understated a split name's committee weight).
+  const sigShare = {}; if (sigTot > 0) for (const r of sigRows) sigShare[r.ticker] = (sigShare[r.ticker] || 0) + (r.target_usd || 0) / sigTot;
   const isDivH = (h) => h.axis === "diversifier" || /diversifier|de-correlator/i.test(h.role || "");
   const all = (combined.holdings || []).filter((h) => h.ticker && h.weight > 0 && h.tier !== "DRY" && !/^CASH/i.test(h.ticker) && !excl.has(h.ticker));
   const divH = all.filter(isDivH), bldH = all.filter((h) => !isDivH(h));

@@ -47,8 +47,13 @@ export function annualDragRate(p, tax = DEFAULT_TAX) {
 // the optimizer maximizes — every comparison the placement makes reduces to "which account gives this
 // dollar of THIS name the higher multiple?".
 //   • roth        — tax-free forever: (1+g)^N. Biggest payoff for the highest-growth names → they win Roth.
-//   • traditional — ordinary-rate on withdrawal: (1+g)^N·(1−ordinary). Same growth ranking as Roth but a
-//                   flat haircut, so it's the second-best home for high growth once Roth is full.
+//   • traditional — ordinary-rate on withdrawal: (1+g)^N·(1−ordinary). The flat ordinary-rate haircut on the
+//                   WHOLE balance is harsher than taxable's LTCG-on-the-gain-only, so for a high-growth name
+//                   taxable can actually edge out Traditional — Traditional optimally takes the INCOME /
+//                   lower-growth names, which lose the least to its haircut relative to their taxable
+//                   alternative (this is why the income/diversifier names land here when the book is fully
+//                   deployed). NB: a Traditional dollar is PRE-TAX, so the (1−ordinary) is inherent to the
+//                   dollar, not a location penalty — the model doesn't arbitrage your withdrawal-vs-now bracket.
 //   • taxable     — qualified-rate dividend drag each year shaves the compounding rate; the terminal GAIN
 //                   is taxed at LTCG (step-up at death would make this strictly better, so this is
 //                   conservative): 1 + ((1 + g − y·qualified)^N − 1)·(1−ltcg). Low-yield names lose the
@@ -77,13 +82,28 @@ export function optimizeLocation(items, capacities) {
   const caps = {}; real.forEach((a) => caps[a] = +capacities[a]);
   if (totalVal > totalCap + 1e-6) caps[SINK] = totalVal - totalCap; // overflow that won't fit anywhere
   const accts = Object.keys(caps);
-  const n = items.length;
-  const mult = (i, a) => a === SINK ? -1e18 : (Number.isFinite(items[i].mult?.[a]) ? items[i].mult[a] : -1e15);
+  // Penalty for SINK (forced overflow) and for any missing real-account multiple: strictly below every real
+  // multiple so those slots fill LAST, but FINITE and on the SAME SCALE as the reals. A huge constant like
+  // -1e18 would absorb the real multiples in IEEE-754 (1e18 + 4.59 === 1e18), zeroing every cross-SINK
+  // swap/rotation gain — so a placeable item could never be pulled out of SINK and the result was
+  // non-optimal whenever the SINK was active (the needs-new-cash path). [audit CRITICAL fix]
+  const realMults = items.flatMap((it) => real.map((a) => it.mult?.[a])).filter(Number.isFinite);
+  const FLOOR = (realMults.length ? Math.min(...realMults) : 0) - 1;
+  // Nodes = the real items, PLUS a zero-multiple CASH filler when capacity exceeds value, so the
+  // transportation is EXACTLY packed (no real-account slack left over). Exact packing makes {swap-2, rotate-3}
+  // a COMPLETE move set for the 3-account problem: leftover capacity becomes a shuffleable item, so a "chain
+  // through slack" (item i: a→b, item j: b→c-with-room) is just a 3-rotation that includes CASH — removing the
+  // local optimum that real-account slack otherwise allowed. CASH never reaches rows/objective. [audit fix]
+  const CASH = "__cash__";
+  const nodes = items.map((it) => ({ key: it.key, value: it.value || 0, mult: it.mult || {} }));
+  if (totalCap > totalVal + 1e-6) nodes.push({ key: CASH, value: totalCap - totalVal, cash: true, mult: {} });
+  const n = nodes.length;
+  const mult = (i, a) => nodes[i].cash ? 0 : (a === SINK ? FLOOR : (Number.isFinite(nodes[i].mult?.[a]) ? nodes[i].mult[a] : FLOOR));
 
-  const x = items.map(() => Object.fromEntries(accts.map((a) => [a, 0])));
+  const x = nodes.map(() => Object.fromEntries(accts.map((a) => [a, 0])));
   const slack = { ...caps };
-  // Greedy feasible start: each item into its best-multiple accounts that still have room.
-  items.forEach((it, i) => {
+  // Greedy feasible start: each node into its best-multiple accounts that still have room.
+  nodes.forEach((it, i) => {
     let left = it.value || 0;
     for (const a of [...accts].sort((p, q) => mult(i, q) - mult(i, p))) {
       if (left <= 1e-9) break;
@@ -113,7 +133,7 @@ export function optimizeLocation(items, capacities) {
 
   const rows = [], unplaced = {};
   let objective = 0;
-  items.forEach((it, i) => { for (const a of accts) { const v = x[i][a]; if (v <= 1e-6) continue; if (a === SINK) unplaced[it.key] = (unplaced[it.key] || 0) + v; else { rows.push({ key: it.key, account: a, value: v }); objective += v * mult(i, a); } } });
+  nodes.forEach((it, i) => { if (it.cash) return; for (const a of accts) { const v = x[i][a]; if (v <= 1e-6) continue; if (a === SINK) unplaced[it.key] = (unplaced[it.key] || 0) + v; else { rows.push({ key: it.key, account: a, value: v }); objective += v * mult(i, a); } } });
   return { rows, unplaced, objective };
 }
 

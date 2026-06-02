@@ -421,8 +421,9 @@ needed.
 
 **Committee-aware.** The build-out names are weighted by the **scan's signal-adjusted target** (your plan
 weight × thesis-Opportunity × regime — `signals.json.rebalance.signal`), so when the committee marks a
-scarcity **crowded** the next scan shrinks that name's weight → a **smaller buy** here. Diversifier names keep
-their funding weights; offline it falls back to plan weights.
+scarcity **crowded** the next scan shrinks that name's weight → a **smaller buy** here. A name held across
+more than one account is the **sum** of its per-account signal rows (so a split position isn't undercounted).
+Diversifier names keep their funding weights; offline it falls back to plan weights.
 
 **As you accept PRs:** the plan always reads your live `portfolio.json`, so any portfolio-changing PR
 re-reviews it. While the diversifier funding PR is *pending* it previews the funded target; once you
