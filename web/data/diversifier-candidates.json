@@ -201,80 +201,79 @@
   "funding": {
     "newHoldings": [
       {
-        "ticker": "KO",
-        "name": "KO",
-        "account": "taxable",
-        "weight": 0.0145,
-        "target_usd": 21750,
-        "tier": "C",
-        "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
-        "conviction": 0.873,
-        "sleeve": "consumer-staples"
-      },
-      {
         "ticker": "JNJ",
         "name": "JNJ",
         "account": "taxable",
-        "weight": 0.0151,
-        "target_usd": 22650,
+        "weight": 0.0152,
+        "target_usd": 22800,
         "tier": "C",
         "role": "Diversifier (2nd axis) — Defensive health demand (pharma / devices)",
         "conviction": 0.87,
         "sleeve": "health-defensive"
       },
       {
-        "ticker": "D",
-        "name": "D",
-        "account": "taxable",
-        "weight": 0.0139,
-        "target_usd": 20850,
-        "tier": "C",
-        "role": "Diversifier (2nd axis) — Regulated utilities (rate-base)",
-        "conviction": 0.853,
-        "sleeve": "regulated-utilities"
-      },
-      {
-        "ticker": "SO",
-        "name": "SO",
-        "account": "taxable",
-        "weight": 0.0133,
-        "target_usd": 19950,
-        "tier": "C",
-        "role": "Diversifier (2nd axis) — Regulated utilities (rate-base)",
-        "conviction": 0.843,
-        "sleeve": "regulated-utilities"
-      },
-      {
-        "ticker": "WTRG",
-        "name": "WTRG",
-        "account": "taxable",
-        "weight": 0.0115,
-        "target_usd": 17250,
-        "tier": "C",
-        "role": "Diversifier (2nd axis) — Water / climate-adaptation infrastructure",
-        "conviction": 0.837,
-        "sleeve": "water-climate"
-      },
-      {
         "ticker": "WMT",
         "name": "WMT",
         "account": "taxable",
-        "weight": 0.0118,
-        "target_usd": 17700,
+        "weight": 0.0123,
+        "target_usd": 18450,
         "tier": "C",
         "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
-        "conviction": 0.83,
+        "conviction": 0.87,
+        "sleeve": "consumer-staples"
+      },
+      {
+        "ticker": "KO",
+        "name": "KO",
+        "account": "taxable",
+        "weight": 0.0142,
+        "target_usd": 21300,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+        "conviction": 0.86,
+        "sleeve": "consumer-staples"
+      },
+      {
+        "ticker": "PEP",
+        "name": "PEP",
+        "account": "taxable",
+        "weight": 0.0135,
+        "target_usd": 20250,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+        "conviction": 0.85,
+        "sleeve": "consumer-staples"
+      },
+      {
+        "ticker": "MRK",
+        "name": "MRK",
+        "account": "taxable",
+        "weight": 0.0112,
+        "target_usd": 16800,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Defensive health demand (pharma / devices)",
+        "conviction": 0.84,
+        "sleeve": "health-defensive"
+      },
+      {
+        "ticker": "PG",
+        "name": "PG",
+        "account": "taxable",
+        "weight": 0.0136,
+        "target_usd": 20400,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+        "conviction": 0.837,
         "sleeve": "consumer-staples"
       }
     ],
     "budget": 0.08,
     "existingDivWeight": 0.07,
-    "finalDivWeight": 0.1501,
-    "buildoutScale": 0.9139,
+    "finalDivWeight": 0.15,
+    "buildoutScale": 0.914,
     "sleevePct": 0.15,
     "existingDiversifierTickers": [
       "FIW"
-    ],
-    "max_names": 6
+    ]
   }
 }
