@@ -2,7 +2,7 @@
 // performance, measured on HISTORY (not just the slow live ledger)? Pure ESM, no deps.
 //
 // The signal under test is the price-derived RELATIVE STRENGTH that drives de-rating/inflecting:
-// at each rebalance date, each scarcity basket's trailing return minus the AI-capex complex's trailing
+// at each rebalance date, each scarcity basket's trailing return minus the deep-tech build-out complex's trailing
 // return. The hypothesis (ALPHA.md Edge 3 + the de-rating thesis) is that trailing relative strength
 // predicts FORWARD relative return. We walk the history, pair (signal, forward-relative-return) across
 // all baskets × dates, and report the rank IC + sign hit-rate with a confidence interval.

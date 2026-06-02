@@ -50,12 +50,12 @@ export function opportunityScore(s = {}, { liveCrowding = null } = {}) {
   };
 }
 
-// Axis split. The Opportunity Score (duration mispricing) only makes sense for the AI-capex sleeve;
-// diversifiers earn their place by LOWERING drawdown (the AI-capex gate), not by binding soon. So the
-// AI-capex-only machinery (ranking / de-rating signals / forced-flow / opportunity-weighted sizing)
-// must operate on `aiCapexOnly`, never on diversifiers. Absent axis = ai-capex (back-compat default).
+// Axis split. The Opportunity Score (duration mispricing) only makes sense for the deep-tech build-out sleeve;
+// diversifiers earn their place by LOWERING drawdown (the deep-tech build-out gate), not by binding soon. So the
+// deep-tech build-out-only machinery (ranking / de-rating signals / forced-flow / opportunity-weighted sizing)
+// must operate on `buildoutOnly`, never on diversifiers. Absent axis = deep-tech (back-compat default).
 export const isDiversifier = (s) => s?.axis === "diversifier";
-export const aiCapexOnly = (scarcities) => (scarcities || []).filter((s) => !isDiversifier(s));
+export const buildoutOnly = (scarcities) => (scarcities || []).filter((s) => !isDiversifier(s));
 
 export function rankOpportunities(scarcities, crowdingById = {}) {
   return (scarcities || [])

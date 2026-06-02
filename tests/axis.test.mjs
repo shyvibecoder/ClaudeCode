@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { basketReturns, axisCorrelation, basketStats, aiCapexLoading, blendIndex } from "../scripts/lib/axis.mjs";
+import { basketReturns, axisCorrelation, basketStats, buildoutLoading, blendIndex } from "../scripts/lib/axis.mjs";
 
 const DATES = (n) => Array.from({ length: n }, (_, i) => new Date(Date.UTC(2020, 0, 1) + i * 86400000).toISOString().slice(0, 10));
 
@@ -71,8 +71,8 @@ describe("axis: blendIndex (combined sleeve = equal weight across axes)", () => 
   });
 });
 
-describe("axis: 2-factor AI-capex loading (the forward-looking gate)", () => {
-  // market factor + an independent AI-capex-specific factor. complex = market + aiComp (loads on both).
+describe("axis: 2-factor deep-tech build-out loading (the forward-looking gate)", () => {
+  // market factor + an independent deep-tech build-out-specific factor. complex = market + aiComp (loads on both).
   // A high-market-beta basket with NO ai-specific exposure must PASS; a basket that loads on aiComp FAILS,
   // even if both have similar raw correlation to the complex.
   const n = 400, dates = DATES(n);
@@ -85,35 +85,35 @@ describe("axis: 2-factor AI-capex loading (the forward-looking gate)", () => {
     SPY: { dates, closes: px(mkt) },
     CPX: { dates, closes: px(mkt.map((m, i) => m + aiComp[i])) },          // complex = market + AI-specific
     MKTONLY: { dates, closes: px(mkt.map((m, i) => 0.9 * m + noise(9)[i])) }, // high market beta, no AI loading
-    AIPLAY: { dates, closes: px(mkt.map((m, i) => 0.5 * m + 0.9 * aiComp[i])) }, // genuine AI-capex loading
+    AIPLAY: { dates, closes: px(mkt.map((m, i) => 0.5 * m + 0.9 * aiComp[i])) }, // genuine deep-tech build-out loading
   };
-  it("PASSES a high-market-beta basket with ~zero residual AI-capex loading", () => {
-    const r = aiCapexLoading(s, ["MKTONLY"], ["SPY"], ["CPX"], { aiBetaMax: 0.3 });
-    assert.ok(r && Math.abs(r.aiBeta) < 0.3, `aiBeta ${r?.aiBeta} should be ~0`);
+  it("PASSES a high-market-beta basket with ~zero residual deep-tech build-out loading", () => {
+    const r = buildoutLoading(s, ["MKTONLY"], ["SPY"], ["CPX"], { buildoutBetaMax: 0.3 });
+    assert.ok(r && Math.abs(r.buildoutBeta) < 0.3, `buildoutBeta ${r?.buildoutBeta} should be ~0`);
     assert.ok(r.marketBeta > 0.5, `should still show real market beta, got ${r.marketBeta}`);
     assert.equal(r.qualifies, true);
   });
-  it("FAILS a basket that loads on the AI-capex factor after market beta", () => {
-    const r = aiCapexLoading(s, ["AIPLAY"], ["SPY"], ["CPX"], { aiBetaMax: 0.3 });
-    assert.ok(Math.abs(r.aiBeta) > 0.5, `aiBeta ${r.aiBeta} should be high`);
+  it("FAILS a basket that loads on the deep-tech build-out factor after market beta", () => {
+    const r = buildoutLoading(s, ["AIPLAY"], ["SPY"], ["CPX"], { buildoutBetaMax: 0.3 });
+    assert.ok(Math.abs(r.buildoutBeta) > 0.5, `buildoutBeta ${r.buildoutBeta} should be high`);
     assert.equal(r.qualifies, false);
   });
-  it("PASSES a basket with NEGATIVE AI-capex loading (a hedge, not a risk)", () => {
-    // candidate = market MINUS the AI-specific factor → negative aiBeta; must qualify (one-sided gate).
+  it("PASSES a basket with NEGATIVE deep-tech build-out loading (a hedge, not a risk)", () => {
+    // candidate = market MINUS the AI-specific factor → negative buildoutBeta; must qualify (one-sided gate).
     const sh = { ...s, HEDGE: { dates, closes: px(mkt.map((m, i) => 0.6 * m - 0.6 * aiComp[i])) } };
-    const r = aiCapexLoading(sh, ["HEDGE"], ["SPY"], ["CPX"], { aiBetaMax: 0.3 });
-    assert.ok(r.aiBeta < -0.3, `aiBeta ${r.aiBeta} should be clearly negative`);
+    const r = buildoutLoading(sh, ["HEDGE"], ["SPY"], ["CPX"], { buildoutBetaMax: 0.3 });
+    assert.ok(r.buildoutBeta < -0.3, `buildoutBeta ${r.buildoutBeta} should be clearly negative`);
     assert.equal(r.qualifies, true);
   });
   it("returns null on thin overlap", () => {
     const d = DATES(20);
-    assert.equal(aiCapexLoading({ A: { dates: d, closes: d.map(() => 100) } }, ["A"], ["A"], ["A"]), null);
+    assert.equal(buildoutLoading({ A: { dates: d, closes: d.map(() => 100) } }, ["A"], ["A"], ["A"]), null);
   });
 });
 
 describe("axis: correlation gate (the G2 / scout-gate verdict)", () => {
   const s = world();
-  it("REJECTS a basket that tracks the AI-capex complex (high corr → not breadth)", () => {
+  it("REJECTS a basket that tracks the deep-tech build-out complex (high corr → not breadth)", () => {
     const r = axisCorrelation(s, ["TRK"], ["CX1", "CX2"], { corrMax: 0.5, betaMax: 0.7 });
     assert.ok(r && Math.abs(r.corr) > 0.7, `corr ${r.corr} should be high`);
     assert.equal(r.qualifies, false);

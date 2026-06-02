@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { screenCandidate, screenDiversifiers, DIVERSIFIER_UNIVERSE, parseConviction, convictionCommittee, fundSleeve, applyFunding } from "../scripts/lib/diversifier.mjs";
 
-// Synthetic factor world (deterministic — no RNG): a market factor and an independent "AI-capex" factor.
+// Synthetic factor world (deterministic — no RNG): a market factor and an independent "deep-tech build-out" factor.
 // The complex (QQQ) loads on BOTH; a HEDGE basket loads low on market and NEGATIVE on the AI factor (so
 // it passes the gate); a PROXY basket loads POSITIVE on the AI factor (so it fails — it amplifies the
 // build-out). This lets us assert the screen's gate + ranking + book-awareness without network.
@@ -20,15 +20,15 @@ const S = {
 };
 const cand = (id, tickers) => ({ id, sector: "X", scarcity: id, tickers });
 
-describe("diversifier: the gate decides admission (negative AI-capex loading = a real hedge)", () => {
-  it("ADMITS a hedge basket (low market beta, negative aiβ)", () => {
+describe("diversifier: the gate decides admission (negative deep-tech build-out loading = a real hedge)", () => {
+  it("ADMITS a hedge basket (low market beta, negative build-out β)", () => {
     const r = screenCandidate(S, cand("hedge", ["H1", "H2"]), ["SPY"], ["QQQ"]);
     assert.equal(r.gate.pass, true);
-    assert.ok(r.aiBeta < 0.3, `aiβ ${r.aiBeta} should be < 0.3`);
+    assert.ok(r.buildoutBeta < 0.3, `build-out β ${r.buildoutBeta} should be < 0.3`);
     assert.ok(r.marketBeta <= 0.95);
     assert.equal(r.qualifies, true);
   });
-  it("REJECTS a secret AI proxy (positive aiβ amplifies the build-out it should hedge)", () => {
+  it("REJECTS a secret AI proxy (positive build-out β amplifies the build-out it should hedge)", () => {
     const r = screenCandidate(S, cand("proxy", ["P1"]), ["SPY"], ["QQQ"]);
     assert.equal(r.gate.pass, false);
     assert.equal(r.qualifies, false);
@@ -102,7 +102,7 @@ describe("diversifier Stage 3: sizing fills the sleeve budget around what's plan
     assert.equal(funding.existingDivWeight, 0.07);
     assert.equal(funding.budget, 0.08);
   });
-  it("splits the budget across new names (equal conviction+vol → equal split) and scales AI-capex down", () => {
+  it("splits the budget across new names (equal conviction+vol → equal split) and scales deep-tech build-out down", () => {
     assert.equal(funding.newHoldings.length, 2);
     assert.equal(funding.newHoldings[0].weight, 0.04);
     assert.equal(funding.newHoldings[0].target_usd, 60000);

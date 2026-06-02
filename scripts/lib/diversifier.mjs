@@ -1,15 +1,15 @@
-// DIVERSIFIER SCOUT — Stage 1 (the quantitative, BOOK-AWARE screen). The AI-capex Scout hunts supply-
+// DIVERSIFIER SCOUT — Stage 1 (the quantitative, BOOK-AWARE screen). The deep-tech build-out Scout hunts supply-
 // CONSTRAINED chokepoints; the second axis is the opposite — defensive DEMAND sleeves held to LOWER the
 // book's drawdown. Those can't be found by constraint-shadow, so we screen a candidate universe through
 // the same axis-check gate AND against the plan you already hold: a sleeve qualifies when it has low
-// market beta, a NON-positive AI-capex loading (it must not amplify the build-out it's meant to hedge),
+// market beta, a NON-positive deep-tech build-out loading (it must not amplify the build-out it's meant to hedge),
 // a contained drawdown, AND it actually lowers the *combined* drawdown of the current plan (a sleeve that
 // duplicates planned exposure — e.g. water when FIW is already planned — barely moves it, and surfaces
 // as low ddReduction). Pure + read-only: given price series it ranks candidates and writes nothing.
 // Stages 2 (committee conviction) and 3 (sleeve-budget → plan PR) build on this; this stage can't touch
-// the AI-capex feed, the plan, or any shared file (collision-safe by construction).
-import { basketStats, aiCapexLoading, blendIndex } from "./axis.mjs";
-import { gateAiCapex } from "./scout.mjs";
+// the deep-tech build-out feed, the plan, or any shared file (collision-safe by construction).
+import { basketStats, buildoutLoading, blendIndex } from "./axis.mjs";
+import { gateBuildout } from "./scout.mjs";
 
 // Candidate universe — defensive equity sleeves to screen. Deliberately NOT AI-narrative names. Edit here
 // to widen the funnel; the SCREEN (not this list) decides what actually qualifies as a diversifier.
@@ -23,16 +23,16 @@ export const DIVERSIFIER_UNIVERSE = [
 ];
 
 // Screen one candidate sleeve. Returns the full metric row + a qualify decision with a human reason.
-// `qualifies` requires ALL of: gate pass (aiβ not positive), market beta ≤ betaMax, maxDD ≤ cap. When
+// `qualifies` requires ALL of: gate pass (build-out β not positive), market beta ≤ betaMax, maxDD ≤ cap. When
 // `planTickers` is supplied we ALSO compute the incremental drawdown reduction the sleeve gives the plan
 // (planMaxDD − blendedMaxDD); a non-positive value means the sleeve is redundant with what's already held.
-export function screenCandidate(seriesByTicker, c, marketTickers, complexTickers, { planTickers = [], aiBetaMax = 0.3, betaMax = 0.95, maxDDCap = 0.5, minDays = 60 } = {}) {
+export function screenCandidate(seriesByTicker, c, marketTickers, complexTickers, { planTickers = [], buildoutBetaMax = 0.3, betaMax = 0.95, maxDDCap = 0.5, minDays = 60 } = {}) {
   const base = { id: c.id, sector: c.sector, scarcity: c.scarcity, tickers: c.tickers };
   const stats = basketStats(seriesByTicker, c.tickers);
-  const load = aiCapexLoading(seriesByTicker, c.tickers, marketTickers, complexTickers, { aiBetaMax, minDays });
+  const load = buildoutLoading(seriesByTicker, c.tickers, marketTickers, complexTickers, { buildoutBetaMax, minDays });
   if (!stats || !load) return { ...base, qualifies: false, reason: "insufficient price history" };
 
-  const gate = gateAiCapex(load, { axis: "diversifier", aiBetaMax });
+  const gate = gateBuildout(load, { axis: "diversifier", buildoutBetaMax });
   const lowBeta = load.marketBeta <= betaMax;
   const ddOk = stats.maxDD <= maxDDCap;
 
@@ -63,7 +63,7 @@ export function screenCandidate(seriesByTicker, c, marketTickers, complexTickers
     ...base,
     years: stats.years, cagr: stats.cagr, maxDD: stats.maxDD, sharpe: stats.sharpe,
     marketBeta: load.marketBeta, mktBeta: load.marketBeta, // marketBeta is canonical; mktBeta is the display alias the radar reads
-    aiBeta: load.aiBeta, aiT: load.aiT,
+    buildoutBeta: load.buildoutBeta, buildoutT: load.buildoutT,
     heldOverlap, planMaxDD, blendedMaxDD, ddReduction,
     gate, qualifies, reason,
   };
@@ -85,11 +85,11 @@ export function screenDiversifiers(seriesByTicker, universe, marketTickers, comp
 
 // ---------- Stage 2: committee conviction (drawdown-focused, reuses llm.mjs; NOT a bent runCommittee) ----------
 
-// The committee's verb here is NOT "reassess priced-in" (that's the AI-capex committee) — it's "how good a
+// The committee's verb here is NOT "reassess priced-in" (that's the deep-tech build-out committee) — it's "how good a
 // DRAWDOWN HEDGE is this name": balance-sheet durability, demand inelasticity, dividend resilience, and
 // whether it actually de-correlates in a drawdown. Returns a strict JSON conviction so it's machine-parseable.
 export function convictionPrompt(ticker, evidence = {}) {
-  return `You are a defensive-allocation committee (bull / bear / skeptic) sizing a DIVERSIFIER sleeve held to LOWER a concentrated AI-capex book's drawdown — NOT to chase return.
+  return `You are a defensive-allocation committee (bull / bear / skeptic) sizing a DIVERSIFIER sleeve held to LOWER a concentrated deep-tech build-out book's drawdown — NOT to chase return.
 Name: ${ticker}. Sleeve: ${evidence.sleeve || "defensive"}. Evidence: ${JSON.stringify(evidence)}.
 Judge ONLY its quality as a drawdown hedge: demand inelasticity, balance-sheet durability, dividend resilience, and how independently it behaves from the AI build-out. Higher conviction = a better, more reliable hedge.
 Respond with STRICT JSON only, no prose: {"conviction": <0..1>, "why": "<one sentence>"}`;
@@ -126,7 +126,7 @@ export async function convictionCommittee(tickers, evidenceByTicker = {}, caller
 
 // Allocate a diversifier sleeve sized at `sleevePct` of the investable sleeve. Existing diversifier holdings
 // already in the plan (e.g. FIW) COUNT toward the budget (so water isn't double-bought); the remaining
-// budget is split across the new gate-qualifying names by conviction × inverse-volatility. The AI-capex
+// budget is split across the new gate-qualifying names by conviction × inverse-volatility. The deep-tech build-out
 // holdings are scaled down so the whole plan still sums to 1.0. Pure + deterministic.
 export function fundSleeve({ candidates = [], currentHoldings = [], existingDiversifierTickers = [], sleevePct = 0.15, sleeveUsd = 0, convictions = {}, vols = {}, account = "taxable", tier = "C", defaultConviction = 0.6, defaultVol = 0.25 }) {
   const held = new Set(currentHoldings.map((h) => h.ticker));
@@ -141,12 +141,12 @@ export function fundSleeve({ candidates = [], currentHoldings = [], existingDive
     const weight = +(budget * raw[i] / sum).toFixed(4);
     return { ticker: n.ticker, name: n.ticker, account, weight, target_usd: Math.round(weight * sleeveUsd), tier, role: `Diversifier (2nd axis) — ${n.scarcity}`, conviction: +(convictions[n.ticker] ?? defaultConviction).toFixed(3), sleeve: n.sleeve };
   });
-  const aiWeight = +(1 - existingDivWeight).toFixed(6); // current non-diversifier (AI-capex) weight
-  const aiScale = aiWeight > 0 ? +((1 - sleevePct) / aiWeight).toFixed(4) : 1; // scale AI-capex down so the plan still sums to 1.0
+  const aiWeight = +(1 - existingDivWeight).toFixed(6); // current non-diversifier (deep-tech build-out) weight
+  const aiScale = aiWeight > 0 ? +((1 - sleevePct) / aiWeight).toFixed(4) : 1; // scale deep-tech build-out down so the plan still sums to 1.0
   return { newHoldings, budget, existingDivWeight: +existingDivWeight.toFixed(4), aiScale, sleevePct, existingDiversifierTickers };
 }
 
-// Produce the PROPOSED holdings list for the plan PR: AI-capex holdings scaled by aiScale, existing
+// Produce the PROPOSED holdings list for the plan PR: deep-tech build-out holdings scaled by aiScale, existing
 // diversifiers (FIW) kept as-is, new diversifier names appended. The result sums back to ~1.0 with the
 // diversifier axis at `sleevePct`. (Stage 3 of the pipeline; the human reviews + merges this.)
 export function applyFunding(portfolio, funding) {

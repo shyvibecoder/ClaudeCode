@@ -70,19 +70,19 @@ yourself and update your holdings (via **⚙ Settings** in the browser, or by co
 > sleeve runs through the **diversifier** workflow (Actions → *diversifier*, monthly + manual): it screens
 > candidate defensive baskets **book-aware** (the pipeline below), scores conviction, and proposes a sized
 > sleeve for your PR approval. That's how the second (diversifier) axis is built. Diversifiers live in
-> `scarcities.json` tagged `axis: "diversifier"` and are **tracked/priced but held out of the AI-capex
+> `scarcities.json` tagged `axis: "diversifier"` and are **tracked/priced but held out of the deep-tech build-out
 > ranking and sizing** — they earn their place by lowering drawdown, shown with a `◇ diversifier · 2nd
 > axis` badge on the radar.
 
 #### How a diversifier sleeve gets funded (the second-axis pipeline)
 
 Because a diversifier earns its place by *lowering drawdown* (not by binding soon), it has its own funding
-pipeline, distinct from the AI-capex Opportunity logic:
+pipeline, distinct from the deep-tech build-out Opportunity logic:
 
 ![Diversifier funding pipeline: Screen → Committee conviction → Size → human-merged PR into the plan](img/diversifier.svg)
 
 1. **Screen** *(live)* — every candidate defensive sleeve is gated on low market β, a **non-positive
-   AI-capex β** (it must not amplify the build-out), and — crucially — whether it **lowers the drawdown of
+   deep-tech build-out β** (it must not amplify the build-out), and — crucially — whether it **lowers the drawdown of
    the plan you already hold** (a sleeve that duplicates planned exposure, e.g. water vs the FIW already in
    the plan, is flagged as redundant). Output → `diversifier-candidates.json`.
 2. **Committee** *(design)* — a drawdown-focused bull/bear/skeptic panel assigns each surviving name a
@@ -148,7 +148,7 @@ Each row is a structural scarcity, **ranked by Opportunity Score — where the r
 | **Crowding\*** | A **live 0–100** proxy from price action (YTD + distance to 52-week high). | Higher = more already-priced by the market *right now*. |
 | **Tickers** | Investable proxies (some scarcities are private/foreign — no clean ticker). | — |
 
-Each scarcity may also carry an **alpha flag**: **↓ de-rating** (a crowded thesis losing relative strength vs the AI-capex complex → reduce) or **↑ inflecting** (an under-priced thesis gaining → accumulate). This operationalizes the thesis's core claim and is graded by the Track record over time.
+Each scarcity may also carry an **alpha flag**: **↓ de-rating** (a crowded thesis losing relative strength vs the deep-tech build-out complex → reduce) or **↑ inflecting** (an under-priced thesis gaining → accumulate). This operationalizes the thesis's core claim and is graded by the Track record over time.
 
 It may also carry a **forced-flow flag** (ALPHA.md Edge 3 — buying what others are *forced* to sell):
 **✚ accumulate** = the name is mechanically de-rated (off highs, below trend, falling) *while its
@@ -251,7 +251,7 @@ is graded on whether its calls came true, turning opinions into a verifiable, co
 hit-rate persistently below ~50% means the signal isn't working (which is what you want to know).
 
 A second **Alpha edge** line grades the harder claim. Each **de-rating / inflecting** flag becomes a
-42-day *relative* forecast — does the flagged scarcity basket actually under/out-perform the AI-capex
+42-day *relative* forecast — does the flagged scarcity basket actually under/out-perform the deep-tech build-out
 complex (the theme ETFs)? That relative move, not raw direction, is the thesis's real edge, so it is
 scored separately (de-rating and inflecting buckets). It tells you whether the alpha signal earns its keep.
 
@@ -261,7 +261,7 @@ the book could simply be loaded on factors anyone can buy cheaply. So Puck regre
 return on a small set of **tradeable factors: market (SPY), momentum (MTUM), and — crucially — a thematic
 proxy (QQQ).** The regression's **intercept is the residual alpha**: the return left *after* market,
 momentum, and the AI/tech theme are accounted for. **Including the theme leg is the whole point** — without
-it, this single-factor AI-capex book's beta would masquerade as alpha (exactly the trap an adversarial
+it, this single-factor deep-tech build-out book's beta would masquerade as alpha (exactly the trap an adversarial
 review flagged).
 
 The verdict reads **"genuine alpha"** only when that residual is positive **and** statistically significant
@@ -272,7 +272,7 @@ readings are indicative, not verdicts. This is the layer that keeps the whole "a
 
 ### 4.1e Signal backtest (historical, cross-sectional)
 The Track record is unbiased but slow. This line evidences the same edge on **history**: across the
-scarcity baskets and many past dates, does **trailing relative strength vs the AI-capex complex predict the
+scarcity baskets and many past dates, does **trailing relative strength vs the deep-tech build-out complex predict the
 forward relative return?** It reports the rank **IC** (predictive ordering) and a directional **hit-rate
 with a 95% confidence interval** (wide at small samples — honestly so). **Important caveat:** the
 basket→ticker map is *today's* — these names were partly chosen *because* they worked, so the universe
@@ -331,14 +331,14 @@ partners). They're ranked by **specificity** (a TF-IDF score, 0–1) rather than
 diversified megacap that mentions everything once in boilerplate — and shows up across many chokepoints —
 is a *weak* proxy, so it's dimmed and flagged **⚠ generic**, while a concentrated pure-play is surfaced
 first. The app also shows a **heat** (attention + proxy momentum) and the proxies' relative strength vs
-the AI-capex complex. A **🕸 Cross-chokepoint hubs** panel maps *second-order* exposure: public names
+the deep-tech build-out complex. A **🕸 Cross-chokepoint hubs** panel maps *second-order* exposure: public names
 that appear across **multiple** bottlenecks (×degree) — a **hub** (≥3) is a diversified
 "picks-and-shovels" way to play the whole complex, a degree-1 name is a concentrated pure play. All
 data-derived (no hand-picked lists); discovered names are research leads, not recommendations.
 
 ### 4.7 Stress test
 Applies the thesis's named shocks to **your** sleeve and shows the drawdown vs the **−35% objective
-limit**: 2027–28 AI-capex digestion, a 2022-style rate shock, a broad recession, and a China
+limit**: 2027–28 deep-tech build-out digestion, a 2022-style rate shock, a broad recession, and a China
 rare-earth "peace." Coarse, documented high-beta shock vectors (not fitted) — a feel for tail risk.
 Runs entirely in your browser on your stored positions.
 

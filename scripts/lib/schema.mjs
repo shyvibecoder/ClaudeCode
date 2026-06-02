@@ -15,10 +15,10 @@ const BIND = ["now", "2027", "2028-29", "2030+", "physics-floor"];
 const PRICED = ["low", "medium", "high", "crowded"];
 const DURABILITY = ["low", "medium", "high", "very-high"];
 const SUBST = ["low", "medium", "high"];
-// Which sleeve a scarcity belongs to. Absent/`ai-capex` = the primary AI build-out axis (the default,
+// Which sleeve a scarcity belongs to. Absent/`deep-tech` = the primary deep-tech build-out axis (the default,
 // so existing entries are unchanged). `diversifier` = the SECOND axis: defensive names held to LOWER the
-// book's drawdown, judged by the AI-capex gate (must NOT amplify the build-out), not by duration mispricing.
-const AXIS = ["ai-capex", "diversifier"];
+// book's drawdown, judged by the deep-tech build-out gate (must NOT amplify the build-out), not by duration mispricing.
+const AXIS = ["deep-tech", "diversifier"];
 const ACCOUNTS = ["ira", "taxable"];
 const TRIGGER_TYPES = ["auto", "manual"];
 const TRIGGER_STATUS = ["armed", "monitor", "fired"];

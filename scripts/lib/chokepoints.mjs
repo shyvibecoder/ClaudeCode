@@ -1,6 +1,6 @@
 // Inaccessible-chokepoint heat: the thesis's sharpest idea (the best chokepoints are
 // private/foreign/impaired) tracked via FREE public proxies. Heat = market attention
-// (news) + proxy momentum; rel = proxy strength vs the AI-capex complex (alpha read).
+// (news) + proxy momentum; rel = proxy strength vs the deep-tech build-out complex (alpha read).
 // Pure; the scanner attaches live heat to the human-owned chokepoints.json list.
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 

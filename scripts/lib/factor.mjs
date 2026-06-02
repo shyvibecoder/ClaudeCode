@@ -3,7 +3,7 @@
 // intercept (residual alpha) with a t-stat — the teeth ALPHA.md's honesty gate was missing.
 //
 // CRUCIAL honesty choice: one regressor is a THEMATIC proxy (e.g. QQQ), not just broad market +
-// momentum. Without it, this single-factor AI-capex book's theme exposure would masquerade as "alpha".
+// momentum. Without it, this single-factor deep-tech build-out book's theme exposure would masquerade as "alpha".
 // The intercept therefore measures return BEYOND what market + momentum + the AI/tech theme explain —
 // the test that can actually fail. Parsimonious by design (few factors) given limited daily history.
 

@@ -12,7 +12,7 @@
 //   4. Drawdown gate       distance from 52w high      — tail-risk control
 //
 // Design choices for THIS portfolio (high-beta, cyclical, ~1.0 internally correlated
-// AI-capex/electrification basket — see MASTER-THESIS):
+// deep-tech build-out/electrification basket — see MASTER-THESIS):
 //   • The job is DRAWDOWN/REGIME RISK CONTROL, which trend & vol rules are empirically
 //     good at — not return prediction.
 //   • Because the names move together, cross-sectional BREADTH is largely redundant, so

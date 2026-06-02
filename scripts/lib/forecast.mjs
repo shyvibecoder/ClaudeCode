@@ -113,7 +113,7 @@ export function updateScorecard(sc, resolved) {
 }
 
 // --- Grade the ALPHA signal (de-rating/inflecting) on a RELATIVE basis: does a
-// flagged scarcity basket under/out-perform the AI-capex complex over the horizon? ---
+// flagged scarcity basket under/out-perform the deep-tech build-out complex over the horizon? ---
 export function meanPrice(quotes, tickers) {
   const ps = (tickers || []).map((t) => quotes?.[t]).filter((q) => q && !q.error && q.price > 0).map((q) => q.price);
   return ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : null;

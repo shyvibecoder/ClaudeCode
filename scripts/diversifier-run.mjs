@@ -14,7 +14,7 @@ import { DIVERSIFIER_UNIVERSE, screenDiversifiers, convictionCommittee, fundSlee
 import { availableProviders, planCommittee, seatCaller } from "./lib/llm.mjs";
 
 const MARKET = ["SPY"];            // broad market factor (strip generic beta)
-const COMPLEX = ["QQQ", "SMH"];    // long-lived AI-capex complex proxy (orthogonalized from MARKET)
+const COMPLEX = ["QQQ", "SMH"];    // long-lived deep-tech build-out complex proxy (orthogonalized from MARKET)
 const SLEEVE_PCT = Number(process.env.DIVERSIFIER_SLEEVE_PCT || 0.15);
 const today = new Date().toISOString().slice(0, 10);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -57,14 +57,14 @@ async function loadSeries(tickers) {
   const series = { ...market, ...complex, ...cand, ...plan };
 
   // Stage 1 — book-aware screen (ddReduction measured vs the actual plan).
-  const ranked = screenDiversifiers(series, DIVERSIFIER_UNIVERSE, Object.keys(market), Object.keys(complex), { planTickers: Object.keys(plan), aiBetaMax: 0.3, betaMax: 0.95, maxDDCap: 0.5 });
+  const ranked = screenDiversifiers(series, DIVERSIFIER_UNIVERSE, Object.keys(market), Object.keys(complex), { planTickers: Object.keys(plan), buildoutBetaMax: 0.3, betaMax: 0.95, maxDDCap: 0.5 });
   const qualifiers = ranked.filter((r) => r.qualifies);
   console.log(`Screen: ${qualifiers.length}/${ranked.length} sleeves qualify — ${qualifiers.map((q) => q.id).join(", ") || "none"}`);
 
   // Stage 2 — committee conviction for the names in qualifying sleeves (excluding already-held).
   const tickers = [...new Set(qualifiers.flatMap((c) => c.tickers))].filter((t) => !planTickers.includes(t));
   const evidence = {};
-  for (const q of qualifiers) for (const t of q.tickers) evidence[t] = { sleeve: q.scarcity, maxDD: q.maxDD, mktBeta: q.marketBeta, aiBeta: q.aiBeta, sharpe: q.sharpe };
+  for (const q of qualifiers) for (const t of q.tickers) evidence[t] = { sleeve: q.scarcity, maxDD: q.maxDD, mktBeta: q.marketBeta, buildoutBeta: q.buildoutBeta, sharpe: q.sharpe };
   const seats = (planCommittee(availableProviders(), {}).seats || []).map((s) => seatCaller(s.provider, s.model));
   const convictions = await convictionCommittee(tickers, evidence, seats, { fallback: 0.6 });
   console.log(`Conviction (${seats.length ? seats.length + " model(s)" : "offline → equal fallback"}): ${tickers.map((t) => `${t} ${convictions[t]}`).join(", ") || "—"}`);
@@ -72,7 +72,7 @@ async function loadSeries(tickers) {
   // Stage 3 — size the sleeve (conviction × inverse-vol, around what's planned).
   const vols = {}; for (const t of tickers) vols[t] = basketStats(series, [t])?.vol ?? 0.25;
   const funding = fundSleeve({ candidates: qualifiers, currentHoldings: portfolio.holdings || [], existingDiversifierTickers, sleevePct: SLEEVE_PCT, sleeveUsd, convictions, vols });
-  console.log(`Funding: ${funding.newHoldings.length} new name(s) into a ${(SLEEVE_PCT * 100).toFixed(0)}% sleeve (FIW etc. already ${(funding.existingDivWeight * 100).toFixed(1)}%); AI-capex scaled ×${funding.aiScale}`);
+  console.log(`Funding: ${funding.newHoldings.length} new name(s) into a ${(SLEEVE_PCT * 100).toFixed(0)}% sleeve (FIW etc. already ${(funding.existingDivWeight * 100).toFixed(1)}%); deep-tech build-out scaled ×${funding.aiScale}`);
 
   // Write the proposal (a SEPARATE feed; never the plan). Computed metrics = the machine-generated evidence.
   const out = {

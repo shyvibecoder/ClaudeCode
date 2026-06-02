@@ -49,7 +49,7 @@ describe("forecast: addDays", () => {
 });
 
 // --- The proof-of-alpha layer: grade the de-rating/inflecting calls RELATIVE to the
-// AI-capex complex, so the system judges its own thesis edge, not just direction. ---
+// deep-tech build-out complex, so the system judges its own thesis edge, not just direction. ---
 describe("forecast: meanPrice", () => {
   it("averages valid prices, skipping errors/zeros, null when none", () => {
     const q = { A: { price: 10 }, B: { price: 30 }, C: { error: "x" }, D: { price: 0 } };

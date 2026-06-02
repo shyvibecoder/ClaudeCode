@@ -16,7 +16,7 @@
     <line x1="40" y1="158" x2="224" y2="158" stroke="#26303d"/>
     <text x="40" y="180" fill="#e6edf3" font-size="12">Gate each defensive sleeve:</text>
     <text x="40" y="197" fill="#e6edf3" font-size="12">low market β, NEGATIVE</text>
-    <text x="40" y="214" fill="#e6edf3" font-size="12">AI-capex β, and it must</text>
+    <text x="40" y="214" fill="#e6edf3" font-size="12">build-out β, and it must</text>
     <text x="40" y="231" fill="#e6edf3" font-size="12">LOWER the plan's drawdown.</text>
     <text x="40" y="262" fill="#8b98a9" font-size="11" font-family="monospace">→ diversifier-</text>
     <text x="40" y="277" fill="#8b98a9" font-size="11" font-family="monospace">  candidates.json</text>

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { relativeStrength, deRatingSignal } from "../scripts/lib/derating.mjs";
 
 // True-alpha signal: operationalize the thesis claim — crowded theses DE-RATE first
-// (relative weakness vs the AI-capex complex), under-priced ones INFLECT (relative
+// (relative weakness vs the deep-tech build-out complex), under-priced ones INFLECT (relative
 // strength). Relative strength = scarcity-basket momentum minus the complex's.
 describe("derating: relative strength vs the complex", () => {
   it("is the scarcity-basket mean momentum minus the complex", () => {

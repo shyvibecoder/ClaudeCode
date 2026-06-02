@@ -162,26 +162,26 @@ export function draftScarcity(lead, { proxies = [], subject = "", bind_window = 
   };
 }
 
-// AI-capex GATE — wires the axis-check residual-beta test (axis.mjs::aiCapexLoading) into the scout so a
-// candidate's RESIDUAL AI-capex loading (`aiBeta`, the build-out sensitivity AFTER market beta) governs
+// deep-tech build-out GATE — wires the axis-check residual-beta test (axis.mjs::buildoutLoading) into the scout so a
+// candidate's RESIDUAL deep-tech build-out loading (`buildoutBeta`, the build-out sensitivity AFTER market beta) governs
 // admission per axis:
 //   • diversifier axis — a POSITIVE loading means the name amplifies the very build-out it's meant to
-//     hedge, so it FAILS the gate (the second axis exists to LOWER, not add to, AI-capex concentration);
-//   • ai-capex axis — informational only (the build-out sleeve WANTS exposure), never blocks.
+//     hedge, so it FAILS the gate (the second axis exists to LOWER, not add to, deep-tech build-out concentration);
+//   • deep-tech axis — informational only (the build-out sleeve WANTS exposure), never blocks.
 // `loading` is precomputed upstream (where price history exists); a missing loading never hard-fails —
-// the committee verifies. Returns { pass, axis, aiBeta, reason }. Pure → fixture-testable.
-export function gateAiCapex(loading, { axis = "ai-capex", aiBetaMax = 0.3 } = {}) {
-  const aiBeta = loading && Number.isFinite(loading.aiBeta) ? loading.aiBeta : null;
+// the committee verifies. Returns { pass, axis, buildoutBeta, reason }. Pure → fixture-testable.
+export function gateBuildout(loading, { axis = "deep-tech", buildoutBetaMax = 0.3 } = {}) {
+  const buildoutBeta = loading && Number.isFinite(loading.buildoutBeta) ? loading.buildoutBeta : null;
   if (axis !== "diversifier") {
-    return { pass: true, axis, aiBeta, reason: aiBeta == null ? "ai-capex axis (no loading)" : "ai-capex axis (exposure wanted)" };
+    return { pass: true, axis, buildoutBeta, reason: buildoutBeta == null ? "deep-tech axis (no loading)" : "deep-tech axis (exposure wanted)" };
   }
-  if (aiBeta == null) return { pass: true, axis, aiBeta: null, reason: "diversifier: no price history to gate — committee to verify" };
-  const pass = aiBeta <= aiBetaMax;
+  if (buildoutBeta == null) return { pass: true, axis, buildoutBeta: null, reason: "diversifier: no price history to gate — committee to verify" };
+  const pass = buildoutBeta <= buildoutBetaMax;
   return {
-    pass, axis, aiBeta: +aiBeta.toFixed(3),
+    pass, axis, buildoutBeta: +buildoutBeta.toFixed(3),
     reason: pass
-      ? `diversifier: aiβ ${aiBeta.toFixed(3)} ≤ ${aiBetaMax} (does not amplify AI-capex)`
-      : `diversifier REJECTED: aiβ ${aiBeta.toFixed(3)} > ${aiBetaMax} (amplifies the build-out it should hedge)`,
+      ? `diversifier: build-out β ${buildoutBeta.toFixed(3)} ≤ ${buildoutBetaMax} (does not amplify deep-tech build-out)`
+      : `diversifier REJECTED: build-out β ${buildoutBeta.toFixed(3)} > ${buildoutBetaMax} (amplifies the build-out it should hedge)`,
   };
 }
 
@@ -207,10 +207,10 @@ export function draftFromLead(L, { loading = null } = {}) {
     { proxies: L?.tickers || [], subject: L?.subject, bind_window: L?.bind_window || "2027" });
   draft.engine = L?.engine || "constraint-shadow";
   // Axis + gate (opt-in: only stamped when this lead targets the diversifier sleeve or a loading was
-  // computed) — so default AI-capex scout drafts are byte-for-byte unchanged.
+  // computed) — so default deep-tech build-out scout drafts are byte-for-byte unchanged.
   const axis = L?.axis === "diversifier" ? "diversifier" : null;
   if (axis) draft.axis = axis;
-  if (loading || axis) draft.gate = gateAiCapex(loading, { axis: axis || "ai-capex" });
+  if (loading || axis) draft.gate = gateBuildout(loading, { axis: axis || "deep-tech" });
   if (L?.lead?.ladder_from) {
     draft.ladder_from = L.lead.ladder_from;
     draft.thesis = `Scout (BOM ladder from "${L.lead.ladder_from}"): "${L.subject}" is an upstream dependency of a known scarcity${L.lead.why ? ` — ${L.lead.why}` : ""}. The supplier of a scarce thing is the highest-prior place to find the next scarce thing. Committee to confirm it's a real, durable, not-yet-priced chokepoint.`;

@@ -1,6 +1,6 @@
 // True-alpha signal: turn the thesis's core claim into a measurable read. The claim
 // is "crowded/already-priced scarcities DE-RATE first; under-priced ones INFLECT."
-// We measure each scarcity basket's RELATIVE STRENGTH vs the AI-capex complex and
+// We measure each scarcity basket's RELATIVE STRENGTH vs the deep-tech build-out complex and
 // flag crowded names rolling over (reduce) and cheap names gaining (accumulate).
 // Pure; the alpha is in the relative move + the priced-in context, not absolute price.
 export function relativeStrength(scarcityMoms, complexMom) {

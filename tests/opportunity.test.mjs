@@ -1,23 +1,23 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { opportunityScore, rankOpportunities, liveGate, isDiversifier, aiCapexOnly } from "../scripts/lib/opportunity.mjs";
+import { opportunityScore, rankOpportunities, liveGate, isDiversifier, buildoutOnly } from "../scripts/lib/opportunity.mjs";
 
-describe("opportunity: axis split keeps diversifiers out of the AI-capex machinery", () => {
+describe("opportunity: axis split keeps diversifiers out of the deep-tech build-out machinery", () => {
   const list = [
-    { id: "copper", axis: "ai-capex" },
-    { id: "turbines" },                       // absent axis = ai-capex (back-compat default)
+    { id: "copper", axis: "deep-tech" },
+    { id: "turbines" },                       // absent axis = deep-tech (back-compat default)
     { id: "health-defensive", axis: "diversifier" },
   ];
   it("isDiversifier flags only the diversifier sleeve", () => {
     assert.equal(isDiversifier({ axis: "diversifier" }), true);
-    assert.equal(isDiversifier({ axis: "ai-capex" }), false);
+    assert.equal(isDiversifier({ axis: "deep-tech" }), false);
     assert.equal(isDiversifier({}), false);   // default
   });
-  it("aiCapexOnly drops diversifiers but keeps untagged (default) entries", () => {
-    assert.deepEqual(aiCapexOnly(list).map((s) => s.id), ["copper", "turbines"]);
+  it("buildoutOnly drops diversifiers but keeps untagged (default) entries", () => {
+    assert.deepEqual(buildoutOnly(list).map((s) => s.id), ["copper", "turbines"]);
   });
-  it("rankOpportunities over aiCapexOnly never scores a diversifier", () => {
-    assert.equal(rankOpportunities(aiCapexOnly(list)).some((o) => o.id === "health-defensive"), false);
+  it("rankOpportunities over buildoutOnly never scores a diversifier", () => {
+    assert.equal(rankOpportunities(buildoutOnly(list)).some((o) => o.id === "health-defensive"), false);
   });
 });
 

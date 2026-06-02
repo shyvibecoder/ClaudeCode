@@ -43,12 +43,12 @@ describe("coherence: scanner emits every section the system depends on", () => {
 });
 
 describe("coherence: cross-feature dependencies line up", () => {
-  it("every AI-capex scarcity has a scarcity_signals entry; diversifiers are excluded by design", () => {
+  it("every deep-tech build-out scarcity has a scarcity_signals entry; diversifiers are excluded by design", () => {
     const sig = r("signals.json"), scar = r("scarcities.json");
     for (const sc of scar.scarcities) {
-      const expected = sc.axis !== "diversifier"; // the Opportunity/de-rating machinery is AI-capex-only
+      const expected = sc.axis !== "diversifier"; // the Opportunity/de-rating machinery is deep-tech build-out-only
       assert.equal(sc.id in sig.scarcity_signals, expected,
-        expected ? `no signal for AI-capex scarcity ${sc.id}` : `diversifier ${sc.id} should NOT be scored by the AI-capex machinery`);
+        expected ? `no signal for deep-tech build-out scarcity ${sc.id}` : `diversifier ${sc.id} should NOT be scored by the deep-tech build-out machinery`);
     }
   });
   it("dca.json holdings exactly match portfolio holdings", () => {
@@ -91,7 +91,7 @@ describe("coherence: dashboard↔scanner field contract (no orphan reads)", () =
     for (const s of divs) {
       const e = s.diversifier_evidence;
       assert.ok(e, `${s.id}: missing diversifier_evidence (radar would show blank cells)`);
-      for (const k of ["maxDD", "mktBeta", "aiBeta", "blend_with", "blend_maxDD", "blend_compRho"]) {
+      for (const k of ["maxDD", "mktBeta", "buildoutBeta", "blend_with", "blend_maxDD", "blend_compRho"]) {
         assert.ok(k in e, `${s.id}: diversifier_evidence missing ${k} (the radar reads it)`);
       }
     }
