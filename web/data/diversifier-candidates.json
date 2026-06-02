@@ -1,0 +1,444 @@
+{
+  "schema_version": 1,
+  "generated": "2026-06-02",
+  "sleeve_pct": 0.15,
+  "market": [
+    "SPY"
+  ],
+  "complex": [
+    "QQQ",
+    "SMH"
+  ],
+  "note": "Proposed diversifier (2nd-axis) sleeve. Advisory — review and open a PR into portfolio.json to fund it; the bot never edits your plan or trades.",
+  "candidates": [
+    {
+      "id": "regulated-utilities",
+      "sector": "Utilities",
+      "scarcity": "Regulated utilities (rate-base)",
+      "tickers": [
+        "NEE",
+        "DUK",
+        "SO",
+        "D",
+        "AEP"
+      ],
+      "years": 31.4,
+      "cagr": 0.1136,
+      "maxDD": 0.3683,
+      "sharpe": 0.662,
+      "marketBeta": 0.543,
+      "mktBeta": 0.543,
+      "buildoutBeta": -0.296,
+      "buildoutT": -24.27,
+      "heldOverlap": [],
+      "planMaxDD": 0.2535,
+      "blendedMaxDD": 0.1517,
+      "ddReduction": 0.1018,
+      "gate": {
+        "pass": true,
+        "axis": "diversifier",
+        "buildoutBeta": -0.296,
+        "reason": "diversifier: build-out β -0.296 ≤ 0.3 (does not amplify deep-tech build-out)"
+      },
+      "qualifies": true,
+      "reason": "qualifies — low-beta, non-amplifying, lowers the plan's drawdown"
+    },
+    {
+      "id": "water-climate",
+      "sector": "Climate-adaptation",
+      "scarcity": "Water / climate-adaptation infrastructure",
+      "tickers": [
+        "PHO",
+        "AWK",
+        "WTRG"
+      ],
+      "years": 18.1,
+      "cagr": 0.1001,
+      "maxDD": 0.3376,
+      "sharpe": 0.5581,
+      "marketBeta": 0.702,
+      "mktBeta": 0.702,
+      "buildoutBeta": -0.306,
+      "buildoutT": -18.18,
+      "heldOverlap": [],
+      "planMaxDD": 0.2535,
+      "blendedMaxDD": 0.1565,
+      "ddReduction": 0.097,
+      "gate": {
+        "pass": true,
+        "axis": "diversifier",
+        "buildoutBeta": -0.306,
+        "reason": "diversifier: build-out β -0.306 ≤ 0.3 (does not amplify deep-tech build-out)"
+      },
+      "qualifies": true,
+      "reason": "qualifies — low-beta, non-amplifying, lowers the plan's drawdown"
+    },
+    {
+      "id": "discount-retail",
+      "sector": "Consumer defensive",
+      "scarcity": "Discount / trade-down retail",
+      "tickers": [
+        "DG",
+        "DLTR",
+        "TJX"
+      ],
+      "years": 16.5,
+      "cagr": 0.154,
+      "maxDD": 0.3169,
+      "sharpe": 0.7829,
+      "marketBeta": 0.68,
+      "mktBeta": 0.68,
+      "buildoutBeta": -0.222,
+      "buildoutT": -8.28,
+      "heldOverlap": [],
+      "planMaxDD": 0.2535,
+      "blendedMaxDD": 0.1642,
+      "ddReduction": 0.0893,
+      "gate": {
+        "pass": true,
+        "axis": "diversifier",
+        "buildoutBeta": -0.222,
+        "reason": "diversifier: build-out β -0.222 ≤ 0.3 (does not amplify deep-tech build-out)"
+      },
+      "qualifies": true,
+      "reason": "qualifies — low-beta, non-amplifying, lowers the plan's drawdown"
+    },
+    {
+      "id": "health-defensive",
+      "sector": "Health",
+      "scarcity": "Defensive health demand (pharma / devices)",
+      "tickers": [
+        "JNJ",
+        "PFE",
+        "MRK",
+        "ABT",
+        "MDT"
+      ],
+      "years": 31.4,
+      "cagr": 0.1026,
+      "maxDD": 0.4323,
+      "sharpe": 0.6142,
+      "marketBeta": 0.625,
+      "mktBeta": 0.625,
+      "buildoutBeta": -0.264,
+      "buildoutT": -28.48,
+      "heldOverlap": [],
+      "planMaxDD": 0.2535,
+      "blendedMaxDD": 0.1787,
+      "ddReduction": 0.0748,
+      "gate": {
+        "pass": true,
+        "axis": "diversifier",
+        "buildoutBeta": -0.264,
+        "reason": "diversifier: build-out β -0.264 ≤ 0.3 (does not amplify deep-tech build-out)"
+      },
+      "qualifies": true,
+      "reason": "qualifies — low-beta, non-amplifying, lowers the plan's drawdown"
+    },
+    {
+      "id": "consumer-staples",
+      "sector": "Consumer staples",
+      "scarcity": "Consumer staples (inelastic demand)",
+      "tickers": [
+        "PG",
+        "KO",
+        "PEP",
+        "COST",
+        "WMT"
+      ],
+      "years": 31.4,
+      "cagr": 0.1428,
+      "maxDD": 0.366,
+      "sharpe": 0.8044,
+      "marketBeta": 0.569,
+      "mktBeta": 0.569,
+      "buildoutBeta": -0.167,
+      "buildoutT": -20.04,
+      "heldOverlap": [],
+      "planMaxDD": 0.2535,
+      "blendedMaxDD": 0.1998,
+      "ddReduction": 0.0537,
+      "gate": {
+        "pass": true,
+        "axis": "diversifier",
+        "buildoutBeta": -0.167,
+        "reason": "diversifier: build-out β -0.167 ≤ 0.3 (does not amplify deep-tech build-out)"
+      },
+      "qualifies": true,
+      "reason": "qualifies — low-beta, non-amplifying, lowers the plan's drawdown"
+    },
+    {
+      "id": "waste-environmental",
+      "sector": "Environmental services",
+      "scarcity": "Waste / environmental services (local monopolies)",
+      "tickers": [
+        "WM",
+        "RSG",
+        "WCN"
+      ],
+      "years": 27.9,
+      "cagr": 0.1257,
+      "maxDD": 0.6598,
+      "sharpe": 0.6253,
+      "marketBeta": 0.646,
+      "mktBeta": 0.646,
+      "buildoutBeta": -0.188,
+      "buildoutT": -15.85,
+      "heldOverlap": [],
+      "planMaxDD": 0.2535,
+      "blendedMaxDD": 0.1548,
+      "ddReduction": 0.0987,
+      "gate": {
+        "pass": true,
+        "axis": "diversifier",
+        "buildoutBeta": -0.188,
+        "reason": "diversifier: build-out β -0.188 ≤ 0.3 (does not amplify deep-tech build-out)"
+      },
+      "qualifies": false,
+      "reason": "maxDD 66% > 50% cap"
+    }
+  ],
+  "funding": {
+    "newHoldings": [
+      {
+        "ticker": "NEE",
+        "name": "NEE",
+        "account": "taxable",
+        "weight": 0.0041,
+        "target_usd": 6150,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Regulated utilities (rate-base)",
+        "conviction": 0.803,
+        "sleeve": "regulated-utilities"
+      },
+      {
+        "ticker": "DUK",
+        "name": "DUK",
+        "account": "taxable",
+        "weight": 0.0042,
+        "target_usd": 6300,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Regulated utilities (rate-base)",
+        "conviction": 0.82,
+        "sleeve": "regulated-utilities"
+      },
+      {
+        "ticker": "SO",
+        "name": "SO",
+        "account": "taxable",
+        "weight": 0.0044,
+        "target_usd": 6600,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Regulated utilities (rate-base)",
+        "conviction": 0.843,
+        "sleeve": "regulated-utilities"
+      },
+      {
+        "ticker": "D",
+        "name": "D",
+        "account": "taxable",
+        "weight": 0.0046,
+        "target_usd": 6900,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Regulated utilities (rate-base)",
+        "conviction": 0.853,
+        "sleeve": "regulated-utilities"
+      },
+      {
+        "ticker": "AEP",
+        "name": "AEP",
+        "account": "taxable",
+        "weight": 0.0041,
+        "target_usd": 6150,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Regulated utilities (rate-base)",
+        "conviction": 0.81,
+        "sleeve": "regulated-utilities"
+      },
+      {
+        "ticker": "PHO",
+        "name": "PHO",
+        "account": "taxable",
+        "weight": 0.0039,
+        "target_usd": 5850,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Water / climate-adaptation infrastructure",
+        "conviction": 0.777,
+        "sleeve": "water-climate"
+      },
+      {
+        "ticker": "AWK",
+        "name": "AWK",
+        "account": "taxable",
+        "weight": 0.0041,
+        "target_usd": 6150,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Water / climate-adaptation infrastructure",
+        "conviction": 0.813,
+        "sleeve": "water-climate"
+      },
+      {
+        "ticker": "WTRG",
+        "name": "WTRG",
+        "account": "taxable",
+        "weight": 0.0038,
+        "target_usd": 5700,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Water / climate-adaptation infrastructure",
+        "conviction": 0.837,
+        "sleeve": "water-climate"
+      },
+      {
+        "ticker": "DG",
+        "name": "DG",
+        "account": "taxable",
+        "weight": 0.0028,
+        "target_usd": 4200,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Discount / trade-down retail",
+        "conviction": 0.707,
+        "sleeve": "discount-retail"
+      },
+      {
+        "ticker": "DLTR",
+        "name": "DLTR",
+        "account": "taxable",
+        "weight": 0.0019,
+        "target_usd": 2850,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Discount / trade-down retail",
+        "conviction": 0.693,
+        "sleeve": "discount-retail"
+      },
+      {
+        "ticker": "TJX",
+        "name": "TJX",
+        "account": "taxable",
+        "weight": 0.003,
+        "target_usd": 4500,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Discount / trade-down retail",
+        "conviction": 0.827,
+        "sleeve": "discount-retail"
+      },
+      {
+        "ticker": "JNJ",
+        "name": "JNJ",
+        "account": "taxable",
+        "weight": 0.005,
+        "target_usd": 7500,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Defensive health demand (pharma / devices)",
+        "conviction": 0.87,
+        "sleeve": "health-defensive"
+      },
+      {
+        "ticker": "PFE",
+        "name": "PFE",
+        "account": "taxable",
+        "weight": 0.0028,
+        "target_usd": 4200,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Defensive health demand (pharma / devices)",
+        "conviction": 0.63,
+        "sleeve": "health-defensive"
+      },
+      {
+        "ticker": "MRK",
+        "name": "MRK",
+        "account": "taxable",
+        "weight": 0.0033,
+        "target_usd": 4950,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Defensive health demand (pharma / devices)",
+        "conviction": 0.743,
+        "sleeve": "health-defensive"
+      },
+      {
+        "ticker": "ABT",
+        "name": "ABT",
+        "account": "taxable",
+        "weight": 0.0039,
+        "target_usd": 5850,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Defensive health demand (pharma / devices)",
+        "conviction": 0.813,
+        "sleeve": "health-defensive"
+      },
+      {
+        "ticker": "MDT",
+        "name": "MDT",
+        "account": "taxable",
+        "weight": 0.0034,
+        "target_usd": 5100,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Defensive health demand (pharma / devices)",
+        "conviction": 0.78,
+        "sleeve": "health-defensive"
+      },
+      {
+        "ticker": "PG",
+        "name": "PG",
+        "account": "taxable",
+        "weight": 0.0044,
+        "target_usd": 6600,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+        "conviction": 0.817,
+        "sleeve": "consumer-staples"
+      },
+      {
+        "ticker": "KO",
+        "name": "KO",
+        "account": "taxable",
+        "weight": 0.0048,
+        "target_usd": 7200,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+        "conviction": 0.873,
+        "sleeve": "consumer-staples"
+      },
+      {
+        "ticker": "PEP",
+        "name": "PEP",
+        "account": "taxable",
+        "weight": 0.0042,
+        "target_usd": 6300,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+        "conviction": 0.797,
+        "sleeve": "consumer-staples"
+      },
+      {
+        "ticker": "COST",
+        "name": "COST",
+        "account": "taxable",
+        "weight": 0.0033,
+        "target_usd": 4950,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+        "conviction": 0.803,
+        "sleeve": "consumer-staples"
+      },
+      {
+        "ticker": "WMT",
+        "name": "WMT",
+        "account": "taxable",
+        "weight": 0.0039,
+        "target_usd": 5850,
+        "tier": "C",
+        "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+        "conviction": 0.83,
+        "sleeve": "consumer-staples"
+      }
+    ],
+    "budget": 0.08,
+    "existingDivWeight": 0.07,
+    "finalDivWeight": 0.1499,
+    "buildoutScale": 0.9141,
+    "sleevePct": 0.15,
+    "existingDiversifierTickers": [
+      "FIW"
+    ]
+  }
+}
