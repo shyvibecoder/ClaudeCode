@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated": "2026-06-01",
+  "generated": "2026-06-02",
   "prompt_version": null,
   "roster": {
     "providers": [
@@ -25,9 +25,11 @@
     "roleAnswered": {
       "bull": 26,
       "bear": 26,
-      "skeptic": 26
+      "skeptic": 25
     },
-    "errors": [],
+    "errors": [
+      "Unexpected end of JSON input"
+    ],
     "degraded": false
   },
   "proposals": []
