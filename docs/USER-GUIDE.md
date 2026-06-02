@@ -183,14 +183,13 @@ theses. The durable edge is **low priced-in + high durability + low substitution
 
 ![Portfolio and triggers](img/portfolio.png)
 
-This tab is organized into six labelled blocks, each with its own **?** help:
+This tab is organized into five labelled blocks, each with its own **?** help:
 
 1. **⏱ Timing** — when to act (the regime posture + the dislocation cross-check). §4.1, §4.1a
 2. **💼 Your book** — your live holdings vs the target plan, summary cards, DCA progress, and the holdings table. §4.2, §4.4, §4.5, §4.6
-3. **🎯 Suggestions** — *what to change*: the rebalance plan (grouped by sleeve, IRA tilts folded into its signal column) and a stress check. **Advisory only — Puck never trades.** §4.7, §4.9
-4. **💰 Tax & asset location** — which account (Roth / Traditional / taxable) each name should sit in to maximize after-tax terminal value. §4.10
-5. **🔔 Triggers** — rules that tell you to act. §4.3
-6. **📊 Track record & honesty** — is the edge real? Scorecard, factor attribution, signal backtest. §4.1b–§4.1e
+3. **🎯 Suggestions — what to buy & where** — the rebalance plan (grouped by sleeve), the **tax-located buy plan** that deploys your cash across Roth / Traditional / taxable, and a stress check. **Advisory only — Puck never trades.** §4.7, §4.9, §4.10
+4. **🔔 Triggers** — rules that tell you to act. §4.3
+5. **📊 Track record & honesty** — is the edge real? Scorecard, factor attribution, signal backtest. §4.1b–§4.1e
 
 ### 4.1 Timing posture (the regime)
 The colored banner at the top is the **timing posture** — the heart of "when to act":
@@ -390,23 +389,25 @@ falsifiable *"signal weights beat the research baseline"* claim into the Track r
 With a `positions.local.json` it rebalances **what you actually hold**; without it, it shows the ideal
 weighting vs your static plan. **Advisory only** — it never edits your portfolio or places trades. Not advice.
 
-### 4.10 Asset location (Roth / Traditional / taxable)
-Find it in the **Portfolio** tab, between **🎯 Suggestions** and **🔔 Triggers**. You don't tell anyone your
-tax rate ahead of time — the **marginal rate, horizon, and account balances are inline inputs** in this
-section (browser-stored; defaults 35% / 20yr), so it recomputes as you type.
+### 4.10 Tax-located buy plan (Roth / Traditional / taxable)
+Inside **🎯 Suggestions**. This is the **deployment plan**: it takes the committee's suggested holdings
+(build-out + the diversifier sleeve), spreads your cash across the target weights, and **places each name
+in the account that maximizes after-tax terminal value** — shown as a **buy list grouped by account**.
 
-Same holdings, smarter **accounts** — where a name sits changes its **after-tax terminal value**. This
-suggests the account for each name on two robust rules: **(1)** shelter the annual **tax drag** (high
-dividend-yield / high-turnover names → a tax-advantaged account; tax-efficient names → **taxable**, where
-they get qualified rates, step-up at death, and loss-harvesting); **(2)** within tax-advantaged, the
-**highest-growth** names go to **Roth** (the biggest balance compounds tax-free forever), income/lower-
-growth to **Traditional**.
+Two robust rules: **(1)** shelter the annual **dividend tax drag** — income-heavy names → a tax-advantaged
+account; tax-efficient (low-yield) names → **taxable** (qualified rates, step-up at death, loss-harvesting);
+**(2)** within tax-advantaged, **highest-growth → Roth** (the biggest balance compounds tax-free), income/
+lower-growth → **Traditional**.
 
-Enter your **Roth / Traditional / taxable balances** + marginal rate + horizon in the inline inputs. Until
-you split Roth vs Traditional it runs a **2-way** (tax-advantaged vs taxable) split and says so. The table
-shows each name's current vs **suggested** account (rows to move are highlighted), its yield, and the
-**tax drag avoided per year** by sheltering it — summed and compounded over your horizon. Growth (build-out
-~9%, defensive ~4%) and yield use per-axis defaults where live data is absent.
+Inline inputs (browser-stored; defaults 35% / 20yr) — so you never tell anyone your tax rate ahead of time:
+- **Roth $ / Traditional $ / Taxable $** — your cash in each account (the deployable capacity).
+- **Marginal % · Horizon yr** — drive the tax-drag estimate.
+- **Exclude (own elsewhere)** — tickers you already hold in your broader portfolio (e.g. `SMH`); they're
+  dropped and the remaining weights renormalized.
+
+Each account block shows what to **buy** there, the $ amount, yield, and the dividend tax it shelters/yr;
+the header reports drag avoided per year + compounded over your horizon. **Rebalancing later keeps these
+locations.** Until you split Roth vs Traditional it runs a 2-way (tax-advantaged vs taxable) split and says so.
 
 **Advisory, not tax advice.** It's the robust *location* lever; it does **not** model your exact bracket
 arbitrage (withdrawal vs contribution rate), RMDs, or estate plan. Inputs live only in your browser.

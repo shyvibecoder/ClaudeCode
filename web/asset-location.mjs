@@ -25,7 +25,10 @@ export function taxProfile(h, { quotes = {}, overrides = {} } = {}) {
   const tactical = h.account === "ira" || /tactical/i.test(h.role || "");
   const base = {
     yieldPct: Number.isFinite(q.dividend_yield) ? q.dividend_yield : (div ? 0.030 : 0.008),
-    turnover: tactical ? 0.6 : 0.1,
+    // Turnover is a SECONDARY shelter driver — kept small so the intrinsic DIVIDEND drag dominates the
+    // location decision (turnover is a choice you make INSIDE the tax-advantaged account, not an asset
+    // property; a name held in taxable would be held buy-and-hold).
+    turnover: tactical ? 0.2 : 0.05,
     growth: div ? 0.04 : 0.09, // expected pre-tax annual growth (defensive vs build-out alpha)
     div,
   };

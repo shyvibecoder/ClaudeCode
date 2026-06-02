@@ -354,38 +354,49 @@ function renderRebalance() {
 
 // ---------- Asset location (Roth / Traditional / taxable) → maximize after-tax terminal value ----------
 const ALOC_KEY = "puck.assetloc";
-const ALOC_DEFAULTS = { ordinary: 35, qualified: 15, ltcg: 15, horizon: 20, roth: 0, traditional: 0, taxable: 0 };
+const ALOC_DEFAULTS = { ordinary: 35, qualified: 15, ltcg: 15, horizon: 20, roth: 0, traditional: 0, taxable: 0, exclude: "" };
 function getAloc() { try { return { ...ALOC_DEFAULTS, ...JSON.parse(localStorage.getItem(ALOC_KEY) || "{}") }; } catch { return { ...ALOC_DEFAULTS }; } }
 
 function renderAssetLocation() {
   const box = $("#assetLocation"); if (!box) return;
-  const L = window.PuckLocation, p = DATA.port || {};
+  const L = window.PuckLocation, DV = window.PuckDiversifier, p = DATA.port || {};
   const cfg = getAloc();
-  // Inputs render unconditionally (so the section + where to enter balances is ALWAYS visible, even before
-  // the module loads — otherwise hideEmptyGroups would hide the whole group).
+  const excl = new Set(String(cfg.exclude || "").toUpperCase().split(/[\s,]+/).filter(Boolean));
+  const head = `<h3>Tax-located buy plan <button class="help" data-help="location">?</button> <span class="foot">— deploy your cash into the committee's plan, each name in its best account</span></h3>`;
+  // Inputs render unconditionally so the section is ALWAYS visible (never hidden by hideEmptyGroups).
   const inputs = `<div class="controls aloc-inputs">
     <label>Roth $ <input data-aloc="roth" type="number" step="any" value="${cfg.roth || ""}" placeholder="0" /></label>
     <label>Traditional $ <input data-aloc="traditional" type="number" step="any" value="${cfg.traditional || ""}" placeholder="0" /></label>
-    <label>Taxable $ <input data-aloc="taxable" type="number" step="any" value="${cfg.taxable || ""}" placeholder="${p.accounts?.taxable || 0}" /></label>
+    <label>Taxable $ <input data-aloc="taxable" type="number" step="any" value="${cfg.taxable || ""}" placeholder="0" /></label>
     <label>Marginal % <input data-aloc="ordinary" type="number" step="any" value="${cfg.ordinary}" /></label>
     <label>Horizon yr <input data-aloc="horizon" type="number" step="1" value="${cfg.horizon}" /></label>
+    <label>Exclude (own elsewhere) <input data-aloc="exclude" type="text" value="${esc(cfg.exclude || "")}" placeholder="e.g. SMH" /></label>
   </div>`;
-  const wire = () => box.querySelectorAll("[data-aloc]").forEach((inp) => inp.onchange = () => { const c = getAloc(); c[inp.dataset.aloc] = parseFloat(inp.value) || 0; localStorage.setItem(ALOC_KEY, JSON.stringify(c)); renderAssetLocation(); });
-  if (!L || !p.holdings?.length) {
-    box.innerHTML = inputs + `<p class="foot">${!p.holdings?.length ? "Add your plan holdings to see placement." : "Loading the asset-location module…"} Set your marginal rate &amp; horizon above (defaults 35% / 20yr).</p>`;
+  const wire = () => box.querySelectorAll("[data-aloc]").forEach((inp) => inp.onchange = () => { const c = getAloc(); c[inp.dataset.aloc] = inp.type === "text" ? inp.value.trim() : (parseFloat(inp.value) || 0); localStorage.setItem(ALOC_KEY, JSON.stringify(c)); renderAssetLocation(); });
+  const deployTotal = (cfg.roth || 0) + (cfg.traditional || 0) + (cfg.taxable || 0);
+  if (!L || !p.holdings?.length || !deployTotal) {
+    box.innerHTML = head + inputs + `<p class="foot">${!p.holdings?.length ? "Add the plan holdings to see the buy plan." : !deployTotal ? "Enter your <strong>Roth / Traditional / Taxable</strong> balances above to see the tax-located buy plan." : "Loading…"}</p>`;
     wire(); return;
   }
-  // Use the balances you enter; until you split Roth/Traditional, fall back to the plan's combined accounts.
-  const caps = (cfg.roth || cfg.traditional || cfg.taxable)
-    ? { roth: cfg.roth, traditional: cfg.traditional, taxable: cfg.taxable }
-    : { ira: p.accounts?.ira || 0, taxable: p.accounts?.taxable || 0 };
-  const res = L.locateAssets(p.holdings, { capacities: caps, tax: { ordinary: cfg.ordinary / 100, qualified: cfg.qualified / 100, ltcg: cfg.ltcg / 100 }, horizonYears: cfg.horizon, sleeveUsd: p.sleeve_usd || 0 });
-  const lbl = { roth: "Roth", traditional: "Traditional", taxable: "Taxable", "tax-advantaged": "Tax-advantaged", ira: "IRA" };
-  const rows = res.rows.map((r) => `<tr class="${r.mislocated ? "aloc-move" : ""}"><td><strong>${esc(r.ticker)}</strong></td><td>${fmtUsd(r.value)}</td><td>${esc(lbl[r.account_now] || r.account_now)}</td><td>${r.mislocated ? "→ " : ""}<strong>${esc(lbl[r.suggested] || r.suggested)}</strong></td><td>${(r.yieldPct * 100).toFixed(1)}%</td><td>${r.annual_drag_avoided ? "$" + r.annual_drag_avoided.toLocaleString() : "—"}</td></tr>`).join("");
-  box.innerHTML = `${inputs}
-    <p class="foot">${res.three_way ? "<strong>3-way</strong>: Roth ← highest growth · Traditional ← income/drag · taxable ← tax-efficient" : esc(res.summary.note)} · est. tax drag avoided <strong>$${res.summary.annual_drag_avoided.toLocaleString()}/yr</strong> (~$${res.summary.horizon_drag_avoided.toLocaleString()} over ${res.horizon_years}yr) · <strong>${res.summary.mislocated}</strong> to move</p>
-    <div class="tscroll"><table class="mine"><thead><tr><th>Ticker</th><th>Value</th><th>Now</th><th>Suggested</th><th>Yield</th><th>Drag avoided/yr</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="foot">Advisory, using your inputs above — not tax advice. Doesn't model your exact bracket arbitrage, RMDs, or estate plan.</p>`;
+  // Combined target = the build-out plan + the diversifier funding proposal (if any); drop names you hold
+  // ELSEWHERE, then renormalize so the cash deploys across what's left.
+  const funding = DATA.diversifier?.funding;
+  const combined = (funding && DV) ? DV.applyDiversifierFunding(p, funding) : p;
+  const kept = (combined.holdings || []).filter((h) => h.ticker && (h.weight > 0) && !excl.has(h.ticker) && h.tier !== "DRY" && !/^CASH/i.test(h.ticker));
+  const wsum = kept.reduce((a, h) => a + (h.weight || 0), 0) || 1;
+  const holdings = kept.map((h) => ({ ...h, target_usd: Math.round((h.weight / wsum) * deployTotal) }));
+  const res = L.locateAssets(holdings, { capacities: { roth: cfg.roth, traditional: cfg.traditional, taxable: cfg.taxable }, tax: { ordinary: cfg.ordinary / 100, qualified: cfg.qualified / 100, ltcg: cfg.ltcg / 100 }, horizonYears: cfg.horizon, sleeveUsd: deployTotal });
+  // Group the BUY list by account (Roth / Traditional / taxable), each showing $ used vs balance.
+  const tbody = [["roth", "Roth", cfg.roth], ["traditional", "Traditional", cfg.traditional], ["taxable", "Taxable", cfg.taxable]].filter(([, , b]) => b > 0).map(([key, label, bal]) => {
+    const rs = res.rows.filter((r) => r.suggested === key).sort((a, b) => b.value - a.value);
+    const used = rs.reduce((a, r) => a + r.value, 0);
+    return `<tr class="hgroup"><td colspan="4">${esc(label)} — buy ${fmtUsd(used)} of ${fmtUsd(bal)}${used > bal * 1.005 ? " ⚠ over capacity" : ""}</td></tr>` +
+      (rs.length ? rs.map((r) => `<tr><td><strong>${esc(r.ticker)}</strong></td><td>${fmtUsd(r.value)}</td><td>${(r.yieldPct * 100).toFixed(1)}%</td><td class="foot">${r.annual_drag_avoided ? "shelters $" + r.annual_drag_avoided.toLocaleString() + "/yr" : "—"}</td></tr>`).join("") : `<tr><td colspan="4" class="foot">— nothing assigned here —</td></tr>`);
+  }).join("");
+  box.innerHTML = head + inputs + `
+    <p class="foot">Deploying <strong>${fmtUsd(deployTotal)}</strong> cash into the plan, tax-located (Roth ← highest growth · Traditional ← income · taxable ← tax-efficient)${excl.size ? ` · <strong>excluding ${esc([...excl].join(", "))}</strong> (held elsewhere)` : ""} · est. tax drag avoided <strong>$${res.summary.annual_drag_avoided.toLocaleString()}/yr</strong> (~$${res.summary.horizon_drag_avoided.toLocaleString()} over ${res.horizon_years}yr).</p>
+    <div class="tscroll"><table class="mine"><thead><tr><th>Buy</th><th>Amount</th><th>Yield</th><th>Tax shelter</th></tr></thead><tbody>${tbody}</tbody></table></div>
+    <p class="foot">Rebalancing from here keeps these locations. Advisory — not tax advice; doesn't model exact bracket arbitrage, RMDs, or estate plan.</p>`;
   wire();
 }
 
@@ -1148,10 +1159,10 @@ const HELP = {
       <li><strong>2 · Chief-Risk-Officer (CRO) review:</strong> an independent <strong>frontier-model</strong> pass that does the fuzzy judgment code can't — is every ticker real and correctly attributed? does the thesis actually follow? is it chasing momentum? It can <strong>veto</strong> a proposal or dock its confidence. <strong>This requires an Anthropic or OpenAI key</strong> (a free model grading its own free-tier siblings isn't a real check), so without a frontier key the CRO is disabled and only layer 1 runs.</li>
     </ul>
     <p>Each card shows the <strong>before→after</strong> change, rationale, sources, confidence, any <strong>Checks</strong> flags, and the CRO note. <strong>Accept</strong> opens a GitHub <strong>pull request</strong> with just that change (needs a token in Settings → Admin: Contents + Pull requests read/write) — you merge it. <strong>Reject</strong> dismisses it. The bot can <em>only</em> ever touch those three fields — never the thesis or tickers (F9). Not advice.</p>` },
-  location: { title: "Asset location — Roth / Traditional / taxable", body: `
-    <p>Same holdings, smarter <em>accounts</em>. Where a name sits changes its <strong>after-tax terminal value</strong>, so this suggests the account for each, on two robust rules: <strong>(1)</strong> shelter the annual <em>tax drag</em> — high dividend-yield / high-turnover names go to a tax-advantaged account; tax-efficient names (low yield, low turnover → qualified rates, step-up, loss-harvesting) go to <strong>taxable</strong>; <strong>(2)</strong> within tax-advantaged, the <strong>highest-growth</strong> names go to <strong>Roth</strong> (biggest balance compounding tax-free), income/lower-growth to <strong>Traditional</strong>.</p>
-    <p>Enter your <strong>Roth / Traditional / taxable balances</strong> + marginal rate + horizon. Until you split Roth vs Traditional it runs a 2-way (tax-advantaged vs taxable) split and says so. The <strong>drag avoided</strong> is dividends/turnover taxed yearly in taxable that sheltering removes, compounded over your horizon. Growth (build-out ~9%, defensive ~4%) and yield use per-axis defaults where live data is absent.</p>
-    <p><strong>Advisory, not tax advice.</strong> It doesn't model your exact bracket arbitrage (withdrawal vs contribution rate), RMDs, or estate plan — it's the robust location lever, not a full tax optimizer.</p>` },
+  location: { title: "Tax-located buy plan", body: `
+    <p>Deploys your cash into the committee's suggested plan (build-out + the diversifier sleeve), placing <strong>each name in the account that maximizes after-tax terminal value</strong> — then a <strong>buy list grouped by account</strong>. Two robust rules: <strong>(1)</strong> shelter the annual dividend <em>tax drag</em> — income-heavy names go to a tax-advantaged account, tax-efficient (low-yield) names to <strong>taxable</strong> (qualified rates, step-up, loss-harvesting); <strong>(2)</strong> within tax-advantaged the <strong>highest-growth</strong> names go to <strong>Roth</strong> (biggest balance compounding tax-free), income/lower-growth to <strong>Traditional</strong>.</p>
+    <p>Enter your <strong>Roth / Traditional / taxable</strong> cash + marginal rate + horizon. <strong>Exclude</strong> tickers you already own elsewhere (e.g. <code>SMH</code>) — they're dropped and the rest renormalized. Rebalancing later keeps these locations. The <strong>drag avoided</strong> is the dividend tax sheltering removes, compounded over your horizon; growth (build-out ~9%, defensive ~4%) and yield use per-axis defaults where live data is absent.</p>
+    <p><strong>Advisory, not tax advice.</strong> It's the robust location lever — it doesn't model your exact bracket arbitrage (withdrawal vs contribution rate), RMDs, or estate plan.</p>` },
   diversifier: { title: "Diversifier sleeve — funding the 2nd axis", body: `
     <p>The second axis is a <strong>defensive sleeve</strong> (health, water…) held to <strong>lower the book's drawdown</strong>, not to chase alpha — so it has its own funding pipeline, separate from the build-out Opportunity logic.</p>
     <p><strong>Screen</strong> (the <code>diversifier</code> workflow) gates candidate defensive baskets on low market β, a non-amplifying <strong>build-out β ≤ 0.3</strong>, and whether they actually <em>lower the drawdown of the plan you already hold</em> (book-aware — water vs the FIW already planned is flagged redundant). <strong>Committee</strong> then scores each surviving name a conviction; <strong>Size</strong> funds the <strong>top N by conviction</strong> (default 6 — a focused sleeve, not dozens of dust positions) by <code>weight = conviction × inverse-volatility</code> within the sleeve budget (default 15% of the investable sleeve), netted around what's already planned.</p>
