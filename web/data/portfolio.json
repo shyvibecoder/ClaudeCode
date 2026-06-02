@@ -1,30 +1,251 @@
 {
   "schema_version": 1,
-  "updated": "2026-05-30",
+  "updated": "2026-06-02",
   "sleeve_usd": 1500000,
   "total_portfolio_usd": 5200000,
-  "accounts": {"ira": 800000, "taxable": 700000},
+  "accounts": {
+    "ira": 800000,
+    "taxable": 700000
+  },
   "disclaimer": "Illustrative, not personalized financial advice. Every name is cyclical and would fall together in a recession or rate shock.",
   "holdings": [
-    {"ticker": "PAVE", "name": "Global X US Infrastructure", "account": "taxable", "target_usd": 225000, "weight": 0.15, "tier": "A", "role": "Anchor — broad reshoring/electrification"},
-    {"ticker": "GRID", "name": "First Trust Clean Edge Smart Grid", "account": "taxable", "target_usd": 165000, "weight": 0.11, "tier": "A", "role": "Anchor — grid/electrical equipment"},
-    {"ticker": "FIW", "name": "First Trust Water", "account": "taxable", "target_usd": 105000, "weight": 0.07, "tier": "A", "role": "Anchor — non-build-out de-correlator"},
-    {"ticker": "SHLD", "name": "Global X Defense Tech", "account": "taxable", "target_usd": 75000, "weight": 0.05, "tier": "C", "role": "Secular defense"},
-    {"ticker": "ASML", "name": "ASML Holding", "account": "taxable", "target_usd": 60000, "weight": 0.04, "tier": "A", "role": "Semicap monopoly; foreign div -> FTC"},
-    {"ticker": "SMNEY", "name": "Siemens Energy ADR", "account": "taxable", "target_usd": 45000, "weight": 0.03, "tier": "C", "role": "Electrons/turbines; foreign div -> FTC"},
-    {"ticker": "CASH-MUNI", "name": "Muni money-market (dry powder)", "account": "taxable", "target_usd": 25000, "weight": 0.017, "tier": "DRY", "role": "Tax-efficient cash"},
-    {"ticker": "SMH", "name": "VanEck Semiconductors", "account": "ira", "target_usd": 165000, "weight": 0.11, "tier": "C", "role": "AI/semis beta"},
-    {"ticker": "COPX", "name": "Global X Copper Miners", "account": "ira", "target_usd": 150000, "weight": 0.10, "tier": "C", "role": "Copper structural deficit"},
-    {"ticker": "NUKZ", "name": "Range Nuclear Renaissance", "account": "ira", "target_usd": 90000, "weight": 0.06, "tier": "C", "role": "Nuclear/electrons breadth"},
-    {"ticker": "MU", "name": "Micron Technology", "account": "ira", "target_usd": 90000, "weight": 0.06, "tier": "B", "role": "Forward-cheap HBM"},
-    {"ticker": "GEV", "name": "GE Vernova", "account": "ira", "target_usd": 60000, "weight": 0.04, "tier": "B", "role": "Turbine backlog to 2030"},
-    {"ticker": "CEG", "name": "Constellation Energy (IPP)", "account": "ira", "target_usd": 60000, "weight": 0.04, "tier": "A", "role": "Own the electrons (or VST/TLN)"},
-    {"ticker": "EME", "name": "EMCOR Group", "account": "ira", "target_usd": 30000, "weight": 0.02, "tier": "A", "role": "Electrical build, ~half Quanta multiple"},
-    {"ticker": "MP", "name": "MP Materials", "account": "ira", "target_usd": 30000, "weight": 0.02, "tier": "C", "role": "Rare-earth magnets (policy-floor trade)"},
-    {"ticker": "LEU", "name": "Centrus Energy", "account": "ira", "target_usd": 30000, "weight": 0.02, "tier": "C", "role": "Enrichment chokepoint, 2028 cliff"},
-    {"ticker": "ROBO", "name": "ROBO Global Robotics", "account": "ira", "target_usd": 30000, "weight": 0.02, "tier": "D", "role": "Robotics option"},
-    {"ticker": "UFO", "name": "Procure Space", "account": "ira", "target_usd": 15000, "weight": 0.01, "tier": "D", "role": "Space option"},
-    {"ticker": "CASH-MMF", "name": "Money-market (dry powder)", "account": "ira", "target_usd": 50000, "weight": 0.033, "tier": "DRY", "role": "Frictionless trigger-buys"}
+    {
+      "ticker": "PAVE",
+      "name": "Global X US Infrastructure",
+      "account": "taxable",
+      "target_usd": 205650,
+      "weight": 0.1371,
+      "tier": "A",
+      "role": "Anchor — broad reshoring/electrification"
+    },
+    {
+      "ticker": "GRID",
+      "name": "First Trust Clean Edge Smart Grid",
+      "account": "taxable",
+      "target_usd": 150750,
+      "weight": 0.1005,
+      "tier": "A",
+      "role": "Anchor — grid/electrical equipment"
+    },
+    {
+      "ticker": "FIW",
+      "name": "First Trust Water",
+      "account": "taxable",
+      "target_usd": 105000,
+      "weight": 0.07,
+      "tier": "A",
+      "role": "Anchor — non-build-out de-correlator"
+    },
+    {
+      "ticker": "SHLD",
+      "name": "Global X Defense Tech",
+      "account": "taxable",
+      "target_usd": 68550,
+      "weight": 0.0457,
+      "tier": "C",
+      "role": "Secular defense"
+    },
+    {
+      "ticker": "ASML",
+      "name": "ASML Holding",
+      "account": "taxable",
+      "target_usd": 54900,
+      "weight": 0.0366,
+      "tier": "A",
+      "role": "Semicap monopoly; foreign div -> FTC"
+    },
+    {
+      "ticker": "SMNEY",
+      "name": "Siemens Energy ADR",
+      "account": "taxable",
+      "target_usd": 41100,
+      "weight": 0.0274,
+      "tier": "C",
+      "role": "Electrons/turbines; foreign div -> FTC"
+    },
+    {
+      "ticker": "CASH-MUNI",
+      "name": "Muni money-market (dry powder)",
+      "account": "taxable",
+      "target_usd": 23250,
+      "weight": 0.0155,
+      "tier": "DRY",
+      "role": "Tax-efficient cash"
+    },
+    {
+      "ticker": "SMH",
+      "name": "VanEck Semiconductors",
+      "account": "ira",
+      "target_usd": 150750,
+      "weight": 0.1005,
+      "tier": "C",
+      "role": "AI/semis beta"
+    },
+    {
+      "ticker": "COPX",
+      "name": "Global X Copper Miners",
+      "account": "ira",
+      "target_usd": 137100,
+      "weight": 0.0914,
+      "tier": "C",
+      "role": "Copper structural deficit"
+    },
+    {
+      "ticker": "NUKZ",
+      "name": "Range Nuclear Renaissance",
+      "account": "ira",
+      "target_usd": 82200,
+      "weight": 0.0548,
+      "tier": "C",
+      "role": "Nuclear/electrons breadth"
+    },
+    {
+      "ticker": "MU",
+      "name": "Micron Technology",
+      "account": "ira",
+      "target_usd": 82200,
+      "weight": 0.0548,
+      "tier": "B",
+      "role": "Forward-cheap HBM"
+    },
+    {
+      "ticker": "GEV",
+      "name": "GE Vernova",
+      "account": "ira",
+      "target_usd": 54900,
+      "weight": 0.0366,
+      "tier": "B",
+      "role": "Turbine backlog to 2030"
+    },
+    {
+      "ticker": "CEG",
+      "name": "Constellation Energy (IPP)",
+      "account": "ira",
+      "target_usd": 54900,
+      "weight": 0.0366,
+      "tier": "A",
+      "role": "Own the electrons (or VST/TLN)"
+    },
+    {
+      "ticker": "EME",
+      "name": "EMCOR Group",
+      "account": "ira",
+      "target_usd": 27450,
+      "weight": 0.0183,
+      "tier": "A",
+      "role": "Electrical build, ~half Quanta multiple"
+    },
+    {
+      "ticker": "MP",
+      "name": "MP Materials",
+      "account": "ira",
+      "target_usd": 27450,
+      "weight": 0.0183,
+      "tier": "C",
+      "role": "Rare-earth magnets (policy-floor trade)"
+    },
+    {
+      "ticker": "LEU",
+      "name": "Centrus Energy",
+      "account": "ira",
+      "target_usd": 27450,
+      "weight": 0.0183,
+      "tier": "C",
+      "role": "Enrichment chokepoint, 2028 cliff"
+    },
+    {
+      "ticker": "ROBO",
+      "name": "ROBO Global Robotics",
+      "account": "ira",
+      "target_usd": 27450,
+      "weight": 0.0183,
+      "tier": "D",
+      "role": "Robotics option"
+    },
+    {
+      "ticker": "UFO",
+      "name": "Procure Space",
+      "account": "ira",
+      "target_usd": 13650,
+      "weight": 0.0091,
+      "tier": "D",
+      "role": "Space option"
+    },
+    {
+      "ticker": "CASH-MMF",
+      "name": "Money-market (dry powder)",
+      "account": "ira",
+      "target_usd": 45300,
+      "weight": 0.0302,
+      "tier": "DRY",
+      "role": "Frictionless trigger-buys"
+    },
+    {
+      "ticker": "JNJ",
+      "name": "JNJ",
+      "account": "taxable",
+      "weight": 0.0152,
+      "target_usd": 22800,
+      "tier": "C",
+      "role": "Diversifier (2nd axis) — Defensive health demand (pharma / devices)",
+      "conviction": 0.87,
+      "sleeve": "health-defensive"
+    },
+    {
+      "ticker": "WMT",
+      "name": "WMT",
+      "account": "taxable",
+      "weight": 0.0123,
+      "target_usd": 18450,
+      "tier": "C",
+      "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+      "conviction": 0.87,
+      "sleeve": "consumer-staples"
+    },
+    {
+      "ticker": "KO",
+      "name": "KO",
+      "account": "taxable",
+      "weight": 0.0142,
+      "target_usd": 21300,
+      "tier": "C",
+      "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+      "conviction": 0.86,
+      "sleeve": "consumer-staples"
+    },
+    {
+      "ticker": "PEP",
+      "name": "PEP",
+      "account": "taxable",
+      "weight": 0.0135,
+      "target_usd": 20250,
+      "tier": "C",
+      "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+      "conviction": 0.85,
+      "sleeve": "consumer-staples"
+    },
+    {
+      "ticker": "MRK",
+      "name": "MRK",
+      "account": "taxable",
+      "weight": 0.0112,
+      "target_usd": 16800,
+      "tier": "C",
+      "role": "Diversifier (2nd axis) — Defensive health demand (pharma / devices)",
+      "conviction": 0.84,
+      "sleeve": "health-defensive"
+    },
+    {
+      "ticker": "PG",
+      "name": "PG",
+      "account": "taxable",
+      "weight": 0.0136,
+      "target_usd": 20400,
+      "tier": "C",
+      "role": "Diversifier (2nd axis) — Consumer staples (inelastic demand)",
+      "conviction": 0.837,
+      "sleeve": "consumer-staples"
+    }
   ],
   "tiers": {
     "A": "Deploy 100% now (anchors + low-regret)",
