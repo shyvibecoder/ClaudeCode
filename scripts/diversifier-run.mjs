@@ -44,7 +44,7 @@ async function loadSeries(tickers) {
 (async () => {
   const portfolio = JSON.parse(readFileSync(new URL("../web/data/portfolio.json", import.meta.url)));
   const planTickers = (portfolio.holdings || []).map((h) => h.ticker);
-  const existingDiversifierTickers = (portfolio.holdings || []).filter((h) => /de-correlator|diversifier/i.test(h.role || "")).map((h) => h.ticker);
+  const existingDiversifierTickers = (portfolio.holdings || []).filter((h) => h.axis === "diversifier" || /de-correlator|diversifier/i.test(h.role || "")).map((h) => h.ticker);
   const sleeveUsd = portfolio.sleeve_usd || 0;
 
   console.log(`Fetching market ${MARKET.join(",")} | complex ${COMPLEX.join(",")} | ${DIVERSIFIER_UNIVERSE.length} candidate sleeves | ${planTickers.length} plan tickers`);
@@ -72,7 +72,7 @@ async function loadSeries(tickers) {
   // Stage 3 — size the sleeve (conviction × inverse-vol, around what's planned).
   const vols = {}; for (const t of tickers) vols[t] = basketStats(series, [t])?.vol ?? 0.25;
   const funding = fundSleeve({ candidates: qualifiers, currentHoldings: portfolio.holdings || [], existingDiversifierTickers, sleevePct: SLEEVE_PCT, sleeveUsd, convictions, vols });
-  console.log(`Funding: ${funding.newHoldings.length} new name(s) into a ${(SLEEVE_PCT * 100).toFixed(0)}% sleeve (FIW etc. already ${(funding.existingDivWeight * 100).toFixed(1)}%); deep-tech build-out scaled ×${funding.aiScale}`);
+  console.log(`Funding: ${funding.newHoldings.length} new name(s) into a ${(SLEEVE_PCT * 100).toFixed(0)}% sleeve (FIW etc. already ${(funding.existingDivWeight * 100).toFixed(1)}%); deep-tech build-out scaled ×${funding.buildoutScale}`);
 
   // Write the proposal (a SEPARATE feed; never the plan). Computed metrics = the machine-generated evidence.
   const out = {

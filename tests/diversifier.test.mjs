@@ -106,7 +106,7 @@ describe("diversifier Stage 3: sizing fills the sleeve budget around what's plan
     assert.equal(funding.newHoldings.length, 2);
     assert.equal(funding.newHoldings[0].weight, 0.04);
     assert.equal(funding.newHoldings[0].target_usd, 60000);
-    assert.ok(Math.abs(funding.aiScale - 0.85 / 0.93) < 1e-3);
+    assert.ok(Math.abs(funding.buildoutScale - 0.85 / 0.93) < 1e-3);
   });
   it("the proposed plan still sums to 1.0 with the diversifier axis at exactly the sleeve %", () => {
     const holdings = applyFunding(portfolio, funding);
@@ -116,5 +116,22 @@ describe("diversifier Stage 3: sizing fills the sleeve budget around what's plan
     const divTotal = holdings.filter((h) => divTickers.has(h.ticker)).reduce((a, h) => a + h.weight, 0);
     assert.ok(Math.abs(divTotal - 0.15) < 1e-3, `diversifier axis = ${divTotal}`);
     assert.equal(holdings.find((h) => h.ticker === "FIW").weight, 0.07); // FIW untouched
+  });
+  it("EDGE: zero new qualifiers → plan still sums to 1.0 (no phantom-reserved cash hole) [B2]", () => {
+    const f = fundSleeve({ candidates: [], currentHoldings: portfolio.holdings, existingDiversifierTickers: ["FIW"], sleevePct: 0.15, sleeveUsd: portfolio.sleeve_usd });
+    assert.equal(f.newHoldings.length, 0);
+    const h = applyFunding(portfolio, f);
+    const total = h.reduce((a, x) => a + x.weight, 0);
+    assert.ok(Math.abs(total - 1.0) < 1e-3, `sums to ${total}`);
+  });
+  it("EDGE: existing diversifiers already over the target → sums to 1.0, no build-out scale-up [B1]", () => {
+    const over = { sleeve_usd: 1_500_000, holdings: [{ ticker: "FIW", weight: 0.20 }, { ticker: "PAVE", weight: 0.80 }] };
+    const f = fundSleeve({ candidates: [{ id: "health", scarcity: "Health", tickers: ["JNJ"] }], currentHoldings: over.holdings, existingDiversifierTickers: ["FIW"], sleevePct: 0.15, sleeveUsd: over.sleeve_usd });
+    assert.equal(f.budget, 0);
+    assert.equal(f.newHoldings.length, 0);
+    assert.ok(f.buildoutScale <= 1.0, `build-out must not scale UP (was ${f.buildoutScale})`);
+    const h = applyFunding(over, f);
+    const total = h.reduce((a, x) => a + x.weight, 0);
+    assert.ok(Math.abs(total - 1.0) < 1e-3, `sums to ${total}`);
   });
 });

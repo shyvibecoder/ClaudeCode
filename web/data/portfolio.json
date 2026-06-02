@@ -8,7 +8,7 @@
   "holdings": [
     {"ticker": "PAVE", "name": "Global X US Infrastructure", "account": "taxable", "target_usd": 225000, "weight": 0.15, "tier": "A", "role": "Anchor — broad reshoring/electrification"},
     {"ticker": "GRID", "name": "First Trust Clean Edge Smart Grid", "account": "taxable", "target_usd": 165000, "weight": 0.11, "tier": "A", "role": "Anchor — grid/electrical equipment"},
-    {"ticker": "FIW", "name": "First Trust Water", "account": "taxable", "target_usd": 105000, "weight": 0.07, "tier": "A", "role": "Anchor — non-AI de-correlator"},
+    {"ticker": "FIW", "name": "First Trust Water", "account": "taxable", "target_usd": 105000, "weight": 0.07, "tier": "A", "role": "Anchor — non-build-out de-correlator"},
     {"ticker": "SHLD", "name": "Global X Defense Tech", "account": "taxable", "target_usd": 75000, "weight": 0.05, "tier": "C", "role": "Secular defense"},
     {"ticker": "ASML", "name": "ASML Holding", "account": "taxable", "target_usd": 60000, "weight": 0.04, "tier": "A", "role": "Semicap monopoly; foreign div -> FTC"},
     {"ticker": "SMNEY", "name": "Siemens Energy ADR", "account": "taxable", "target_usd": 45000, "weight": 0.03, "tier": "C", "role": "Electrons/turbines; foreign div -> FTC"},

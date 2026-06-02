@@ -23,7 +23,7 @@ export const DIVERSIFIER_UNIVERSE = [
 ];
 
 // Screen one candidate sleeve. Returns the full metric row + a qualify decision with a human reason.
-// `qualifies` requires ALL of: gate pass (build-out β not positive), market beta ≤ betaMax, maxDD ≤ cap. When
+// `qualifies` requires ALL of: gate pass (build-out β ≤ buildoutBetaMax), market beta ≤ betaMax, maxDD ≤ cap. When
 // `planTickers` is supplied we ALSO compute the incremental drawdown reduction the sleeve gives the plan
 // (planMaxDD − blendedMaxDD); a non-positive value means the sleeve is redundant with what's already held.
 export function screenCandidate(seriesByTicker, c, marketTickers, complexTickers, { planTickers = [], buildoutBetaMax = 0.3, betaMax = 0.95, maxDDCap = 0.5, minDays = 60 } = {}) {
@@ -140,21 +140,27 @@ export function fundSleeve({ candidates = [], currentHoldings = [], existingDive
   const newHoldings = names.map((n, i) => {
     const weight = +(budget * raw[i] / sum).toFixed(4);
     return { ticker: n.ticker, name: n.ticker, account, weight, target_usd: Math.round(weight * sleeveUsd), tier, role: `Diversifier (2nd axis) — ${n.scarcity}`, conviction: +(convictions[n.ticker] ?? defaultConviction).toFixed(3), sleeve: n.sleeve };
-  });
-  const aiWeight = +(1 - existingDivWeight).toFixed(6); // current non-diversifier (deep-tech build-out) weight
-  const aiScale = aiWeight > 0 ? +((1 - sleevePct) / aiWeight).toFixed(4) : 1; // scale deep-tech build-out down so the plan still sums to 1.0
-  return { newHoldings, budget, existingDivWeight: +existingDivWeight.toFixed(4), aiScale, sleevePct, existingDiversifierTickers };
+  }).filter((h) => h.weight > 0); // a zero budget (existing diversifiers already at/over target) proposes no $0 buys
+  // Reserve only what the diversifier axis ACTUALLY ends at (existing + what we actually funded) — never a
+  // phantom full-sleevePct slot. This keeps the plan summing to 1.0 in every case: zero qualifiers (budget
+  // unfilled → no cash hole) and over-allocated existing diversifiers (existingDivWeight > sleevePct → no
+  // spurious scale-up of the build-out). The build-out is scaled to fill exactly the remainder.
+  const actualNewDivWeight = +newHoldings.reduce((a, h) => a + h.weight, 0).toFixed(6);
+  const finalDivWeight = +(existingDivWeight + actualNewDivWeight).toFixed(6);
+  const buildoutWeight = +(1 - existingDivWeight).toFixed(6); // current non-diversifier (deep-tech build-out) weight
+  const buildoutScale = buildoutWeight > 0 ? +((1 - finalDivWeight) / buildoutWeight).toFixed(4) : 1;
+  return { newHoldings, budget, existingDivWeight: +existingDivWeight.toFixed(4), finalDivWeight, buildoutScale, sleevePct, existingDiversifierTickers };
 }
 
 // Produce the PROPOSED holdings list for the plan PR: deep-tech build-out holdings scaled by aiScale, existing
 // diversifiers (FIW) kept as-is, new diversifier names appended. The result sums back to ~1.0 with the
 // diversifier axis at `sleevePct`. (Stage 3 of the pipeline; the human reviews + merges this.)
 export function applyFunding(portfolio, funding) {
-  const { newHoldings, aiScale, existingDiversifierTickers = [] } = funding;
+  const { newHoldings, buildoutScale, existingDiversifierTickers = [] } = funding;
   const newSet = new Set(newHoldings.map((h) => h.ticker));
   const scaled = (portfolio.holdings || []).filter((h) => !newSet.has(h.ticker)).map((h) => {
     if (existingDiversifierTickers.includes(h.ticker)) return { ...h }; // existing diversifier (FIW) untouched — already in the budget
-    const weight = +((h.weight || 0) * aiScale).toFixed(4);
+    const weight = +((h.weight || 0) * buildoutScale).toFixed(4);
     return { ...h, weight, target_usd: Math.round(weight * (portfolio.sleeve_usd || 0)) };
   });
   return [...scaled, ...newHoldings];

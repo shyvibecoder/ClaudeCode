@@ -58,7 +58,7 @@ export const isDiversifier = (s) => s?.axis === "diversifier";
 export const buildoutOnly = (scarcities) => (scarcities || []).filter((s) => !isDiversifier(s));
 
 export function rankOpportunities(scarcities, crowdingById = {}) {
-  return (scarcities || [])
+  return buildoutOnly(scarcities) // defense-in-depth: diversifiers are NEVER Opportunity-ranked (they earn their place by lowering drawdown)
     .map((s) => ({ id: s.id, scarcity: s.scarcity, sector: s.sector, ...opportunityScore(s, { liveCrowding: crowdingById[s.id] ?? null }) }))
     .sort((a, b) => b.score - a.score);
 }

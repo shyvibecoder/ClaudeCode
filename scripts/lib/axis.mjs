@@ -61,7 +61,7 @@ export function blendIndex(seriesByTicker, axisTickerLists) {
 // an deep-tech build-out factor that is independent of market beta, then regress the candidate on BOTH. The candidate
 // is judged on its RESIDUAL deep-tech build-out beta (`buildoutBeta`) — its sensitivity to the build-out AFTER controlling
 // for market beta. A basket can have high raw correlation (high mktBeta) yet ~zero buildoutBeta — that's genuine
-// breadth against an deep-tech build-out air-pocket. `qualifies` when |buildoutBeta| < buildoutBetaMax. Returns null on thin overlap.
+// breadth against a deep-tech build-out air-pocket. `qualifies` when buildoutBeta < buildoutBetaMax (one-sided: negative is a hedge). Returns null on thin overlap.
 export function buildoutLoading(seriesByTicker, candidateTickers, marketTickers, complexTickers, { buildoutBetaMax = 0.3, minDays = 60 } = {}) {
   const mkt = basketReturns(seriesByTicker, marketTickers);
   const cpx = basketReturns(seriesByTicker, complexTickers);
@@ -82,7 +82,7 @@ export function buildoutLoading(seriesByTicker, candidateTickers, marketTickers,
   // buildoutBeta is a mild hedge (the basket rises when the AI factor falls), so it must NOT be penalised — using
   // |buildoutBeta| would wrongly punish the best diversifiers. Fail only when the basket loads positively on the
   // deep-tech build-out factor beyond the tolerance, after market beta is removed.
-  const qualifies = buildoutBeta < buildoutBetaMax;
+  const qualifies = buildoutBeta <= buildoutBetaMax;
   return {
     marketBeta: +marketBeta.toFixed(3), buildoutBeta: +buildoutBeta.toFixed(3), buildoutT: buildoutT == null ? null : +buildoutT.toFixed(2),
     r2: +fit.r2.toFixed(3), n: fit.n, qualifies,

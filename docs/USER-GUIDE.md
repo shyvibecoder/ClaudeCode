@@ -81,7 +81,7 @@ pipeline, distinct from the deep-tech build-out Opportunity logic:
 
 ![Diversifier funding pipeline: Screen → Committee conviction → Size → human-merged PR into the plan](img/diversifier.svg)
 
-1. **Screen** *(live)* — every candidate defensive sleeve is gated on low market β, a **non-positive
+1. **Screen** *(live)* — every candidate defensive sleeve is gated on low market β, a **near-zero or negative (≤ 0.3 tolerance)
    deep-tech build-out β** (it must not amplify the build-out), and — crucially — whether it **lowers the drawdown of
    the plan you already hold** (a sleeve that duplicates planned exposure, e.g. water vs the FIW already in
    the plan, is flagged as redundant). Output → `diversifier-candidates.json`.

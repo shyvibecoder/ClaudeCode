@@ -138,7 +138,6 @@
       <h2 class="group-h">🎯 Suggestions — what to change <button class="help" data-help="rebalance">?</button></h2>
       <p class="group-sub">Advisory only — Puck never trades or edits your book. Buy/sell to reach target weights, the tactical IRA tilts, and a stress check.</p>
       <div id="rebalanceBox"></div>
-      <div id="sizingBox"></div>
       <div id="stressTest"></div>
     </div>
 
@@ -213,7 +212,6 @@
   <script type="module">import { configStatus, browserKeyStatus, committeeRoster } from "./admin.mjs"; window.PuckAdmin = { configStatus, browserKeyStatus, committeeRoster };</script>
   <script type="module">import { dcaProgress } from "./dca-view.mjs"; window.dcaProgress = dcaProgress;</script>
   <script type="module">import { applyShock, SCENARIOS } from "./stress.mjs"; window.PuckStress = { applyShock, SCENARIOS };</script>
-  <script type="module">import { targetDeltas } from "./sizing.mjs"; window.targetDeltas = targetDeltas;</script>
   <script type="module">import { proposalDiffs, applyAcceptance, BOT_OWNED_FIELDS } from "./research-review.mjs"; window.PuckResearch = { proposalDiffs, applyAcceptance, BOT_OWNED_FIELDS };</script>
   <script type="module">import { scoutCandidateView, appendScoutScarcity, approvePendingPhrases } from "./scout-review.mjs"; window.PuckScout = { scoutCandidateView, appendScoutScarcity, approvePendingPhrases };</script>
 </body>

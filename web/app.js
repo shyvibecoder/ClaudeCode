@@ -226,7 +226,7 @@ function renderRadar() {
         const dv = s.diversifier_evidence;
         const pctOf = (x) => (x == null ? "—" : `${Math.round(x * 100)}%`);
         const axisMark = isDiv
-          ? `<span class="axis2" title="Second axis — a diversifier held to reduce drawdown, judged by the Deep-tech build-out gate (build-out β must not be positive), not the Opportunity Score${dv?.caveat ? `. ${esc(dv.caveat)}` : ""}">◇ diversifier · 2nd axis</span>` : "";
+          ? `<span class="axis2" title="Second axis — a diversifier held to reduce drawdown, judged by the Deep-tech build-out gate (build-out β ≤ 0.3 — must not meaningfully amplify the build-out), not the Opportunity Score${dv?.caveat ? `. ${esc(dv.caveat)}` : ""}">◇ diversifier · 2nd axis</span>` : "";
         // Flag where the live tape materially disagrees with the human priced-in label (informative).
         const diverge = sig && sig.live_gate != null && Math.abs(sig.live_gate - sig.static_gate) >= 0.3
           ? `<span class="diverge" title="tape disagrees with the priced-in label: live gate ${sig.live_gate} vs label ${sig.static_gate}">${sig.live_gate > sig.static_gate ? "↑tape" : "↓tape"}</span>` : "";
@@ -316,15 +316,8 @@ function renderMetrics() {
     </div>${m.backtest ? `<p class="foot">Trend-brake backtest (${m.backtest.n}d, ${m.backtest.ma_period}-day MA, no look-ahead): max-DD <strong>${(m.backtest.braked.max_drawdown*100).toFixed(0)}%</strong> braked vs ${(m.backtest.unbraked.max_drawdown*100).toFixed(0)}% buy&amp;hold (−${(m.backtest.dd_reduction*100).toFixed(0)} pts); Calmar ${num(m.backtest.braked.calmar)} vs ${num(m.backtest.unbraked.calmar)}; ${m.backtest.whipsaws} switches, ${Math.round(m.backtest.time_in_market*100)}% in market.</p>` : ""}${scLine}${scAlpha}${scAttr}${scBt}`;
 }
 
-function renderSizing() {
-  const box = $("#sizingBox"); if (!box) return;
-  const td = window.targetDeltas, reg = DATA.sig?.regime, per = reg?.per_name;
-  if (!td || !per || !reg || reg.posture === "unknown") { box.innerHTML = ""; return; }
-  const rows = td(DATA.port?.holdings || [], per, reg).filter((x) => x.action === "add" || x.action === "trim");
-  box.innerHTML = `<h3>Suggested IRA tilts <button class="help" data-help="sizing">?</button> <span class="foot">— per-name TSMOM × regime, bounded ±25%, tactical (IRA) sleeve only</span></h3>` +
-    (rows.length ? `<table class="mine"><thead><tr><th>Ticker</th><th>Tilt</th><th>Δ weight</th><th>Action</th></tr></thead><tbody>${rows.map((r) => `<tr><td><strong>${esc(r.ticker)}</strong></td><td>${esc(r.tilt)}</td><td class="${r.delta_pct >= 0 ? "pos" : "neg"}">${r.delta_pct > 0 ? "+" : ""}${r.delta_pct}%</td><td>${r.action}</td></tr>`).join("")}</tbody></table>`
-      : `<p class="foot">No active tilts (regime isn't risk-on and nothing is flagged underweight).</p>`);
-}
+// (Removed: "Suggested IRA tilts" — its per-name TSMOM × regime tilt is already applied to the IRA sleeve
+// in the Rebalance plan's SIGNAL column, so a standalone table just duplicated it. One "what to change" view.)
 
 function renderRebalance() {
   const box = $("#rebalanceBox"); if (!box) return;
@@ -371,10 +364,12 @@ function renderPortfolio() {
   renderMyHoldings();
   renderDca();
   renderStress();
-  renderSizing();
   renderRebalance();
   const p = DATA.port || {};
+  const isDiv = (h) => h.axis === "diversifier" || /diversifier|de-correlator/i.test(h.role || ""); // axis tag or role
+  const divW = (p.holdings || []).filter(isDiv).reduce((a, h) => a + (h.weight || 0), 0);
   $("#portSummary").innerHTML = (p.holdings && p.accounts) ? `
+    <div class="card"><b>${Math.round((1 - divW) * 100)}% / ${Math.round(divW * 100)}%</b><span>build-out / ◇ diversifier sleeve</span></div>
     <div class="card"><b>${fmtUsd(p.sleeve_usd)}</b><span>sleeve (~${Math.round(p.sleeve_usd / p.total_portfolio_usd * 100)}% of ${fmtUsd(p.total_portfolio_usd)})</span></div>
     <div class="card"><b>${fmtUsd(p.accounts.ira)}</b><span>IRA / 401k</span></div>
     <div class="card"><b>${fmtUsd(p.accounts.taxable)}</b><span>taxable</span></div>
@@ -395,7 +390,6 @@ function renderPortfolio() {
   });
 
   const tb = $("#holdings tbody"); tb.innerHTML = "";
-  const isDiv = (h) => h.axis === "diversifier" || /diversifier|de-correlator/i.test(h.role || "");
   const rowHtml = (h) => {
     const Q = q(h.ticker);
     const ytd = Q?.ytd, off = Q?.pct_off_high;

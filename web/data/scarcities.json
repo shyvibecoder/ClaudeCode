@@ -464,13 +464,13 @@
         "mktBeta": 0.65,
         "buildoutBeta": -0.314,
         "buildoutT": -22.62,
-        "gate": "pass (build-out β negative — does not amplify the deep-tech build-out build-out)",
+        "gate": "pass (build-out β negative — does not amplify the deep-tech build-out)",
         "blend_with": "water-climate",
         "blend_maxDD": 0.312,
         "blend_compRho": 0.655,
         "caveat": "Health and water-climate share a rates/duration factor (compρ 0.655) — the blend softens an AI air-pocket but is not independent of a rate shock."
       },
-      "thesis": "SECOND AXIS, not an deep-tech build-out bottleneck — held to LOWER the book's drawdown. Defensive demographic/biology demand (excludes AI-narrative / TechBio names by design). axis-check (apples-to-apples 2008+): lowest market beta of any candidate (0.65), 36% maxDD, and a statistically robust negative deep-tech build-out loading (build-out β -0.314, t -22.6) — a reliable mild HEDGE that does not amplify the build-out. Paired 50/50 with water-climate the sleeve drawdown drops to 31% (below either alone, under the -35% objective). Judge on drawdown reduction, NOT the Opportunity Score."
+      "thesis": "SECOND AXIS, not a deep-tech build-out bottleneck — held to LOWER the book's drawdown. Defensive demographic/biology demand (excludes AI-narrative / TechBio names by design). axis-check (apples-to-apples 2008+): lowest market beta of any candidate (0.65), 36% maxDD, and a statistically robust negative deep-tech build-out loading (build-out β -0.314, t -22.6) — a reliable mild HEDGE that does not amplify the build-out. Paired 50/50 with water-climate the sleeve drawdown drops to 31% (below either alone, under the -35% objective). Judge on drawdown reduction, NOT the Opportunity Score."
     },
     {
       "id": "water-climate",
@@ -496,13 +496,13 @@
         "mktBeta": 0.74,
         "buildoutBeta": -0.306,
         "buildoutT": -18.18,
-        "gate": "pass (build-out β negative — does not amplify the deep-tech build-out build-out)",
+        "gate": "pass (build-out β negative — does not amplify the deep-tech build-out)",
         "blend_with": "health-defensive",
         "blend_maxDD": 0.312,
         "blend_compRho": 0.655,
         "caveat": "Not in the actual book (currently unfunded), BUT the proposed plan already includes FIW (water anchor) — so a water/climate sleeve overlaps it at the PLAN level: size around the planned FIW, do not double-count water. Also shares a rates/duration factor with health (compρ 0.655)."
       },
-      "thesis": "SECOND AXIS, not an deep-tech build-out bottleneck — fresh breadth held to LOWER drawdown. Water scarcity / regulated climate-adaptation infrastructure: a durable demand driver largely independent of the deep-tech build-out cycle. axis-check (2008+): LOWEST standalone drawdown of any candidate (34%), mktβ 0.74, robust negative deep-tech build-out loading (build-out β -0.306, t -18.2). Different demand driver from health, so a 50/50 blend cuts the sleeve drawdown to 31% — the diversification payoff. Judge on drawdown reduction, NOT the Opportunity Score."
+      "thesis": "SECOND AXIS, not a deep-tech build-out bottleneck — fresh breadth held to LOWER drawdown. Water scarcity / regulated climate-adaptation infrastructure: a durable demand driver largely independent of the deep-tech build-out cycle. axis-check (2008+): LOWEST standalone drawdown of any candidate (34%), mktβ 0.74, robust negative deep-tech build-out loading (build-out β -0.306, t -18.2). Different demand driver from health, so a 50/50 blend cuts the sleeve drawdown to 31% — the diversification payoff. Judge on drawdown reduction, NOT the Opportunity Score."
     }
   ]
 }

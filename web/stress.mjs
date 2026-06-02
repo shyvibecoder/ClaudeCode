@@ -2,7 +2,7 @@
 // sleeve (localStorage positions × scan prices) and show the drawdown vs the −35%
 // objective limit. Coarse, documented shock vectors (not fitted). Pure (browser+Node).
 export const SCENARIOS = [
-  { id: "digestion", name: "2027–28 AI-capex digestion", market: -0.35, beta: 1.2, note: "the basket's shared failure mode (~1.0 internal correlation)" },
+  { id: "digestion", name: "2027–28 Deep-tech build-out digestion", market: -0.35, beta: 1.2, note: "the basket's shared failure mode (~1.0 internal correlation)" },
   { id: "rate-shock", name: "2022-style rate shock", market: -0.25, beta: 1.3, note: "long-duration/high-beta hit hardest" },
   { id: "recession", name: "Broad recession", market: -0.30, beta: 1.1, note: "cyclicals fall together" },
   { id: "china-re-peace", name: "China rare-earth 'peace'", market: 0, beta: 1.0, targeted: { MP: -0.5, LYC: -0.5 }, note: "subsidy-floor RE names re-rate down" },
