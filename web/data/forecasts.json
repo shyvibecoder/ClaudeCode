@@ -2222,6 +2222,94 @@
         "ROBO": 89.56999969482422,
         "UFO": 61.08000183105469
       }
+    },
+    {
+      "date": "2026-06-02",
+      "type": "scarcity_rel",
+      "subject": "electricians",
+      "proxies": [
+        "EME",
+        "PWR",
+        "FIX",
+        "MYRG"
+      ],
+      "complex_tickers": [
+        "PAVE",
+        "GRID",
+        "FIW",
+        "SHLD",
+        "SMH",
+        "COPX",
+        "NUKZ",
+        "ROBO",
+        "UFO"
+      ],
+      "basket_at": 963.3461227416992,
+      "complex_at": 151.02948718600803,
+      "basket_prices": {
+        "EME": 837,
+        "PWR": 697.2000122070312,
+        "FIX": 1860.5999755859375,
+        "MYRG": 458.5845031738281
+      },
+      "complex_prices": {
+        "PAVE": 56.404998779296875,
+        "GRID": 196.26499938964844,
+        "FIW": 103.33000183105469,
+        "SHLD": 64.99949645996094,
+        "SMH": 622.3599853515625,
+        "COPX": 91.68810272216797,
+        "NUKZ": 72.8927993774414,
+        "ROBO": 89.56999969482422,
+        "UFO": 61.755001068115234
+      },
+      "horizon_days": 42,
+      "resolve_on": "2026-07-14",
+      "id": "2026-06-02:scarcity_rel:electricians",
+      "claim": "underperform",
+      "source": "de-rating"
+    },
+    {
+      "date": "2026-06-02",
+      "type": "scarcity_rel",
+      "subject": "rare-earth-magnets",
+      "proxies": [
+        "MP",
+        "LYC"
+      ],
+      "complex_tickers": [
+        "PAVE",
+        "GRID",
+        "FIW",
+        "SHLD",
+        "SMH",
+        "COPX",
+        "NUKZ",
+        "ROBO",
+        "UFO"
+      ],
+      "basket_at": 44.724998474121094,
+      "complex_at": 151.02948718600803,
+      "basket_prices": {
+        "MP": 70.48999786376953,
+        "LYC": 18.959999084472656
+      },
+      "complex_prices": {
+        "PAVE": 56.404998779296875,
+        "GRID": 196.26499938964844,
+        "FIW": 103.33000183105469,
+        "SHLD": 64.99949645996094,
+        "SMH": 622.3599853515625,
+        "COPX": 91.68810272216797,
+        "NUKZ": 72.8927993774414,
+        "ROBO": 89.56999969482422,
+        "UFO": 61.755001068115234
+      },
+      "horizon_days": 42,
+      "resolve_on": "2026-07-14",
+      "id": "2026-06-02:scarcity_rel:rare-earth-magnets",
+      "claim": "underperform",
+      "source": "de-rating"
     }
   ],
   "scorecard": {
