@@ -42,3 +42,86 @@ export function suggestedActionFallback(trigger, { weightPct = null, regime = nu
 export function watchableTriggers(triggers) {
   return (triggers || []).filter((t) => t && t.type === "manual" && t.watch && Array.isArray(t.watch.queries) && t.watch.queries.length);
 }
+
+// --- Evidence + committee plumbing (pure prompt/parse; the fetch + model calls are injected for testability) ---
+
+const STOP = new Set(["the", "and", "for", "with", "from", "into", "are", "but", "per", "kg", "price", "guide", "guided", "guidance", "extends", "extended", "consecutive", "quarters"]);
+const sig = (q) => uniq(String(q).toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3 && !STOP.has(w)));
+
+// Pre-filter the already-fetched news to headlines relevant to a trigger's queries: a headline matches when it
+// shares ≥2 significant words with any one query (keeps spurious single-word hits out; the LLM does the real
+// judging). Returns [{title, link, date}] newest-first.
+export function matchNews(news, queries) {
+  const qsets = (queries || []).map(sig);
+  const hits = (news || []).filter((h) => {
+    const ws = new Set(sig(h?.title || ""));
+    return qsets.some((qs) => qs.filter((w) => ws.has(w)).length >= 2);
+  });
+  return hits.sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).map((h) => ({ title: h.title, link: h.link, date: h.date }));
+}
+
+// Strict-JSON committee prompt: judge ONLY this condition, ONLY from the evidence, require corroboration.
+export function catalystPrompt(trigger, evidence) {
+  const ev = JSON.stringify(evidence || {}, null, 0).slice(0, 9000);
+  return `You monitor ONE market catalyst for a structural-scarcity book. Decide ONLY whether this specific ` +
+    `condition is NOW MET, based STRICTLY on the evidence below — do not use outside knowledge or assume.\n` +
+    `CONDITION: "${trigger.name}".${trigger.watch?.fires_when ? ` Fires when: ${trigger.watch.fires_when}.` : ""}` +
+    `${trigger.watch?.price_leg ? ` Price leg: ${trigger.watch.price_leg} (judge only from news; be conservative).` : ""}\n` +
+    `Only answer met=true if MULTIPLE independent sources OR an SEC filing support it — never on a single headline.\n` +
+    `EVIDENCE (headlines + filings, with sources):\n${ev}\n\n` +
+    `Respond with STRICT JSON only: {"met": true|false, "confidence": 0..1, "rationale": "one sentence", "citations": ["source title or filing", ...]}`;
+}
+
+// Robustly extract the verdict JSON from a model reply.
+export function parseCatalystVerdict(text) {
+  const fail = { met: false, confidence: 0, citations: [], rationale: "no/own parse" };
+  if (!text) return fail;
+  const m = String(text).match(/\{[\s\S]*\}/);
+  if (!m) return fail;
+  try {
+    const j = JSON.parse(m[0]);
+    return {
+      met: j.met === true,
+      confidence: Math.max(0, Math.min(1, Number(j.confidence) || 0)),
+      citations: Array.isArray(j.citations) ? j.citations.map(String).filter(Boolean).slice(0, 6) : [],
+      rationale: typeof j.rationale === "string" ? j.rationale.slice(0, 240) : "",
+    };
+  } catch { return fail; }
+}
+
+// LLM prompt to draft a portfolio-aware action once a trigger is firing (grounds on the canned policy action).
+export function actionDraftPrompt(trigger, consensus, ctx = {}) {
+  return `A monitored catalyst just reached "${consensus.status}" (confidence ${consensus.confidence}). ` +
+    `Policy action: "${trigger.action}". Context: ${JSON.stringify(ctx).slice(0, 800)}.\n` +
+    `In 1-2 sentences, give a SPECIFIC, advisory suggestion: what to do, rough sizing vs the current weight, ` +
+    `and tax-location nuance (taxable lots are buy-and-hold unless the trim bar is met; realize in IRA first). ` +
+    `Advisory only — do NOT instruct to trade; the human decides. No preamble.`;
+}
+
+// Orchestrate the watch over all watchable triggers. Dependencies (callers, searchFilings) are INJECTED so
+// this is unit-testable with fakes; the scanner passes real committee seats + EDGAR FTS. Returns the
+// catalyst_watch map { triggerId: { status, confidence, met, citations, evidence, suggested_action, as_of } }.
+export async function runCatalystWatch({ triggers, news = [], prevWatch = {}, callers = [], searchFilings = null, actionContext = {}, today = new Date().toISOString().slice(0, 10), maxFilings = 3 } = {}) {
+  const out = {};
+  for (const t of watchableTriggers(triggers)) {
+    const headlines = matchNews(news, t.watch.queries).slice(0, 8);
+    let filings = [];
+    if (searchFilings) for (const qy of t.watch.queries.slice(0, 2)) { try { filings.push(...(await searchFilings(qy, { limit: maxFilings }))); } catch { /* skip */ } }
+    filings = filings.slice(0, maxFilings * 2);
+    const evidence = { headlines, filings };
+    const verdicts = [];
+    for (const call of callers) { try { verdicts.push(parseCatalystVerdict(await call(catalystPrompt(t, evidence)))); } catch { /* seat down */ } }
+    const consensus = catalystConsensus(verdicts, prevWatch[t.id]);
+    let suggested_action = null;
+    if (consensus.status === "fired" || consensus.status === "likely-met") {
+      suggested_action = suggestedActionFallback(t, actionContext[t.id] || {});
+      if (callers[0]) { try { const d = await callers[0](actionDraftPrompt(t, consensus, actionContext[t.id] || {})); if (d && d.trim()) suggested_action = d.trim().slice(0, 500); } catch { /* keep fallback */ } }
+    }
+    out[t.id] = {
+      status: consensus.status, confidence: consensus.confidence, met: consensus.met, citations: consensus.citations,
+      evidence: { headlines: headlines.map((h) => ({ title: h.title, date: h.date })), filings: filings.map((f) => ({ title: f.title || f.form || "filing", date: f.date || f.filed || null })) },
+      suggested_action, as_of: today,
+    };
+  }
+  return out;
+}
