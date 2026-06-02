@@ -45,6 +45,7 @@ const BACKFILL = process.argv.includes("--backfill"); // one-time deep history s
 const read = (p) => JSON.parse(readFileSync(new URL(`../web/data/${p}`, import.meta.url)));
 const v23LatestBars = []; // today's bars for the non-universe V2.3 tickers, collected during the cross-check
 const V23_TICKERS = ["QQQ", "^VIX", "^VIX3M", "HYG", "QLD", "SGOV"]; // V2.3 cross-check + execution instruments
+const REGIME_INSTRUMENTS = ["QQQ", "TQQQ", "SQQQ"]; // regime visibility panel — full DB-history technicals incl 12m
 
 const dataUrl = (p) => new URL(`../web/data/${p}`, import.meta.url);
 
@@ -441,13 +442,23 @@ if (!OFFLINE) {
 const regime = computeRegime(enriched, portfolio.holdings, { macro, securities });
 console.log(`Regime: ${regime.posture}${regime.risk_score != null ? ` (risk ${regime.risk_score}/100)` : ""}`);
 
-// Regime instruments panel: QQQ (the regime's reference underlying) + TQQQ/SQQQ (the 3× long/short proxies)
-// with full daily technicals incl RSI-14 — so the dashboard can show, daily, the signals the regime reads.
+// Regime instruments panel: QQQ (reference underlying) + TQQQ/SQQQ (3× long/short proxies) with full daily
+// technicals incl RSI-14 and 12m momentum — sourced from the DEEP DB HISTORY (2.2y → real 12m), falling back
+// to the live 1y quote only until the DB is seeded. Their latest bars are fed to the top-off so the DB grows.
 let regime_instruments = {};
 if (!OFFLINE) {
   try {
-    regime_instruments = await getQuotes(["QQQ", "TQQQ", "SQQQ"], { keys: providerKeys() });
-    console.log(`Regime instruments: ${Object.values(regime_instruments).filter((q) => q && !q.error).length}/3 resolved (QQQ/TQQQ/SQQQ)`);
+    const live = await getQuotes(REGIME_INSTRUMENTS, { keys: providerKeys() });
+    let deep = 0;
+    for (const t of REGIME_INSTRUMENTS) {
+      const q = live[t];
+      if (!q || q.error) { regime_instruments[t] = q || { ticker: t, error: "no quote" }; continue; }
+      const dbt = await dbTechnicals(t, q); // 2.2y DB series + today → deep technicals (12m, RSI, …)
+      regime_instruments[t] = dbt ? { ...q, ...dbt, price: q.price, technicals_src: "db" } : { ...q, technicals_src: "live-1y" };
+      if (dbt) deep++;
+      if (q.price > 0 && q.source) v23LatestBars.push({ ticker: t, d: q.asof || TODAY, close: q.price, source: q.source }); // feed the DB top-off (dedupe handles QQQ overlap)
+    }
+    console.log(`Regime instruments: ${Object.values(regime_instruments).filter((q) => q && !q.error).length}/3 resolved (${deep} from deep DB history)`);
   } catch (e) { errors.push(`regime_instruments: ${e.message}`); }
 }
 
@@ -752,7 +763,7 @@ if (!OFFLINE && supabaseConfigured()) {
     bars.push(...v23LatestBars);
     // (3) One-time deep seed.
     if (BACKFILL) {
-      const all = [...new Set([...universe, ...V23_TICKERS])];
+      const all = [...new Set([...universe, ...V23_TICKERS, ...REGIME_INSTRUMENTS])];
       // Yahoo adjclose + Tiingo adjClose are the ADJUSTED corroborating pair; Stooq is a KEYLESS
       // fallback so rate-limiting can't zero a ticker (outvoted when the adjusted pair is present).
       console.log(`Backfill: deep ADJUSTED history for ${all.length} tickers — Yahoo(adj)+Stooq${process.env.TIINGO_API_KEY ? "+Tiingo(adj)" : ""}, cross-provider reconciled…`);
