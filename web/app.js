@@ -353,7 +353,7 @@ function renderAssetLocation() {
   // diversifier PR, those names are already in portfolio.json — re-applying would double-count (scale the
   // build-out twice), so apply the proposal only while it's still PENDING (names not yet in the plan).
   const funding = DATA.diversifier?.funding;
-  const alreadyFunded = funding?.newHoldings?.length && funding.newHoldings.every((h) => (p.holdings || []).some((ph) => ph.ticker === h.ticker));
+  const alreadyFunded = funding?.newHoldings?.length && funding.newHoldings.some((h) => (p.holdings || []).some((ph) => ph.ticker === h.ticker));
   const combined = (funding && DV && !alreadyFunded) ? DV.applyDiversifierFunding(p, funding) : p;
   const kept = (combined.holdings || []).filter((h) => h.ticker && (h.weight > 0) && !excl.has(h.ticker) && h.tier !== "DRY" && !/^CASH/i.test(h.ticker));
   const wsum = kept.reduce((a, h) => a + (h.weight || 0), 0) || 1;
@@ -853,7 +853,7 @@ function renderDiversifier() {
   const f = v.funding;
   // Already merged? (the proposal stays in the feed after merge — don't offer to fund it again, which would
   // double-scale the build-out). Guard the CTA, not just the buy-plan render. [W1]
-  const alreadyFunded = f?.newHoldings?.length && f.newHoldings.every((h) => (DATA.port?.holdings || []).some((ph) => ph.ticker === h.ticker));
+  const alreadyFunded = f?.newHoldings?.length && f.newHoldings.some((h) => (DATA.port?.holdings || []).some((ph) => ph.ticker === h.ticker));
   const fundHtml = f?.newHoldings?.length
     ? `<table class="mine"><thead><tr><th>Ticker</th><th>Sleeve</th><th>Conviction</th><th>Weight</th><th>Target $</th></tr></thead><tbody>${
         f.newHoldings.map((h) => `<tr><td><strong>${esc(h.ticker)}</strong></td><td class="foot">${esc(h.sleeve || "")}</td><td>${esc(String(h.conviction ?? "—"))}</td><td>${(h.weight * 100).toFixed(1)}%</td><td>${fmtUsd(h.target_usd)}</td></tr>`).join("")
@@ -877,7 +877,7 @@ async function acceptDiversifierFunding() {
   if (!t) { alert("Open Settings → Admin and paste a GitHub token first.\n\nClassic token: the 'repo' scope.\nFine-grained token: Contents + Pull requests, both read/write."); return; }
   const funding = DATA.diversifier?.funding;
   if (!funding?.newHoldings?.length) { alert("No fundable proposal."); return; }
-  if (funding.newHoldings.every((h) => (DATA.port?.holdings || []).some((ph) => ph.ticker === h.ticker))) { alert("Already funded — these names are in portfolio.json. Funding again would double-scale the build-out."); return; } // [W1]
+  if (funding.newHoldings.some((h) => (DATA.port?.holdings || []).some((ph) => ph.ticker === h.ticker))) { alert("Already funded — these names are in portfolio.json. Funding again would double-scale the build-out."); return; } // [W1]
   const updated = DV.applyDiversifierFunding(DATA.port, funding);
   if (!updated || updated === DATA.port) { alert("Nothing to fund."); return; }
   const pct = Math.round((DATA.diversifier?.sleeve_pct || funding.sleevePct || 0.15) * 100);

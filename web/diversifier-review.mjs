@@ -8,6 +8,10 @@
 export function applyDiversifierFunding(portfolioDoc, funding, { today = new Date().toISOString().slice(0, 10) } = {}) {
   if (!portfolioDoc?.holdings || !funding?.newHoldings?.length) return portfolioDoc;
   const { newHoldings, buildoutScale = 1, existingDiversifierTickers = [] } = funding;
+  // IDEMPOTENCY [B1]: if ANY proposed name is already in the plan, it's (partly) funded — applying again
+  // would scale the build-out a second time. Refuse and return the plan as-is. (.some, not .every: a
+  // partial overlap is the dangerous case the old guard missed.)
+  if (newHoldings.some((h) => portfolioDoc.holdings.some((ph) => ph.ticker === h.ticker))) return portfolioDoc;
   const newSet = new Set(newHoldings.map((h) => h.ticker));
   const scaled = portfolioDoc.holdings.filter((h) => !newSet.has(h.ticker)).map((h) => {
     if (existingDiversifierTickers.includes(h.ticker)) return { ...h }; // existing diversifier untouched — already in the budget

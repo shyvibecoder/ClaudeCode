@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { screenCandidate, screenDiversifiers, DIVERSIFIER_UNIVERSE, parseConviction, convictionCommittee, fundSleeve, applyFunding } from "../scripts/lib/diversifier.mjs";
+import { applyDiversifierFunding } from "../web/diversifier-review.mjs";
 
 // Synthetic factor world (deterministic — no RNG): a market factor and an independent "deep-tech build-out" factor.
 // The complex (QQQ) loads on BOTH; a HEDGE basket loads low on market and NEGATIVE on the AI factor (so
@@ -143,5 +144,30 @@ describe("diversifier Stage 3: sizing fills the sleeve budget around what's plan
     const h = applyFunding(over, f);
     const total = h.reduce((a, x) => a + x.weight, 0);
     assert.ok(Math.abs(total - 1.0) < 1e-3, `sums to ${total}`);
+  });
+});
+
+describe("diversifier-review (browser mirror): matches node applyFunding + idempotent [B1/D1]", () => {
+  const portfolio = { sleeve_usd: 1_500_000, holdings: [{ ticker: "FIW", weight: 0.07, role: "Anchor — non-build-out de-correlator" }, { ticker: "PAVE", weight: 0.93 }] };
+  const funding = fundSleeve({ candidates: [{ id: "health", scarcity: "Health", tickers: ["JNJ", "MRK"] }], currentHoldings: portfolio.holdings, existingDiversifierTickers: ["FIW"], sleevePct: 0.15, sleeveUsd: 1_500_000 });
+  const wkey = (hs) => hs.map((h) => `${h.ticker}:${h.weight}`).sort();
+
+  it("the browser mirror produces the same holdings/weights as node applyFunding", () => {
+    const web = applyDiversifierFunding(portfolio, funding).holdings;
+    assert.deepEqual(wkey(web), wkey(applyFunding(portfolio, funding)));
+  });
+  it("the proposed plan sums to ~1.0", () => {
+    const h = applyDiversifierFunding(portfolio, funding).holdings;
+    assert.ok(Math.abs(h.reduce((a, x) => a + x.weight, 0) - 1.0) < 1e-3);
+  });
+  it("re-applying to an ALREADY-funded plan is a NO-OP (no double-scaling) [B1]", () => {
+    const funded = applyDiversifierFunding(portfolio, funding);   // build-out → 0.85
+    const again = applyDiversifierFunding(funded, funding);       // must not scale again
+    assert.deepEqual(wkey(again.holdings), wkey(funded.holdings));
+    assert.ok(Math.abs(again.holdings.reduce((a, x) => a + x.weight, 0) - 1.0) < 1e-3, "still sums to 1.0");
+  });
+  it("PARTIAL overlap (one funded name already present) also refuses to re-apply [B1]", () => {
+    const partial = { ...portfolio, holdings: [...portfolio.holdings, { ticker: "JNJ", weight: 0.04 }] };
+    assert.deepEqual(applyDiversifierFunding(partial, funding), partial); // no-op — the dangerous case the old .every() missed
   });
 });
