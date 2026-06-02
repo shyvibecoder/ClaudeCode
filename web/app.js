@@ -394,6 +394,15 @@ function renderAssetLocation() {
     quotes: DATA.sig?.quotes || {}, // per-name dividend_yield/growth override the axis defaults where present
   });
   const hasHeld = Object.keys(heldByAcct).length > 0;
+  // Sleeve tag per name (Deep-tech build-out = green · ◇ Diversifier = purple), matching the overview diagram
+  // colors, so each row makes its sleeve obvious at a glance. Classify from the combined plan; dropped names
+  // not in the plan fall back to the live portfolio, else no tag.
+  const sleeveOf = {};
+  for (const h of (combined.holdings || [])) sleeveOf[h.ticker] = isDivH(h) ? "div" : "bld";
+  for (const h of (p.holdings || [])) if (!(h.ticker in sleeveOf)) sleeveOf[h.ticker] = isDivH(h) ? "div" : "bld";
+  const sleevePill = (t) => sleeveOf[t] === "div" ? `<span class="spill div" title="Diversifier sleeve — drawdown hedge (2nd axis)">◇ Diversifier</span>`
+    : sleeveOf[t] === "bld" ? `<span class="spill bld" title="Deep-tech build-out sleeve — the alpha engine">Build-out</span>` : "";
+  const legend = `<p class="foot spill-legend"><span class="spill bld">Build-out</span> alpha engine (~85%) · <span class="spill div">◇ Diversifier</span> drawdown hedge (~15%)</p>`;
   // Group BUY + SELL/trim by account. Buys show the tax shelter; sells/trims show why (or why blocked).
   const ACT_RANK = { buy: 0, trim: 1, "sell (not in plan)": 1 };
   const tbody = [["roth", "Roth", cfg.roth], ["traditional", "Traditional", cfg.traditional], ["taxable", "Taxable", cfg.taxable]].filter(([, , b]) => b > 0).map(([key, label, bal]) => {
@@ -405,12 +414,13 @@ function renderAssetLocation() {
         const isBuy = r.action === "buy";
         const tag = isBuy ? "" : ` <span class="${r.blocked ? "foot" : "neg"}">${esc(r.action)}</span>`;
         const note = isBuy ? (r.annual_drag_avoided ? "shelters $" + r.annual_drag_avoided.toLocaleString() + "/yr" : "—") : (r.blocked ? "held (no trim)" : "frees cash");
-        return `<tr><td><strong>${esc(r.ticker)}</strong>${tag}</td><td class="${isBuy ? "pos" : "neg"}">${isBuy ? "" : "−"}${fmtUsd(r.amount)}</td><td>${r.yieldPct ? (r.yieldPct * 100).toFixed(1) + "%" : "—"}</td><td class="foot">${note}</td></tr>`;
+        return `<tr class="sleeve-${sleeveOf[r.ticker] || "na"}"><td><strong>${esc(r.ticker)}</strong> ${sleevePill(r.ticker)}${tag}</td><td class="${isBuy ? "pos" : "neg"}">${isBuy ? "" : "−"}${fmtUsd(r.amount)}</td><td>${r.yieldPct ? (r.yieldPct * 100).toFixed(1) + "%" : "—"}</td><td class="foot">${note}</td></tr>`;
       }).join("") : `<tr><td colspan="4" class="foot">— nothing assigned here —</td></tr>`);
   }).join("");
   const sm = res.summary;
   box.innerHTML = head + inputs + `
     <p class="foot">${hasHeld ? "Rebalancing your book toward" : "Deploying <strong>" + fmtUsd(deployTotal) + "</strong> cash into"} the plan${sigTot > 0 ? ", <strong>committee-adjusted</strong> (build-out weights from the scan's signal — a crowded downgrade shrinks that buy)" : ""}, tax-located (Roth ← highest after-tax growth · Traditional ← income · taxable ← tax-efficient)${excl.size ? ` · <strong>excluding ${esc([...excl].join(", "))}</strong> (held elsewhere)` : ""}. Buy <strong>${fmtUsd(sm.buy_usd)}</strong>${sm.sell_usd ? ` · sell <strong>${fmtUsd(sm.sell_usd)}</strong>` : ""}${sm.blocked_usd ? ` · <span class="foot">${fmtUsd(sm.blocked_usd)} held (taxable anchor — trim bar not met)</span>` : ""}${sm.needs_new_cash_usd ? ` · <span class="neg">needs ${fmtUsd(sm.needs_new_cash_usd)} more cash</span>` : ""} · shelters <strong>$${(sm.annual_drag_avoided || 0).toLocaleString()}/yr</strong> of tax drag.</p>
+    ${legend}
     <div class="tscroll"><table class="mine"><thead><tr><th>Trade</th><th>Amount</th><th>Yield</th><th>Tax shelter / note</th></tr></thead><tbody>${tbody}</tbody></table></div>
     <p class="foot">${hasHeld ? "Position-aware: net buys + tax-aware sells vs your held lots (taxable lots are buy-and-hold unless the scan's trim bar is met). " : "All-cash deploy — once you add holdings in Settings, this nets sells too. "}Advisory — not tax advice; doesn't model exact bracket arbitrage, RMDs, or estate plan.</p>`;
   wire();

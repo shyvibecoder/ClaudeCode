@@ -397,6 +397,11 @@ sleeve), targets each name's weight against your **total account balances**, and
 the account that maximizes after-tax terminal value** — grouped by account. Each name's dollars can **split
 across accounts** so capacity is filled exactly.
 
+**Each row shows its sleeve** with a colored tag (matching the overview-diagram colors): a green
+**Build-out** pill (the alpha engine, ~85%) or a purple **◇ Diversifier** pill (the drawdown hedge, ~15%),
+plus a subtle left accent so you can scan which sleeve a name belongs to even though rows are grouped by
+account. A small legend sits above the table.
+
 **A true optimizer, not a rule of thumb.** Puck models each name's **after-tax terminal multiple** in every
 account over your horizon — Roth `(1+g)^N` (tax-free forever), Traditional `(1+g)^N·(1−rate)` (ordinary rate
 on withdrawal), taxable `1+((1+g−yield·rate)^N−1)·(1−LTCG)` (annual qualified-dividend drag + a final LTCG
