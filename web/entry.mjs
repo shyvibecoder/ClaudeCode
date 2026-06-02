@@ -25,12 +25,14 @@ function legs(inp) {
   // Trend acts as a GATE, not a reward: above the 200-DMA is just "fine" (neutral) — it shouldn't make a
   // name AT its highs look like a great entry; below it is a downtrend = a worse entry (falling knife).
   if (typeof inp.aboveMa200 === "boolean") L.trend = inp.aboveMa200 ? 0.55 : 0.2;
-  // Momentum: positive 12m is good; but a hot 1m (just ran up) is a worse entry → penalize the overbought.
-  // Guard against data glitches (split/adjustment artifacts): an implausible 12m (e.g. +972%, or worse than
-  // −99%) is DROPPED, not trusted, so garbage can't drive the entry score.
-  if (Number.isFinite(inp.mom12m) && inp.mom12m > -0.99 && inp.mom12m < 5) {
-    let s = clamp01(0.5 + inp.mom12m); // 0 return → 0.5; +50% → 1.0; −50% → 0
-    if (Number.isFinite(inp.mom1m) && inp.mom1m > 0.15) s *= 0.7; // up >15% in a month → stretched
+  // Momentum is an INVERTED-U: a healthy uptrend is a good entry, but BOTH a downtrend (no momentum) AND a
+  // PARABOLIC blow-off (overbought → mean-reversion risk, e.g. a name that doubled in a month / 10×'d in a
+  // year) are WORSE entries. Peaks ~+30% over 12m, decays past ~+50% — so an extended name reads "don't chase
+  // the top", which is also robust to a data glitch (an absurd value just lands at the overbought floor).
+  if (Number.isFinite(inp.mom12m)) {
+    const m = inp.mom12m;
+    let s = m <= 0.5 ? clamp01(0.5 + m) : clamp01(1 - (m - 0.5) * 0.25); // rise to +50%, then decay (overbought)
+    if (Number.isFinite(inp.mom1m) && inp.mom1m > 0.15) s *= 0.7; // just ran up hard in a month → worse entry
     L.momentum = clamp01(s);
   }
   // Relative strength vs the complex (the alpha signal): inflecting (+) is a better entry than de-rating (−).
@@ -52,7 +54,7 @@ export function entryQuality(inp = {}) {
   const reasons = [];
   if (Number.isFinite(inp.pctOffHigh)) reasons.push(`${Math.round(inp.pctOffHigh * 100)}% off high`);
   if (typeof inp.aboveMa200 === "boolean") reasons.push(inp.aboveMa200 ? "above 200-DMA" : "below 200-DMA");
-  if ("momentum" in L) reasons.push(`12m ${inp.mom12m >= 0 ? "+" : ""}${Math.round(inp.mom12m * 100)}%${inp.mom1m > 0.15 ? " (hot 1m)" : ""}`);
+  if ("momentum" in L) reasons.push(`12m ${inp.mom12m >= 0 ? "+" : ""}${Math.round(inp.mom12m * 100)}%${inp.mom1m > 0.15 ? " (just ran up)" : inp.mom12m > 1 ? " (extended)" : ""}`);
   if (Number.isFinite(inp.relStrength)) reasons.push(inp.relStrength > 0.05 ? "inflecting vs complex" : inp.relStrength < -0.05 ? "de-rating vs complex" : "neutral vs complex");
   if (inp.valuation?.tag) reasons.push(inp.valuation.label || inp.valuation.tag);
   return { score, label, reasons, legs: L };

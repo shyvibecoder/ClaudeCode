@@ -422,8 +422,14 @@ crumb-gated); the valuation leg fills in once the daily scan resolves it.
 Because it's *trailing*, the P/E is **growth-aware**: a high trailing multiple backed by strong revenue
 growth (a recovering cyclical like **MU** — optically ~50× trailing but ~10–12× *forward*) is **not** tagged
 "rich" — it reads "fair (rich on trailing, but +X% rev → forward lower)," so the "went-up-a-lot ≠ expensive"
-correction holds. Implausible momentum prints (split/adjustment glitches, e.g. +900%) are dropped from the
-entry score rather than trusted.
+correction holds.
+
+Momentum is an **inverted-U**, not "more is better": a healthy uptrend is a good entry, but a **parabolic
+blow-off** — a name that's doubled in a month or run up many-fold in a year, sitting at its all-time high — is
+**overbought**, so it reads **stretched** and gets **staged/DCA'd** rather than lump-summed. (That's why a
+high-conviction name like MU can be a great *holding* yet a poor *entry* today: conviction in the thesis ≠
+buying the top of a vertical move.) This also makes the score robust to a bad data print — an absurd value
+just lands at the overbought floor instead of being trusted as "great momentum."
 
 **A true optimizer, not a rule of thumb.** Puck models each name's **after-tax terminal multiple** in every
 account over your horizon — Roth `(1+g)^N` (tax-free forever), Traditional `(1+g)^N·(1−rate)` (ordinary rate

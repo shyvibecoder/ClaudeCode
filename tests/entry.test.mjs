@@ -23,12 +23,13 @@ describe("entry: per-name entry quality", () => {
     const deepBelow = entryQuality({ pctOffHigh: 0.5, aboveMa200: false, mom12m: 0, relStrength: 0 });
     assert.ok(deepBelow.score < dipAbove.score);
   });
-  it("drops an implausible 12m momentum (data glitch like +972%) instead of trusting it", () => {
-    const e = entryQuality({ pctOffHigh: 0.0, aboveMa200: true, mom12m: 9.72, mom1m: 0.1, relStrength: 0 });
-    assert.ok(!("momentum" in e.legs), "glitch momentum leg dropped");
-    assert.ok(!e.reasons.some((r) => /12m/.test(r)), "glitch not shown in reasons");
-    // a sane +30% IS kept
-    assert.ok("momentum" in entryQuality({ pctOffHigh: 0, aboveMa200: true, mom12m: 0.3 }).legs);
+  it("momentum is an inverted-U: a parabolic blow-off (e.g. +972%) reads OVERBOUGHT, worse than a healthy uptrend", () => {
+    const parabola = entryQuality({ pctOffHigh: 0, aboveMa200: true, mom12m: 9.72, mom1m: 0.9, relStrength: 0 });
+    const healthy = entryQuality({ pctOffHigh: 0, aboveMa200: true, mom12m: 0.3, mom1m: 0.02, relStrength: 0 });
+    assert.ok(parabola.legs.momentum < 0.2, `overbought leg ${parabola.legs.momentum} should be low`);
+    assert.ok(healthy.legs.momentum > 0.7, "a +30% uptrend is a good-momentum entry");
+    assert.ok(parabola.score < healthy.score, "the parabola is a worse entry than the healthy uptrend");
+    assert.ok(parabola.reasons.some((r) => /extended|ran up/.test(r)), "flags the extension in reasons");
   });
   it("renormalizes over present legs; missing data → n/a, not a crash", () => {
     assert.equal(entryQuality({}).label, "n/a");
