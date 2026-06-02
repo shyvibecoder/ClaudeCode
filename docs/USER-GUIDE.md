@@ -444,6 +444,10 @@ Inline inputs (browser-stored; defaults 35% / 20yr) — so you never tell anyone
 
 Until you split Roth vs Traditional it runs a 2-way (tax-advantaged vs taxable) split and says so.
 
+> **If the plan ever sticks on "Loading…"** with your balances entered, your browser is holding a stale
+> cached copy of the planner module — **pull to refresh** (or clear this site's data / open a private tab).
+> Static assets now send a revalidate header so this self-heals on a fresh load.
+
 **Advisory, not tax advice.** It's the robust *location* lever; it does **not** model your exact bracket
 arbitrage (withdrawal vs contribution rate), RMDs, contributions, or estate plan. Inputs live only in your
 browser.

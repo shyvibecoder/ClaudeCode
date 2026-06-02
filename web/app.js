@@ -345,9 +345,19 @@ function renderAssetLocation() {
   const wire = () => box.querySelectorAll("[data-aloc]").forEach((inp) => inp.onchange = () => { const c = getAloc(); c[inp.dataset.aloc] = inp.type === "text" ? inp.value.trim() : (parseFloat(inp.value) || 0); localStorage.setItem(ALOC_KEY, JSON.stringify(c)); renderAssetLocation(); });
   const deployTotal = (cfg.roth || 0) + (cfg.traditional || 0) + (cfg.taxable || 0);
   if (!L || !p.holdings?.length || !deployTotal) {
-    box.innerHTML = head + inputs + `<p class="foot">${!p.holdings?.length ? "Add the plan holdings to see the buy plan." : !deployTotal ? "Enter your <strong>Roth / Traditional / Taxable</strong> balances above to see the tax-located buy plan." : "Loading…"}</p>`;
+    // If the planner module didn't load (L missing) but inputs/holdings ARE present, it's not "still loading"
+    // — it's a failed/stale module load (e.g. a cached asset-location.mjs). Self-heal once, then tell the user
+    // how to recover instead of freezing forever on "Loading…".
+    const moduleFailed = !L && p.holdings?.length && deployTotal;
+    if (moduleFailed && !renderAssetLocation._retried) { renderAssetLocation._retried = true; setTimeout(renderAssetLocation, 1500); }
+    const msg = !p.holdings?.length ? "Add the plan holdings to see the buy plan."
+      : !deployTotal ? "Enter your <strong>Roth / Traditional / Taxable</strong> balances above to see the tax-located buy plan."
+      : moduleFailed ? "Couldn’t load the planner module — <strong>pull to refresh</strong> (or clear this site’s cached data). It self-heals on a fresh load."
+      : "Loading…";
+    box.innerHTML = head + inputs + `<p class="foot">${msg}</p>`;
     wire(); return;
   }
+  renderAssetLocation._retried = false;
   // Combined target = the build-out plan + the diversifier funding proposal (if any); drop names you hold
   // ELSEWHERE, then renormalize so the cash deploys across what's left. WIRING: once you MERGE the
   // diversifier PR, those names are already in portfolio.json — re-applying would double-count (scale the
