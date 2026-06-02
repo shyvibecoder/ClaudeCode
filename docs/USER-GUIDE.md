@@ -218,8 +218,8 @@ every scan. RSI > 70 reads overbought, < 30 oversold. **TQQQ/SQQQ are leveraged 
 decays over time; they are not buy-and-hold.** It's its own card beneath the posture. Technicals are computed
 from the **deep price-history DB** (2.2y → real 12-month momentum), not a shallow 1-year fetch; the columns
 adapt — a metric only appears once it has data, so a freshly-added instrument with no DB history yet (TQQQ/SQQQ
-until the one-time `--backfill` runs) simply omits 12m rather than showing a blank column. QQQ (already in the
-DB) shows the full set immediately.
+until the one-time `--backfill` runs) simply omits 12m rather than showing a blank column, and the footnote
+calls out any instrument still on the 1-year fetch. QQQ (already in the DB) shows the full set immediately.
 
 **Two overlays (Timing v2):**
 - **Macro-stress brake (exit-only).** Forces *defensive* only when **two leading risk signals fire

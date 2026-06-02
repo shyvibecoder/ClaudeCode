@@ -16,6 +16,7 @@ const sma = (a, n) => (a.length >= n ? a.slice(-n).reduce((x, y) => x + y, 0) / 
 // Wilder-smooth through the rest. Returns 0..100, or null without enough history. Pure.
 export function rsi(closes, period = 14) {
   if (!Array.isArray(closes) || closes.length < period + 1) return null;
+  if (!closes.every(Number.isFinite)) return null; // a non-finite close anywhere → don't emit a subtly-wrong RSI
   let gain = 0, loss = 0;
   for (let i = 1; i <= period; i++) { const d = closes[i] - closes[i - 1]; if (d >= 0) gain += d; else loss -= d; }
   let avgG = gain / period, avgL = loss / period;

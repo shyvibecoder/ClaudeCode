@@ -8,6 +8,10 @@ describe("technicals: Wilder RSI-14", () => {
     assert.equal(rsi(Array.from({ length: 30 }, (_, i) => 100 - i)), 0);
     assert.equal(rsi([1, 2, 3]), null);
   });
+  it("a non-finite close → null (not NaN leaking to the UI)", () => {
+    const c = Array.from({ length: 30 }, (_, i) => 100 + i); c[20] = NaN;
+    assert.equal(rsi(c), null);
+  });
   it("a balanced oscillation sits near the midline (≈ 30–70)", () => {
     const c = []; for (let i = 0; i < 60; i++) c.push(100 + (i % 2 === 0 ? 1 : -1));
     const r = rsi(c);

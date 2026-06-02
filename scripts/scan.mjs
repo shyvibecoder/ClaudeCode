@@ -46,6 +46,7 @@ const read = (p) => JSON.parse(readFileSync(new URL(`../web/data/${p}`, import.m
 const v23LatestBars = []; // today's bars for the non-universe V2.3 tickers, collected during the cross-check
 const V23_TICKERS = ["QQQ", "^VIX", "^VIX3M", "HYG", "QLD", "SGOV"]; // V2.3 cross-check + execution instruments
 const REGIME_INSTRUMENTS = ["QQQ", "TQQQ", "SQQQ"]; // regime visibility panel — full DB-history technicals incl 12m
+const LEVERAGED_ETFS = new Set(["TQQQ", "SQQQ", "QLD"]); // split-prone 2×/3× ETFs → backfill from ADJUSTED sources only (Yahoo/Tiingo); skip possibly-UNADJUSTED Stooq so it can't conflict-drop the adjusted pair across split boundaries
 
 const dataUrl = (p) => new URL(`../web/data/${p}`, import.meta.url);
 
@@ -449,14 +450,25 @@ let regime_instruments = {};
 if (!OFFLINE) {
   try {
     const live = await getQuotes(REGIME_INSTRUMENTS, { keys: providerKeys() });
+    const riMinDate = new Date(Date.now() - 2.2 * 365.25 * 86400000).toISOString().slice(0, 10);
     let deep = 0;
     for (const t of REGIME_INSTRUMENTS) {
       const q = live[t];
       if (!q || q.error) { regime_instruments[t] = q || { ticker: t, error: "no quote" }; continue; }
-      const dbt = await dbTechnicals(t, q); // 2.2y DB series + today → deep technicals (12m, RSI, …)
+      let s = null; if (supabaseConfigured()) { try { s = await readSeries(t, { minDate: riMinDate }); } catch { /* fall back to live */ } }
+      const dbt = s ? technicalsFromHistory(s, { date: q.asof || TODAY, price: q.price }, { currency: q.currency ?? null, source: "db+today" }) : null;
       regime_instruments[t] = dbt ? { ...q, ...dbt, price: q.price, technicals_src: "db" } : { ...q, technicals_src: "live-1y" };
       if (dbt) deep++;
-      if (q.price > 0 && q.source) v23LatestBars.push({ ticker: t, d: q.asof || TODAY, close: q.price, source: q.source }); // feed the DB top-off (dedupe handles QQQ overlap)
+      // Feed the DB top-off — but ONLY a PLAUSIBLE bar (P2 glitch guard, like the V2.3 path) and labeled
+      // "consensus" when cross-source-corroborated (like the universe path), so a single bad 3×-ETF print
+      // can't poison the history that later feeds RSI/12m.
+      const prevClose = s?.closes?.length ? s.closes[s.closes.length - 1] : null;
+      if (q.price > 0 && q.source && (prevClose == null || plausibleNextBar(q.price, prevClose))) {
+        const corroborated = (q.corroboration?.sources?.length || 0) >= 2;
+        v23LatestBars.push({ ticker: t, d: q.asof || TODAY, close: q.price, source: corroborated ? "consensus" : q.source });
+      } else if (prevClose != null) {
+        console.log(`regime: rejected implausible bar ${t} ${q.price} (prev ${prevClose})`);
+      }
     }
     console.log(`Regime instruments: ${Object.values(regime_instruments).filter((q) => q && !q.error).length}/3 resolved (${deep} from deep DB history)`);
   } catch (e) { errors.push(`regime_instruments: ${e.message}`); }
@@ -772,10 +784,12 @@ if (!OFFLINE && supabaseConfigured()) {
         const sources = {};
         try { sources.yahoo = await fetchSeries(t, "max"); } catch { /* skip */ }
         await new Promise((r) => setTimeout(r, 200));
-        try { sources.stooq = await fetchStooqHistory(t); } catch { /* skip */ }
-        await new Promise((r) => setTimeout(r, 200));
+        // Stooq may serve UNADJUSTED prices → for split-prone leveraged ETFs it would conflict with the
+        // adjusted pair across split boundaries and drop most bars; trust only the adjusted sources there.
+        if (!LEVERAGED_ETFS.has(t)) { try { sources.stooq = await fetchStooqHistory(t); } catch { /* skip */ } await new Promise((r) => setTimeout(r, 200)); }
         if (process.env.TIINGO_API_KEY) { try { sources.tiingo = await fetchTiingoHistory(t); } catch { /* skip */ } await new Promise((r) => setTimeout(r, 300)); }
         const { rows, stats } = reconcileSeries(t, sources);
+        if (LEVERAGED_ETFS.has(t) && stats.kept < 200) console.log(`  ⚠ ${t}: only ${stats.kept} bars kept — split-adjustment mismatch likely; need the Yahoo+Tiingo adjusted pair (set TIINGO_API_KEY).`);
         for (const r of rows) bars.push({ ticker: r.ticker, d: r.d, close: r.close, source: r.source });
         if (rows.length) { tally.tickers++; tally.kept += stats.kept; tally.conflict += stats.dropped_conflict; tally.weekend += stats.dropped_weekend; tally.holiday += stats.dropped_holiday_fill; tally.jump += stats.dropped_jump; tally.single += stats.single_source; tally.corr += stats.corroborated; }
         console.log(`  ${t}: ${stats.kept} bars (${stats.corroborated} corroborated, ${stats.single_source} single)${rows.length ? ` ${rows[0].d}..${rows[rows.length - 1].d}` : ""}${stats.dropped_conflict + stats.dropped_weekend + stats.dropped_holiday_fill + stats.dropped_jump ? ` · dropped ${stats.dropped_conflict}conf/${stats.dropped_weekend}wknd/${stats.dropped_holiday_fill}hol/${stats.dropped_jump}jump` : ""}`);

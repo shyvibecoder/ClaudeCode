@@ -299,9 +299,10 @@ function renderRegimeInstruments() {
   const thead = `<tr><th>Instrument</th>${cols.map((c) => `<th>${c.h}</th>`).join("")}</tr>`;
   const tbody = rows.map(({ t, desc, q }) => `<tr><td><strong>${t}</strong> <span class="foot">${desc}</span></td>${
     cols.map((c) => { const v = c.get(q); const cl = v == null ? "foot" : (c.cls ? c.cls(q) : ""); return `<td class="${cl}">${v == null ? "—" : v}</td>`; }).join("")}</tr>`).join("");
+  const shallow = rows.filter((r) => r.q.technicals_src === "live-1y").map((r) => r.t);
   box.innerHTML = `<h3>Regime instruments <button class="help" data-help="regime">?</button> <span class="foot">— QQQ + TQQQ/SQQQ, the signals the timing layer reads (daily)</span></h3>
     <div class="tscroll"><table class="mine"><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>
-    <p class="foot">QQQ = reference underlying; <strong>TQQQ/SQQQ are 3× proxies — tactical, leverage decays, not buy-and-hold</strong>. RSI&nbsp;&gt;70 overbought · &lt;30 oversold.</p>`;
+    <p class="foot">QQQ = reference underlying; <strong>TQQQ/SQQQ are 3× proxies — tactical, leverage decays, not buy-and-hold</strong>. RSI&nbsp;&gt;70 overbought · &lt;30 oversold.${shallow.length ? ` <em>${esc(shallow.join("/"))}: 1-yr fetch only (12m pending a deep-history backfill).</em>` : ""}</p>`;
 }
 
 function renderDca() {
