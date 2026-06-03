@@ -51,13 +51,20 @@ decline. It is real and worth having — but:
   — because `basketIndex` takes the **date intersection** of all holdings (`web/metrics.mjs`),
   truncating the series to the *youngest* holding (e.g. GEV, spun off 2024). It is therefore
   unprovable on this book's own price history — so the scanner now runs the **same brake on
-  long-history proxies** (SPY/QQQ/SOXX at `range=max`) through real ≥20% drawdowns
-  (2000/2008/2020/2022) and surfaces it as the **"Brake proof"** block in the scorecard
+  long-history instruments read DEEP from the accumulated DB** (`seriesFor`, not a live fetch):
+  **QQQ** (a backfilled regime instrument) and **MU/SMH** (deep universe holdings), through real
+  ≥20% drawdowns (2000/2008/2020/2022), surfaced as the **"Brake proof"** block in the scorecard
   (`brakeProof()` in `scripts/lib/backtest.mjs`). That is *methodology* evidence (Faber-style
   trend following), **not** a backtest of this book, and it reports two falsifiable verdicts
-  per proxy — *does it cut max drawdown* and *does it improve Calmar* — plus a per-crash table
-  flagging where the brake **whipsawed** (⚠, typically fast V-bottoms like 2020) rather than
-  helped (slow bears like 2000/2008). Read the dial's tail claim off that block, not off faith.
+  per instrument — *does it cut max drawdown* and *does it improve Calmar* — plus a per-crash table
+  flagging where the brake **whipsawed** (⚠, fast V-bottoms) rather than helped (slow bears). Read
+  the dial's tail claim off that block, not off faith.
+- The **fast-entry** side of the dial is tested too. The live regime re-risks one notch when
+  **≥60% of names reclaim their 20-DMA** (`fast_reentry`, `regime.mjs`). `fastReentryProof()` puts
+  that to a falsifiable test on the book's own deep history: a plain 200-DMA brake vs. brake +
+  fast-reentry, reporting whether re-entering on breadth captures more recovery (CAGR / time-in-
+  market) **without giving the drawdown protection back** (Calmar) — surfaced as the **"Fast
+  re-entry proof"** block with a `worth it / not worth it` verdict.
 - The whipsaw cost the brake pays is now charged in `scripts/lib/backtest.mjs`
   (`costPerSwitchBps`, TODO.md:133) — so the brake is not "free," and its Calmar is no longer
   overstated by uncosted turnover.

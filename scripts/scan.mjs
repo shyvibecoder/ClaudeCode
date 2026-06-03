@@ -11,7 +11,7 @@ import { isTradeable, fetchYahoo, fetchSeries, fetchStooqHistory, fetchTiingoHis
 import { technicalsFromHistory } from "./lib/technicals.mjs";
 import { reconcileSeries } from "./lib/history-reconcile.mjs";
 import { basketIndex, portfolioMetrics } from "./lib/metrics.mjs";
-import { backtestRegime, brakeProof } from "./lib/backtest.mjs";
+import { backtestRegime, brakeProof, fastReentryProof } from "./lib/backtest.mjs";
 import { returns, alignByDate, factorAttribution, benchmarkRelative, alphaEdgeLabel } from "./lib/factor.mjs";
 import { crossSectionalBacktest } from "./lib/xsbacktest.mjs";
 import { getQuotes, providerKeys, dataQualityGate, plausibleNextBar } from "./lib/marketdata.mjs";
@@ -46,6 +46,7 @@ const read = (p) => JSON.parse(readFileSync(new URL(`../web/data/${p}`, import.m
 const v23LatestBars = []; // today's bars for the non-universe V2.3 tickers, collected during the cross-check
 const V23_TICKERS = ["QQQ", "^VIX", "^VIX3M", "HYG", "QLD", "SGOV"]; // V2.3 cross-check + execution instruments
 const REGIME_INSTRUMENTS = ["QQQ", "TQQQ", "SQQQ"]; // regime visibility panel — full DB-history technicals incl 12m
+const BENCHMARKS = ["SPY", "QQQ", "SOXX", "MTUM"]; // market/tech/semis/momentum proxies — deep-seed so the brake proof + factor attribution read DEEP history from the DB, not a shallow live `range=max` fallback
 const LEVERAGED_ETFS = new Set(["TQQQ", "SQQQ", "QLD"]); // split-prone 2×/3× ETFs → backfill from ADJUSTED sources only (Yahoo/Tiingo); skip possibly-UNADJUSTED Stooq so it can't conflict-drop the adjusted pair across split boundaries
 
 const dataUrl = (p) => new URL(`../web/data/${p}`, import.meta.url);
@@ -381,24 +382,39 @@ if (!OFFLINE) {
         metrics.backtest_unproven = `Insufficient history to backtest the live ${maPeriod}-DMA brake (basket truncates to its youngest holding; ${bt ? bt.n : 0} usable days < 120). Brake tail-protection is UNPROVEN on this book's own price history — see the long-history proxy proof below.`;
         console.log(metrics.backtest_unproven);
       }
-      // Brake PROOF: run the SAME live 200-DMA brake on long-history PROXIES (decoupled from
+      // Brake PROOF: run the SAME live 200-DMA brake on long-history instruments (decoupled from
       // this book's short, intersection-truncated basket) so the dial's tail claim is TESTED
-      // against real ≥20% drawdowns (2000/2008/2020/2022), not asserted. Methodology evidence
-      // on a proxy, NOT a backtest of this book. Best-effort; never breaks the scan.
+      // against real ≥20% drawdowns (2000/2008/2020/2022), not asserted. Reads DEEP history
+      // DB-FIRST (seriesFor) — SPY/QQQ/SOXX are deep-seeded BENCHMARKS, so this reaches the
+      // dot-com/GFC tails the live `range=max` fallback misses (run a --backfill once to seed them).
+      // Methodology evidence on a proxy, NOT a backtest of this book. Best-effort; never breaks the scan.
       try {
         const proofs = [];
         for (const px of ["SPY", "QQQ", "SOXX"]) {
           try {
-            const s = await fetchSeries(px, "max");
+            const s = await seriesFor(px, { liveRange: "max", years: 40 }); // DB-first deep, live only on a miss
             const bp = brakeProof(s.dates, s.closes, { maPeriod });
             if (bp) {
-              proofs.push({ proxy: px, ...bp });
-              console.log(`Brake proof ${px} (${bp.years}y): maxDD ${(bp.buyhold.max_drawdown * 100).toFixed(0)}%→${(bp.braked.max_drawdown * 100).toFixed(0)}%, Calmar ${bp.buyhold.calmar}→${bp.braked.calmar}, CAGR cost ${(bp.cagr_cost * 100).toFixed(1)}pts, ${bp.episodes.filter((e) => e.helped).length}/${bp.episodes.length} crashes cut`);
+              proofs.push({ proxy: px, src: s.src, ...bp });
+              console.log(`Brake proof ${px} (${bp.years}y, ${s.src}): maxDD ${(bp.buyhold.max_drawdown * 100).toFixed(0)}%→${(bp.braked.max_drawdown * 100).toFixed(0)}%, Calmar ${bp.buyhold.calmar}→${bp.braked.calmar}, CAGR cost ${(bp.cagr_cost * 100).toFixed(1)}pts, ${bp.episodes.filter((e) => e.helped).length}/${bp.episodes.length} crashes cut`);
             }
           } catch (e) { console.log(`Brake proof ${px} skipped: ${e.message}`); }
           await new Promise((r) => setTimeout(r, 200));
         }
         if (proofs.length) metrics.brake_proof = proofs;
+      } catch { /* proof is best-effort */ }
+      // Fast-RE-ENTRY PROOF: put the dial's breadth-based "fast entry" overlay (regime.mjs:123 —
+      // re-risk a notch when ≥60% of names reclaim their 20-DMA) to a falsifiable test on the book's
+      // OWN names from deep DB history. Needs many names (for breadth), so reuse the basket series and
+      // keep those with enough history; compares a plain 200-DMA brake vs brake+fast-reentry. Best-effort.
+      try {
+        const byName = {};
+        for (const [tk, s] of Object.entries(series)) if (s?.closes?.length >= 1500) byName[tk] = { dates: s.dates, closes: s.closes };
+        const fr = fastReentryProof(byName, { maPeriod });
+        if (fr) {
+          metrics.fast_reentry_proof = fr;
+          console.log(`Fast-reentry proof (${fr.years}y, ${fr.names.length} names): CAGR ${(fr.plain.cagr * 100).toFixed(1)}%→${(fr.fast.cagr * 100).toFixed(1)}% (+${(fr.cagr_gain * 100).toFixed(1)}pts), maxDD ${(fr.plain.max_drawdown * 100).toFixed(0)}%→${(fr.fast.max_drawdown * 100).toFixed(0)}%, Calmar ${fr.plain.calmar}→${fr.fast.calmar}, worth_it=${fr.worth_it}`);
+        }
       } catch { /* proof is best-effort */ }
       // G1: regress the basket on tradeable factors — MARKET (SPY), MOMENTUM (MTUM), and crucially a
       // THEME proxy (QQQ). The intercept is residual alpha BEYOND market+momentum+theme exposure — the
@@ -804,7 +820,7 @@ if (!OFFLINE && supabaseConfigured()) {
     bars.push(...v23LatestBars);
     // (3) One-time deep seed.
     if (BACKFILL) {
-      const all = [...new Set([...universe, ...V23_TICKERS, ...REGIME_INSTRUMENTS])];
+      const all = [...new Set([...universe, ...V23_TICKERS, ...REGIME_INSTRUMENTS, ...BENCHMARKS])];
       // Yahoo adjclose + Tiingo adjClose are the ADJUSTED corroborating pair; Stooq is a KEYLESS
       // fallback so rate-limiting can't zero a ticker (outvoted when the adjusted pair is present).
       console.log(`Backfill: deep ADJUSTED history for ${all.length} tickers — Yahoo(adj)+Stooq${process.env.TIINGO_API_KEY ? "+Tiingo(adj)" : ""}, cross-provider reconciled…`);

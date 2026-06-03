@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { backtestRegime, brakeProof } from "../scripts/lib/backtest.mjs";
+import { backtestRegime, brakeProof, fastReentryProof } from "../scripts/lib/backtest.mjs";
 
 // Build a series: smooth uptrend, then a sharp crash. A trend brake (exit below the
 // moving average) should avoid most of the crash → smaller max drawdown.
@@ -84,6 +84,51 @@ describe("brakeProof: 200/MA brake tested on a long multi-crash proxy", () => {
   it("returns null for a series too short to warm up the MA", () => {
     assert.equal(brakeProof(dates.slice(0, 60), values.slice(0, 60), { maPeriod: 50 }), null);
     assert.equal(brakeProof(["2020-01-01"], [100], { maPeriod: 50 }), null);
+  });
+});
+
+// fastReentryProof: the breadth-based "fast entry" overlay vs a plain 200-DMA brake. Build a
+// multi-name basket that crashes then sharply recovers: breadth (names back above their 20-DMA)
+// turns up EARLY in the recovery, while the index reclaims its 200-DMA only much later — exactly
+// the case fast re-entry is designed for. It should re-enter sooner → more time in market + CAGR.
+function basketCrashThenRecovery() {
+  const dates = [], start = Date.UTC(2000, 0, 1);
+  const base = [];
+  let p = 100;
+  for (let i = 0; i < 420; i++) {
+    if (i < 200) p *= 1.0024;       // uptrend ~100→161
+    else if (i < 240) p *= 0.9866;  // crash ~ -42%
+    else if (i < 360) p *= 1.0043;  // sharp recovery
+    else p *= 1.0012;               // mild uptrend
+    base.push(p);
+    dates.push(new Date(start + i * 86400000).toISOString().slice(0, 10));
+  }
+  const byName = {};
+  for (let k = 0; k < 5; k++) byName["N" + k] = { dates, closes: base.map((c, i) => c * (1 + 0.01 * Math.sin((i + k * 7) / 9))) };
+  return byName;
+}
+
+describe("fastReentryProof: breadth fast-entry overlay vs a plain 200-DMA brake", () => {
+  const fr = fastReentryProof(basketCrashThenRecovery(), { maPeriod: 100, breadthMa: 20, breadthThresh: 0.6 });
+  it("returns plain vs fast strategies with both falsifiable verdicts", () => {
+    assert.ok(fr && typeof fr.improves_cagr === "boolean" && typeof fr.worth_it === "boolean");
+    assert.ok(fr.plain && fr.fast && fr.names.length === 5);
+  });
+  it("fast re-entry spends ≥ time in market and captures ≥ the CAGR of the plain brake", () => {
+    assert.ok(fr.time_in_market_fast >= fr.time_in_market_plain, `tim ${fr.time_in_market_fast} >= ${fr.time_in_market_plain}`);
+    assert.ok(fr.fast.cagr >= fr.plain.cagr - 1e-9, `cagr ${fr.fast.cagr} >= ${fr.plain.cagr}`);
+    assert.ok(fr.cagr_gain >= 0);
+    assert.equal(fr.improves_cagr, true);
+  });
+  it("captures the crash episode for both strategies", () => {
+    assert.ok(fr.episodes.length >= 1);
+    for (const e of fr.episodes) assert.ok(e.buyhold_dd >= 0.20 && e.plain_dd >= 0 && e.fast_dd >= 0);
+  });
+  it("returns null with too few names or too little history", () => {
+    const b = basketCrashThenRecovery();
+    assert.equal(fastReentryProof({ N0: b.N0, N1: b.N1 }, { maPeriod: 100 }), null); // <3 names
+    const short = Object.fromEntries(Object.entries(b).map(([k, v]) => [k, { dates: v.dates.slice(0, 120), closes: v.closes.slice(0, 120) }]));
+    assert.equal(fastReentryProof(short, { maPeriod: 100 }), null); // < maPeriod+60
   });
 });
 

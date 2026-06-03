@@ -133,3 +133,109 @@ export function brakeProof(dates, values, { maPeriod = 200, periodsPerYear = 252
     improves_calmar: (brM.calmar ?? -Infinity) > (bhM.calmar ?? -Infinity),
   };
 }
+
+// Trailing simple moving average (null until warmed up). O(n).
+function sma(arr, period) {
+  const out = Array(arr.length).fill(null);
+  let s = 0;
+  for (let i = 0; i < arr.length; i++) {
+    s += arr[i];
+    if (i >= period) s -= arr[i - period];
+    if (i >= period - 1) out[i] = s / period;
+  }
+  return out;
+}
+
+// Align {name:{dates,closes}} on the common date intersection. Returns {dates,names,cols} or null.
+function alignNames(seriesByName) {
+  const names = Object.keys(seriesByName).filter((n) => seriesByName[n]?.dates?.length >= 60);
+  if (names.length < 3) return null; // breadth needs a few names to mean anything
+  const maps = {};
+  let common = null;
+  for (const n of names) {
+    const m = new Map();
+    seriesByName[n].dates.forEach((d, i) => m.set(d, seriesByName[n].closes[i]));
+    maps[n] = m;
+    const ds = new Set(m.keys());
+    common = common == null ? ds : new Set([...common].filter((d) => ds.has(d)));
+  }
+  const dates = [...common].sort();
+  if (dates.length < 60) return null;
+  const cols = {};
+  for (const n of names) cols[n] = dates.map((d) => maps[n].get(d));
+  return { dates, names, cols };
+}
+
+// Fast-RE-ENTRY proof: put the live dial's breadth-based "fast entry" overlay (regime.mjs —
+// when ≥`breadthThresh` of NAMES reclaim their 20-DMA, re-risk one notch) to a falsifiable test
+// on a real multi-name basket. Compares two strategies on the SAME equal-weight basket, both
+// no-look-ahead, both turnover-costed:
+//   • PLAIN brake — in when the index is above its 200-DMA, else cash; re-enter only when the
+//     index itself reclaims the 200-DMA.
+//   • Brake + FAST RE-ENTRY — same, but while braked-out it re-risks one notch (`notch`, a
+//     partial position) early when breadth ≥ threshold, without waiting for the index to recover.
+// The question fast-entry lives or dies on: does re-entering on breadth capture more recovery
+// (higher CAGR / time-in-market) WITHOUT giving the drawdown protection back (Calmar)?
+export function fastReentryProof(seriesByName, { maPeriod = 200, breadthMa = 20, breadthThresh = 0.6, periodsPerYear = 252, costPerSwitchBps = 10, notch = 0.5, minEpisodeDd = 0.20 } = {}) {
+  const A = alignNames(seriesByName);
+  if (!A || A.dates.length < maPeriod + 60) return null;
+  const { dates, names, cols } = A;
+  const N = dates.length;
+  // equal-weight index (normalize each name to 1 at the common start), and its 200-DMA
+  const idx = [];
+  const norm = {};
+  for (const n of names) { const base = cols[n][0]; norm[n] = cols[n].map((c) => c / base); }
+  for (let i = 0; i < N; i++) { let s = 0; for (const n of names) s += norm[n][i]; idx.push(100 * s / names.length); }
+  const ma200 = sma(idx, maPeriod);
+  // per-name 20-DMA breadth: fraction of names trading above their own short MA
+  const sma20 = {}; for (const n of names) sma20[n] = sma(cols[n], breadthMa);
+  const breadth = [];
+  for (let i = 0; i < N; i++) {
+    let above = 0, tot = 0;
+    for (const n of names) if (sma20[n][i] != null) { tot++; if (cols[n][i] > sma20[n][i]) above++; }
+    breadth.push(tot ? above / tot : null);
+  }
+  const cost = Math.max(0, costPerSwitchBps) / 10000;
+  const run = (fast) => {
+    const eq = [100], pos = [];
+    let prev = null;
+    for (let i = maPeriod; i < N; i++) {
+      const inTrend = ma200[i - 1] != null && idx[i - 1] > ma200[i - 1]; // decide on prior bar
+      let p = inTrend ? 1 : (fast && breadth[i - 1] != null && breadth[i - 1] >= breadthThresh ? notch : 0);
+      pos.push(p);
+      const dPos = prev == null ? 0 : Math.abs(p - prev);
+      prev = p;
+      const ret = idx[i] / idx[i - 1];
+      let e = eq[eq.length - 1] * (1 + p * (ret - 1));
+      if (dPos > 0) e *= (1 - cost * dPos); // turnover proportional to the size of the position change
+      eq.push(e);
+    }
+    return { eq: eq.slice(1), pos };
+  };
+  const plain = run(false), fast = run(true);
+  const plainM = portfolioMetrics(plain.eq, { periodsPerYear });
+  const fastM = portfolioMetrics(fast.eq, { periodsPerYear });
+  const eqDates = dates.slice(maPeriod);
+  const bh = []; let h = 100; for (let i = maPeriod; i < N; i++) { h *= idx[i] / idx[i - 1]; bh.push(h); }
+  const episodes = drawdownEpisodes(bh, minEpisodeDd).map((e) => ({
+    from: eqDates[e.iPeak], to: eqDates[e.iTrough],
+    buyhold_dd: +e.dd.toFixed(4),
+    plain_dd: +maxDdWindow(plain.eq, e.iPeak, e.iTrough).toFixed(4),
+    fast_dd: +maxDdWindow(fast.eq, e.iPeak, e.iTrough).toFixed(4),
+  }));
+  const tim = (ps) => +(ps.reduce((a, b) => a + (b > 0 ? 1 : 0), 0) / ps.length).toFixed(2);
+  const years = (Date.parse(eqDates[eqDates.length - 1]) - Date.parse(eqDates[0])) / (365.25 * 86400000);
+  return {
+    window: `${eqDates[0]}..${eqDates[eqDates.length - 1]}`,
+    years: +years.toFixed(1),
+    names, breadth_threshold: breadthThresh, notch,
+    plain: plainM, fast: fastM,
+    time_in_market_plain: tim(plain.pos), time_in_market_fast: tim(fast.pos),
+    cagr_gain: +((fastM.cagr ?? 0) - (plainM.cagr ?? 0)).toFixed(4),       // >0 ⇒ fast re-entry captured more upside
+    maxdd_cost: +(fastM.max_drawdown - plainM.max_drawdown).toFixed(4),     // >0 ⇒ fast re-entry took on more drawdown
+    episodes,
+    // The two claims fast-entry lives or dies on:
+    improves_cagr: (fastM.cagr ?? -Infinity) > (plainM.cagr ?? -Infinity),
+    worth_it: (fastM.calmar ?? -Infinity) > (plainM.calmar ?? -Infinity),  // net risk-adjusted improvement
+  };
+}
