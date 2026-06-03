@@ -16,8 +16,15 @@ You are working in **`shyvibecoder/deep-tech-market-research`** (private). It co
    - `scripts/scan.mjs` (+ `lib/quotes.mjs`, `lib/llm.mjs`) = the scanner: free keyless quotes (Stooq→Yahoo fallback), a crowding score, auto-trigger evaluation, and an optional free-LLM "analyst + red-team" digest (Gemini/Groq).
    - `.github/workflows/scan.yml` = the "agent worker": a free GitHub Actions cron that runs the scan, commits `web/data/signals.json`, and opens an Issue when a trigger fires. (Vercel hosts the UI; GitHub Actions runs the agents.)
 
+> **As-built wiring:** `docs/ARCHITECTURE.md` is the end-to-end map (Scout → Committee/Research →
+> Diversifier → daily Scan → UI), the data-store contracts, and the ranked seam inventory. Read it
+> before changing cross-stage behavior. The accountability loop now grades per-name TSMOM tilts,
+> de-rating/inflecting alpha calls, sizing tilts, **and committee kill-criteria** (falsification
+> deadlines); the timing dial is **backtested** (deep brake proof + a 3-way system backtest vs the
+> −35% mandate), not asserted.
+
 ### Data model (`web/data/`)
-- `scarcities.json` — the scarcity map (id, sector, bind_window, priced_in, durability, substitution_risk, tickers, non_consensus, thesis).
+- `scarcities.json` — the scarcity map (id, sector, bind_window, priced_in, durability, substitution_risk, tickers, non_consensus, thesis; descriptive `kill_criterion` once a committee thesis is accepted).
 - `portfolio.json` — holdings, target $, weight, account, tier, role.
 - `triggers.json` — deploy/exit rules (auto + manual).
 - `signals.json` — **generated** by the scanner (live quotes, crowding, trigger status, digest). Do not hand-edit.

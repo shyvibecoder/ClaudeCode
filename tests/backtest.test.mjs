@@ -110,9 +110,12 @@ function basketCrashThenRecovery() {
 
 describe("fastReentryProof: breadth fast-entry overlay vs a plain 200-DMA brake", () => {
   const fr = fastReentryProof(basketCrashThenRecovery(), { maPeriod: 100, breadthMa: 20, breadthThresh: 0.6 });
-  it("returns plain vs fast strategies with both falsifiable verdicts", () => {
+  it("returns the 3-way (buyhold/brake/fast) + −35% mandate check + both verdicts", () => {
     assert.ok(fr && typeof fr.improves_cagr === "boolean" && typeof fr.worth_it === "boolean");
-    assert.ok(fr.plain && fr.fast && fr.names.length === 5);
+    assert.ok(fr.buyhold && fr.plain && fr.fast && fr.names.length === 5);
+    assert.ok(fr.breach_35 && typeof fr.breach_35.buyhold === "boolean" && typeof fr.breach_35.brake === "boolean" && typeof fr.breach_35.fast === "boolean");
+    // the timing overlay must not have a DEEPER drawdown than do-nothing (it brakes)
+    assert.ok(fr.fast.max_drawdown <= fr.buyhold.max_drawdown + 1e-9);
   });
   it("fast re-entry spends ≥ time in market and captures ≥ the CAGR of the plain brake", () => {
     assert.ok(fr.time_in_market_fast >= fr.time_in_market_plain, `tim ${fr.time_in_market_fast} >= ${fr.time_in_market_plain}`);

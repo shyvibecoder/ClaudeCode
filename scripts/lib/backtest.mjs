@@ -217,6 +217,7 @@ export function fastReentryProof(seriesByName, { maPeriod = 200, breadthMa = 20,
   const fastM = portfolioMetrics(fast.eq, { periodsPerYear });
   const eqDates = dates.slice(maPeriod);
   const bh = []; let h = 100; for (let i = maPeriod; i < N; i++) { h *= idx[i] / idx[i - 1]; bh.push(h); }
+  const bhM = portfolioMetrics(bh, { periodsPerYear }); // do-nothing baseline (basket fully invested)
   const episodes = drawdownEpisodes(bh, minEpisodeDd).map((e) => ({
     from: eqDates[e.iPeak], to: eqDates[e.iTrough],
     buyhold_dd: +e.dd.toFixed(4),
@@ -229,7 +230,9 @@ export function fastReentryProof(seriesByName, { maPeriod = 200, breadthMa = 20,
     window: `${eqDates[0]}..${eqDates[eqDates.length - 1]}`,
     years: +years.toFixed(1),
     names, breadth_threshold: breadthThresh, notch,
-    plain: plainM, fast: fastM,
+    buyhold: bhM, plain: plainM, fast: fastM, // full 3-way: do-nothing vs brake vs brake+fast-reentry
+    // −35% mandate check on each strategy over this window (true = breaches the objective):
+    breach_35: { buyhold: bhM.breaches_35, brake: plainM.breaches_35, fast: fastM.breaches_35 },
     time_in_market_plain: tim(plain.pos), time_in_market_fast: tim(fast.pos),
     cagr_gain: +((fastM.cagr ?? 0) - (plainM.cagr ?? 0)).toFixed(4),       // >0 ⇒ fast re-entry captured more upside
     maxdd_cost: +(fastM.max_drawdown - plainM.max_drawdown).toFixed(4),     // >0 ⇒ fast re-entry took on more drawdown
