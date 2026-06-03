@@ -163,3 +163,12 @@ table.cfg code{font-size:11px}#adminStatus a{color:var(--y30)}
 .diverge-w{color:#fbbf24}
 
 .stress-btn{font-size:12px}
+
+/* Backtest tables (scorecard) — compact, horizontally scrollable */
+.mut{color:var(--mut)}
+.bt-h{margin:14px 0 4px}
+table.mine.bt{min-width:560px}
+table.mine.bt th{color:var(--mut);font-weight:600;font-size:12px;white-space:nowrap}
+table.mine.bt td{white-space:nowrap;vertical-align:top}
+table.mine.bt td.bt-cr{font-size:11px;line-height:1.6}
+table.mine.bt .nb{white-space:nowrap}

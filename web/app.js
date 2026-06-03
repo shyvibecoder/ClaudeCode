@@ -357,24 +357,40 @@ function renderMetrics() {
   // G6: historical cross-sectional backtest of the relative-strength signal (upper bound — survivorship).
   const sb = DATA.sig?.signal_backtest;
   const scBt = sb ? `<p class="foot">Signal backtest (history, ${sb.n} obs): rank IC <strong>${sb.ic}</strong>, hit-rate <strong>${Math.round((sb.hit_rate || 0) * 100)}%</strong>${sb.hit_rate_ci95 ? ` (95% CI ${Math.round(sb.hit_rate_ci95[0] * 100)}–${Math.round(sb.hit_rate_ci95[1] * 100)}%)` : ""} — <em>upper bound (survivorship)</em> <button class="help" data-help="sigbacktest">?</button></p>` : "";
-  // F+C THRUST BACKTEST — the EXACT live timing design (Faber trend + Daniel-Moskowitz crash + rising-20-DMA
-  // thrust re-entry; the same v23.mjs rule the regime runs) on deep benchmark history vs buy-&-hold. Per
-  // instrument: did it cut maxDD (✓/✗), hold the −35% mandate, improve Calmar, and which crashes it cut.
+  // F+C THRUST BACKTESTS — rendered as elegant, horizontally-scrollable tables.
   const fcp = m && Array.isArray(m.fc_thrust_proof) ? m.fc_thrust_proof : null;
-  const mand = (v) => v ? `<span class="neg">✗ breaches −35%</span>` : `<span class="pos">✓ holds −35%</span>`;
-  const scFc = fcp && fcp.length ? `<p class="foot"><strong>F+C Thrust backtest (the live design)</strong> — the exact Faber + Crash + Thrust ladder (the same rule the regime runs), on deep benchmark history vs buy-&amp;-hold, no look-ahead, turnover-costed: ${fcp.map((p) => {
-    const eps = (p.episodes || []).map((e) => `${String(e.from || "").slice(0, 4)} −${(e.buyhold_dd * 100).toFixed(0)}%→−${(e.fc_dd * 100).toFixed(0)}%${e.helped ? "" : "⚠"}`).join(", ");
-    return `<br>• <strong>${esc(p.proxy)}</strong> (${p.years}y${p.src ? `, ${esc(p.src)}` : ""}): maxDD −${(p.buyhold.max_drawdown * 100).toFixed(0)}%→−${(p.fc_thrust.max_drawdown * 100).toFixed(0)}% ${p.reduces_tail ? "✓" : "✗"} ${mand(p.breach_35?.fc_thrust)}, Calmar ${num(p.buyhold.calmar)}→${num(p.fc_thrust.calmar)} ${p.improves_calmar ? "✓" : "✗"}, CAGR cost ${(p.cagr_cost * 100).toFixed(1)}pts${eps ? ` — crashes: ${eps}` : ""}`;
-  }).join("")}<br><span class="foot">⚠ = the ladder didn't cut that crash. Methodology evidence on deep proxies, not a forecast of your book. See <code>docs/DRAWDOWN-DEFENSE.md</code>.</span></p>` : "";
-  // THE COMBO: F+C Thrust timing applied to YOUR scarcity-alpha book (this basket) vs buy-&-hold the book.
   const fcb = m && m.fc_thrust_book ? m.fc_thrust_book : null;
-  const rb = fcb ? (fcb.realistic || fcb.fc_thrust) : null;
-  const fpct = (f) => f && f.timeable_frac != null ? ` ~${Math.round(f.timeable_frac * 100)}%` : "";
-  const scCombo = fcb ? `<p class="foot"><strong>Combo — F+C Thrust × the scarcity book</strong> (${fcb.years}y ${esc(fcb.window || "")}): buy-&amp;-hold CAGR ${(fcb.buyhold.cagr * 100).toFixed(0)}% / maxDD −${(fcb.buyhold.max_drawdown * 100).toFixed(0)}% ${mand(fcb.breach_35?.buyhold)} → <strong>realistic</strong> (only the IRA sleeve timed${fpct(fcb)}; taxable buy-&amp;-hold) CAGR ${(rb.cagr * 100).toFixed(0)}% / maxDD −${(rb.max_drawdown * 100).toFixed(0)}% ${mand(fcb.breach_35?.realistic ?? fcb.breach_35?.fc_thrust)} <span class="foot">[fully-timed −${(fcb.fc_thrust.max_drawdown * 100).toFixed(0)}%]</span>. <span class="foot">⚠ short, bull-only window — the timing edge is only visible through a real drawdown (see below).</span></p>` : "";
-  // CYCLE-TESTED combo: the build-out sleeve mapped to long-history analogues, through real bears.
   const fcx = m && m.fc_thrust_book_proxy ? m.fc_thrust_book_proxy : null;
-  const rx = fcx ? (fcx.realistic || fcx.fc_thrust) : null;
-  const scComboCycle = fcx ? `<p class="foot"><strong>Combo through real bears</strong> (build-out → long-history <em>analogues</em>, ${fcx.years}y ${esc(fcx.window || "")}): buy-&amp;-hold maxDD −${(fcx.buyhold.max_drawdown * 100).toFixed(0)}% ${mand(fcx.breach_35?.buyhold)} → <strong>realistic</strong> (only the IRA sleeve timed${fpct(fcx)}; taxable buy-&amp;-hold) maxDD −${(rx.max_drawdown * 100).toFixed(0)}% ${mand(fcx.breach_35?.realistic ?? fcx.breach_35?.fc_thrust)} <span class="foot">[fully-timed −${(fcx.fc_thrust.max_drawdown * 100).toFixed(0)}%]</span>, CAGR ${(fcx.buyhold.cagr * 100).toFixed(0)}%→${(rx.cagr * 100).toFixed(0)}%${(fcx.episodes || []).length ? ` — crashes: ${fcx.episodes.map((e) => `${String(e.from || "").slice(0, 4)} −${(e.buyhold_dd * 100).toFixed(0)}%→−${((e.realistic_dd ?? e.fc_dd) * 100).toFixed(0)}%${e.helped ? "" : "⚠"}`).join(", ")}` : ""}.<br><span class="foot">⚠ ANALOGUE basket (${esc((fcx.basis || []).join(", "))}); taxable is buy-&-hold (only the IRA is timed). Read the drawdown/Calmar delta, not absolute CAGR. Survivor/hindsight bias.</span></p>` : "";
+  const ddv = (x) => x == null ? "—" : "−" + (x * 100).toFixed(0) + "%";
+  const pcv = (x) => x == null ? "—" : (x * 100).toFixed(0) + "%";
+  const arr = (a, b) => `${a} <span class="mut">→</span> <strong>${b}</strong>`;
+  const m35 = (v) => v ? `<span class="neg" title="breaches −35%">✗</span>` : `<span class="pos" title="holds −35%">✓</span>`;
+  const crashCell = (eps, real) => (eps || []).length
+    ? (eps || []).map((e) => `${String(e.from || "").slice(0, 4)} ${ddv(e.buyhold_dd)}<span class="mut">→</span>${ddv(real && e.realistic_dd != null ? e.realistic_dd : e.fc_dd)}${e.helped ? "" : " <span class='neg'>⚠</span>"}`).join("<br>")
+    : `<span class="mut">—</span>`;
+  // Table A — timing methodology on deep proxies (fully timed)
+  const proxRows = (fcp || []).map((p) => `<tr>
+      <td><strong>${esc(p.proxy)}</strong><br><span class="mut nb">${p.years}y · ${esc(p.src || "")}</span></td>
+      <td class="nb">${arr(ddv(p.buyhold.max_drawdown), ddv(p.fc_thrust.max_drawdown))} ${m35(p.breach_35?.fc_thrust)}</td>
+      <td class="nb">${arr(pcv(p.buyhold.cagr), pcv(p.fc_thrust.cagr))}</td>
+      <td class="nb">${arr(num(p.buyhold.calmar), num(p.fc_thrust.calmar))}</td>
+      <td class="bt-cr">${crashCell(p.episodes, false)}</td></tr>`).join("");
+  const tableA = fcp && fcp.length ? `<div class="tscroll"><table class="mine bt"><thead><tr><th>Deep proxy<br><span class="mut nb">fully timed</span></th><th>max drawdown</th><th>CAGR</th><th>Calmar</th><th>per crash</th></tr></thead><tbody>${proxRows}</tbody></table></div>` : "";
+  // Table B — the combo (only the IRA sleeve timed; taxable buy-&-hold)
+  const comboRow = (label, sub, o) => { const rl = o.realistic || o.fc_thrust; return `<tr>
+      <td><strong>${label}</strong><br><span class="mut nb">${esc(sub)}</span></td>
+      <td class="nb">${arr(ddv(o.buyhold.max_drawdown), ddv(rl.max_drawdown))} ${m35(o.breach_35?.realistic ?? o.breach_35?.fc_thrust)}${o.timeable_frac != null ? ` <span class="mut">[full ${ddv(o.fc_thrust.max_drawdown)}]</span>` : ""}</td>
+      <td class="nb">${arr(pcv(o.buyhold.cagr), pcv(rl.cagr))}</td>
+      <td class="nb">${arr(num(o.buyhold.calmar), num(rl.calmar))}</td>
+      <td class="bt-cr">${crashCell(o.episodes, true)}</td></tr>`; };
+  const comboRows = [
+    fcb ? comboRow("Your book", `${fcb.years}y · bull-only · IRA ${Math.round((fcb.timeable_frac || 0) * 100)}%`, fcb) : "",
+    fcx ? comboRow("Through bears", `${fcx.years}y · analogue · ${esc((fcx.basis || []).join("/"))}`, fcx) : "",
+  ].join("");
+  const tableB = (fcb || fcx) ? `<div class="tscroll"><table class="mine bt"><thead><tr><th>Combo<br><span class="mut nb">IRA-timed only</span></th><th>max drawdown</th><th>CAGR</th><th>Calmar</th><th>per crash</th></tr></thead><tbody>${comboRows}</tbody></table></div>` : "";
+  const scBacktests = (tableA || tableB) ? `
+    ${tableA ? `<p class="foot bt-h"><strong>F+C Thrust backtest</strong> — the live timing rule on deep benchmark history vs buy-&amp;-hold (methodology, <em>not</em> your book; no look-ahead, turnover-costed). <span class="neg">✗</span>/<span class="neg">⚠</span> = breaches −35% / didn't cut that crash.</p>${tableA}` : ""}
+    ${tableB ? `<p class="foot bt-h"><strong>Combo — F+C Thrust × the scarcity book</strong> — only the <strong>IRA</strong> sleeve is timed (taxable is buy-&amp;-hold; it changes on scarcity decisions, not the dial). <code>[full]</code> = if the whole book were timed. See <code>docs/DRAWDOWN-DEFENSE.md</code> → Backtest realism.</p>${tableB}` : ""}` : "";
   if (!m) { box.innerHTML = `<h3>Track record <button class="help" data-help="scorecard">?</button></h3>${scLine}${scKill}${scAlpha}${scAttr}${scBt}`; return; }
   box.innerHTML = `<h3>Objective scorecard <button class="help" data-help="metrics">?</button> <span class="foot">— ${esc(m.note || "")} ${esc(m.window || "")}</span></h3>
     <div class="cards">
@@ -382,7 +398,7 @@ function renderMetrics() {
       <div class="card ${m.breaches_35 ? "dq-bad" : ""}"><b>${pct(m.max_drawdown)}</b><span>max drawdown ${m.breaches_35 ? "⚠ &gt;35%" : "✓ &lt;35%"}</span></div>
       <div class="card"><b>${num(m.calmar)}</b><span>Calmar (CAGR÷maxDD)</span></div>
       <div class="card"><b>${num(m.sortino)}</b><span>Sortino</span></div>
-    </div>${scCombo}${scComboCycle}${scFc}${scLine}${scKill}${scAlpha}${scAttr}${scBt}`;
+    </div>${scBacktests}${scLine}${scKill}${scAlpha}${scAttr}${scBt}`;
 }
 
 // (Removed: "Suggested IRA tilts" — its per-name TSMOM × regime tilt is already applied to the IRA sleeve
