@@ -201,7 +201,10 @@ export function fastReentryProof(seriesByName, { maPeriod = 200, breadthMa = 20,
     let prev = null;
     for (let i = maPeriod; i < N; i++) {
       const inTrend = ma200[i - 1] != null && idx[i - 1] > ma200[i - 1]; // decide on prior bar
-      let p = inTrend ? 1 : (fast && breadth[i - 1] != null && breadth[i - 1] >= breadthThresh ? notch : 0);
+      // fast re-entry requires a CONFIRMED breadth thrust (≥thresh on the last TWO bars) — matches the live
+      // 2-scan confirm in regime.mjs, so the backtest tests the actual rule, not a hair-trigger 1-bar version.
+      const confirmed = breadth[i - 1] != null && breadth[i - 1] >= breadthThresh && breadth[i - 2] != null && breadth[i - 2] >= breadthThresh;
+      let p = inTrend ? 1 : (fast && confirmed ? notch : 0);
       pos.push(p);
       const dPos = prev == null ? 0 : Math.abs(p - prev);
       prev = p;

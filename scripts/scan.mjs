@@ -518,7 +518,8 @@ if (!OFFLINE) {
 }
 
 // --- Timing layer: trend/momentum/vol/drawdown + 20-DMA re-entry + macro overlay ---
-const regime = computeRegime(enriched, portfolio.holdings, { macro, securities });
+const prevBreadth20 = prevSig.regime?.components?.breadth_above_20dma != null ? prevSig.regime.components.breadth_above_20dma / 100 : null; // for the fast-re-entry 2-scan confirm
+const regime = computeRegime(enriched, portfolio.holdings, { macro, securities, prevBreadth20 });
 console.log(`Regime: ${regime.posture}${regime.risk_score != null ? ` (risk ${regime.risk_score}/100)` : ""}`);
 
 // Regime instruments panel: QQQ (reference underlying) + TQQQ/SQQQ (3× long/short proxies) with full daily

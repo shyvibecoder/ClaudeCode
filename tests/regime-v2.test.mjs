@@ -23,12 +23,18 @@ describe("regime v2: exit-only macro-stress overlay", () => {
 });
 
 describe("regime v2: fast re-entry (20-DMA breadth) override", () => {
-  it("a breadth thrust clears a defensive base to NEUTRAL (not just one notch — works from defensive)", () => {
-    // base is bearish, but most names have reclaimed their 20-DMA → broad thrust clears the brake
-    const reclaim = { T0: q(-0.15, -0.3, -0.30, 1.2, false, true), T1: q(-0.18, -0.35, -0.32, 1.2, false, true) };
-    const r = computeRegime(reclaim, holds(2));
+  const reclaim = { T0: q(-0.15, -0.3, -0.30, 1.2, false, true), T1: q(-0.18, -0.35, -0.32, 1.2, false, true) };
+  it("a CONFIRMED (2-scan) breadth thrust clears a defensive base to NEUTRAL (works from defensive)", () => {
+    const r = computeRegime(reclaim, holds(2), { prevBreadth20: 0.7 }); // yesterday also ≥60% → confirmed
+    assert.equal(r.fast_reentry_armed, true);
     assert.equal(r.fast_reentry, true);
     assert.equal(r.posture, "neutral"); // cleared the deploy-brake, but capped at neutral (no acceleration)
+  });
+  it("a SINGLE-scan thrust does NOT clear the brake — needs a 2nd day (anti-bear-rally-whipsaw)", () => {
+    const r = computeRegime(reclaim, holds(2)); // no prior breadth → unconfirmed
+    assert.equal(r.fast_reentry_armed, true);
+    assert.equal(r.fast_reentry, false);
+    assert.equal(r.posture, "defensive"); // brake stays on until the thrust persists
   });
   it("macro stress beats fast re-entry (brakes win)", () => {
     const reclaim = { T0: q(-0.15, -0.3, -0.30, 1.2, false, true), T1: q(-0.18, -0.35, -0.32, 1.2, false, true) };

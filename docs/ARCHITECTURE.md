@@ -79,13 +79,14 @@ holistic end-to-end review. Anchors: `file:line` throughout.
 ### 🟡 C. Wiring gaps / dead code (code ≠ claim)
 7. **Diversifier `axis`/gate is dead code** — `draftFromLead` stamps `axis` only if an engine sets
    it; no engine does. Documented diversifier-sleeve gating is non-functional. → Pass 2.
-8. **`fast_reentry` was inert from defensive** — *(iterated/FIXED)* it nudged posture one notch, so a
-   thrust out of `defensive` landed on `caution` (still braked) → inert in the sharp V-recoveries it's
-   for; and the `fastReentryProof` backtest modeled a *partial re-entry* the one-notch nudge never
-   performed. Now a broad ≥60% breadth thrust **clears the brake to `neutral`** (works from defensive;
-   capped at neutral → lifts the deploy-brake/pace without triggering overweight *acceleration* in
-   `regimeFactor` — re-risk, not lever up). By design it moves **pace, not size**; that is now intentional
-   and documented, not an accident.
+8. **`fast_reentry` — adversarially iterated (2 rounds).** Round 1 found it (a) *inert from defensive*
+   (one-notch nudge → caution, still braked) and (b) **unconfirmed** — a single-day ≥60% breadth pop is a
+   bear-market-rally head-fake, and re-risking on a fast/noisy signal while exiting on a slow one is the
+   wrong asymmetry (the validating backtest never saw a bear). Fix: a broad thrust now **clears the brake to
+   `neutral` only when CONFIRMED over 2 scans** (mirrors the 2-scan drawdown-confirm); capped at neutral →
+   moves **pace, not size** (no overweight acceleration). `fastReentryProof` tightened to the same 2-bar
+   confirm so the backtest tests the real rule. *Open validation gap:* run the proof on a **bear-market
+   window** (now possible via the backfilled deep benchmarks) to truly stress the whipsaw case.
 9. **`rel_strength` computed but only a UI label** — never enters sizing/scoring. → Pass 2.
 
 ### 🟢 D. Robustness / safety

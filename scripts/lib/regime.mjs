@@ -61,7 +61,7 @@ function accountPolicy(posture) {
   };
 }
 
-export function computeRegime(quotes, holdings, { macro, securities = {} } = {}) {
+export function computeRegime(quotes, holdings, { macro, securities = {}, prevBreadth20 = null } = {}) {
   const sigHoldings = compositeHoldings(holdings, securities);
   const composite_basis = sigHoldings.map((h) => h.ticker);
   const per_name = perNameTilt(quotes, holdings);
@@ -119,15 +119,17 @@ export function computeRegime(quotes, holdings, { macro, securities = {} } = {})
 
   // --- Overlays (order matters): a broad fast-re-entry thrust CLEARS the deploy-brake; macro
   // stress is exit-only and ALWAYS wins (forces defensive, overriding the thrust below). ---
-  // DESIGN (iterated): when ≥60% of names reclaim their 20-DMA — a broad thrust that is strong evidence
-  // the downtrend has broken — clear a braked posture to NEUTRAL (not just one ladder notch, which left a
-  // thrust out of a DEFENSIVE regime still braked → inert in exactly the sharp V-recoveries this is for).
-  // Capped at neutral: it lifts the deploy-brake (pace) but never reaches risk-on, so it does NOT trigger
-  // the overweight ACCELERATION in sizing (regimeFactor) — re-risk, not lever up.
-  const fast_reentry = breadth20 != null && breadth20 >= 0.6;
+  // DESIGN (adversarially iterated): a broad ≥60% 20-DMA breadth thrust clears a braked posture to NEUTRAL
+  // — but only when CONFIRMED. A single-scan ≥60% pop is a classic bear-market-rally head-fake; re-risking
+  // on it whipsaws (fast-in on a noisy 20-DMA vs slow-out on the 200-DMA is the wrong asymmetry). So require
+  // the thrust to PERSIST a 2nd scan (mirrors the 2-scan drawdown-confirm) before it acts. `armed` = today's
+  // thrust; `fast_reentry` = confirmed → clears the brake. Capped at neutral: lifts the deploy-brake (pace)
+  // but never reaches risk-on, so it does NOT trigger overweight ACCELERATION in sizing — re-risk, not lever up.
+  const fast_reentry_armed = breadth20 != null && breadth20 >= 0.6;
+  const fast_reentry = fast_reentry_armed && prevBreadth20 != null && prevBreadth20 >= 0.6;
   if (fast_reentry && (posture === "defensive" || posture === "caution")) {
     posture = "neutral";
-    action = `Fast re-entry: ≥60% of names reclaimed their 20-DMA — breadth thrust clears the brake to neutral. ${action}`;
+    action = `Fast re-entry: ≥60% of names reclaimed their 20-DMA for a 2nd scan — confirmed thrust clears the brake to neutral. ${action}`;
   }
   const macroStressed = !!macro?.stressed;
   const macroAvailable = macro != null; // R1: was the exit-only brake actually computed?
@@ -139,7 +141,7 @@ export function computeRegime(quotes, holdings, { macro, securities = {} } = {})
   const pct = (x) => (x == null ? "n/a" : (x * 100).toFixed(0) + "%");
   return {
     version: REGIME_VERSION,
-    posture, risk_score: risk, confidence, confidence_note, fast_reentry, macro_stressed: macroStressed, macro_available: macroAvailable,
+    posture, risk_score: risk, confidence, confidence_note, fast_reentry, fast_reentry_armed, macro_stressed: macroStressed, macro_available: macroAvailable,
     composite_basis, per_name, account_policy: accountPolicy(posture),
     components: {
       trend_vs_200dma: round1(avgVsMa200), momentum_12m: round1(avgMom),
