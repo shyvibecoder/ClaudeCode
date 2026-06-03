@@ -450,6 +450,14 @@ sleeve), targets each name's weight against your **total account balances**, and
 the account that maximizes after-tax terminal value** — grouped by account. Each name's dollars can **split
 across accounts** so capacity is filled exactly.
 
+A **Timing overlay banner** sits at the top of the plan so the regime is visible *where the money moves*,
+not just in the posture panel: it shows the current **posture**, whether the **brakes are on** (deploy into
+the drawdown trigger, not now) or **clear** (deploy on schedule), and whether **⚡ fast re-entry is armed**
+(a breadth thrust cleared the brake). The buy weights themselves are **regime-tilted** in the IRA sleeve
+(`web/sizing.mjs`): overweights only *accelerate* in a risk-on posture, trims bite in any posture, and the
+taxable sleeve stays buy-and-hold. So both the **pace** (banner + the Radar's ⏳/✚ forced-flow badges) and
+the **size** (the weights) reflect the brake + fast-re-entry — the timing layer is wired through end to end.
+
 **Each row shows its sleeve** with a colored tag (matching the overview-diagram colors): a green
 **Build-out** pill (the alpha engine, ~85%) or a purple **◇ Diversifier** pill (the drawdown hedge, ~15%),
 plus a subtle left accent so you can scan which sleeve a name belongs to even though rows are grouped by
