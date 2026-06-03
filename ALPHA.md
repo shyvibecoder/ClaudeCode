@@ -130,6 +130,14 @@ The `gate` itself blends the **human `priced_in` label (60%)** with a **live, pr
 proxy (40%)** — YTD return + distance to the 52-week high — so the score updates with the tape and
 flags where the market has *already* de-rated (or run up) a thesis the label hasn't caught up to.
 
+> **Exception — SIZING uses the STATIC gate (label only), not the 60/40 blend.** The blended `score`
+> (with its live-crowding leg) drives the **radar ranking** and the de-rating flag. But the **rebalance
+> weights** (`scripts/scan.mjs` HIGH-3 → `web/sizing.mjs`) multiply by `static_gate × quality × contrarian`
+> — the **thesis-only** gate with **no** live-crowding leg. Why: live crowding is price-momentum, and the
+> F+C Thrust regime tilt already carries momentum; folding it into sizing too would **double-count**
+> momentum. So momentum enters the allocation exactly once (via the regime), and the committee's "crowded"
+> label still shrinks the size — the thesis→allocation link is preserved without the double-count.
+
 **Reading it:** a high score means *"binds soon, durable rent, hard to substitute, genuinely
 non-consensus — and the market has not yet priced it."* The `gate` is multiplicative on purpose:
 if a thesis is already `crowded`, the score is ~0 no matter how good the business — **there is no

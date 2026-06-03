@@ -402,6 +402,15 @@ if (!OFFLINE) {
       console.log(`Metrics: CAGR ${metrics.cagr}, maxDD ${metrics.max_drawdown} (breaches35=${metrics.breaches_35}), Calmar ${metrics.calmar}, Sortino ${metrics.sortino} [${years}y, ${fromDb} from DB]`);
       // Hoist the composite series for the LIVE regime — the F+C Thrust ladder runs on it.
       regimeComposite = idx.values;
+      // THE COMBO: F+C Thrust timing applied to THE SCARCITY-ALPHA BOOK itself (this target-weighted basket)
+      // vs buy-&-hold the same book — i.e. "alpha from scarcities" WITH the timing overlay. Honest caveat:
+      // the basket truncates to its youngest holding, so this window is short and (so far) bull-only — it
+      // can't show the timing's tail benefit until the book lives through a real drawdown; the deep-proxy
+      // fc_thrust_proof below is where the timing edge is actually tested against 2000/2008/2020/2022.
+      try {
+        const fcb = fcThrustBacktest(idx.values, { dates: idx.dates });
+        if (fcb) { metrics.fc_thrust_book = fcb; console.log(`F+C Thrust on the BOOK (${fcb.years}y): buy&hold maxDD ${(fcb.buyhold.max_drawdown * 100).toFixed(0)}% CAGR ${(fcb.buyhold.cagr * 100).toFixed(0)}% → timed maxDD ${(fcb.fc_thrust.max_drawdown * 100).toFixed(0)}% CAGR ${(fcb.fc_thrust.cagr * 100).toFixed(0)}%`); }
+      } catch { /* best-effort */ }
       // BACKTEST THE EXACT LIVE DESIGN: the F+C Thrust ladder (Faber 200-DMA trend + Daniel-Moskowitz
       // 252d-return/60d-vol crash + rising-20-DMA THRUST re-entry) — the SAME v23.mjs functions the live
       // regime uses — on DEEP, DB-first benchmark history (SPY/QQQ/SOXX; seed once with --backfill so it

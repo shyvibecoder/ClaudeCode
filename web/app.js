@@ -366,6 +366,9 @@ function renderMetrics() {
     const eps = (p.episodes || []).map((e) => `${String(e.from || "").slice(0, 4)} −${(e.buyhold_dd * 100).toFixed(0)}%→−${(e.fc_dd * 100).toFixed(0)}%${e.helped ? "" : "⚠"}`).join(", ");
     return `<br>• <strong>${esc(p.proxy)}</strong> (${p.years}y${p.src ? `, ${esc(p.src)}` : ""}): maxDD −${(p.buyhold.max_drawdown * 100).toFixed(0)}%→−${(p.fc_thrust.max_drawdown * 100).toFixed(0)}% ${p.reduces_tail ? "✓" : "✗"} ${mand(p.breach_35?.fc_thrust)}, Calmar ${num(p.buyhold.calmar)}→${num(p.fc_thrust.calmar)} ${p.improves_calmar ? "✓" : "✗"}, CAGR cost ${(p.cagr_cost * 100).toFixed(1)}pts${eps ? ` — crashes: ${eps}` : ""}`;
   }).join("")}<br><span class="foot">⚠ = the ladder didn't cut that crash. Methodology evidence on deep proxies, not a forecast of your book. See <code>docs/DRAWDOWN-DEFENSE.md</code>.</span></p>` : "";
+  // THE COMBO: F+C Thrust timing applied to YOUR scarcity-alpha book (this basket) vs buy-&-hold the book.
+  const fcb = m && m.fc_thrust_book ? m.fc_thrust_book : null;
+  const scCombo = fcb ? `<p class="foot"><strong>Combo — F+C Thrust × the scarcity book</strong> (the timing overlay on <em>your</em> target-weighted basket, ${fcb.years}y ${esc(fcb.window || "")}): buy-&amp;-hold CAGR ${(fcb.buyhold.cagr * 100).toFixed(0)}% / maxDD −${(fcb.buyhold.max_drawdown * 100).toFixed(0)}% ${mand(fcb.breach_35?.buyhold)} → <strong>timed</strong> CAGR ${(fcb.fc_thrust.cagr * 100).toFixed(0)}% / maxDD −${(fcb.fc_thrust.max_drawdown * 100).toFixed(0)}% ${mand(fcb.breach_35?.fc_thrust)} (Calmar ${num(fcb.buyhold.calmar)}→${num(fcb.fc_thrust.calmar)}). <span class="foot">⚠ short, bull-only window — the timing edge is only visible through a real drawdown (see the deep-proxy proof above); selection edge is graded by the Track record + signal backtest.</span></p>` : "";
   if (!m) { box.innerHTML = `<h3>Track record <button class="help" data-help="scorecard">?</button></h3>${scLine}${scKill}${scAlpha}${scAttr}${scBt}`; return; }
   box.innerHTML = `<h3>Objective scorecard <button class="help" data-help="metrics">?</button> <span class="foot">— ${esc(m.note || "")} ${esc(m.window || "")}</span></h3>
     <div class="cards">
@@ -373,7 +376,7 @@ function renderMetrics() {
       <div class="card ${m.breaches_35 ? "dq-bad" : ""}"><b>${pct(m.max_drawdown)}</b><span>max drawdown ${m.breaches_35 ? "⚠ &gt;35%" : "✓ &lt;35%"}</span></div>
       <div class="card"><b>${num(m.calmar)}</b><span>Calmar (CAGR÷maxDD)</span></div>
       <div class="card"><b>${num(m.sortino)}</b><span>Sortino</span></div>
-    </div>${scFc}${scLine}${scKill}${scAlpha}${scAttr}${scBt}`;
+    </div>${scCombo}${scFc}${scLine}${scKill}${scAlpha}${scAttr}${scBt}`;
 }
 
 // (Removed: "Suggested IRA tilts" — its per-name TSMOM × regime tilt is already applied to the IRA sleeve
