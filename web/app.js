@@ -270,9 +270,22 @@ function renderRegime() {
   box.className = `regime ${r.posture}`;
   const ap = r.account_policy;
   const apHtml = ap ? `<div class="acctpol"><span><strong>IRA/Roth:</strong> ${esc(ap.ira)}</span><span><strong>Taxable:</strong> ${esc(ap.taxable)}</span></div>` : "";
+  // Explicit overlay state so BOTH dials show up at a glance: the BRAKE (200-DMA trend → brakes
+  // on/off) and FAST RE-ENTRY (20-DMA breadth vs its 60% trigger → armed, and whether it re-risked).
+  const c = r.components || {};
+  const brakesOn = r.posture === "defensive" || r.posture === "caution" || r.macro_stressed;
+  const reFired = /fast re-?entry/i.test(r.action || "");
+  const overlay = `<div class="rnote"><strong>Overlays:</strong> `
+    + `Brake (200-DMA trend) ${c.trend_vs_200dma != null ? `${c.trend_vs_200dma >= 0 ? "+" : ""}${esc(c.trend_vs_200dma)}%` : "n/a"}`
+    + `${c.breadth_above_200dma != null ? `, breadth ${esc(c.breadth_above_200dma)}% &gt;200-DMA` : ""} → `
+    + `${brakesOn ? `<strong class="neg">brakes on</strong>` : `<strong class="pos">clear</strong>`}`
+    + ` &nbsp;·&nbsp; Fast re-entry: breadth ${c.breadth_above_20dma != null ? `${esc(c.breadth_above_20dma)}%` : "n/a"} vs 60% trigger → `
+    + `${r.fast_reentry ? `<strong class="pos">armed${reFired ? " · re-risked one notch ↑" : ""}</strong>` : `<span style="color:var(--mut)">not armed</span>`}`
+    + ` &nbsp;·&nbsp; Macro: ${r.macro_stressed ? `<strong class="neg">STRESS</strong>` : (r.macro_available ? "clear" : "⚠ unavailable")}</div>`;
   box.innerHTML = `<div><strong>Timing posture: ${lbl}${r.risk_score != null ? ` · risk ${esc(r.risk_score)}/100${r.confidence ? ` (${esc(r.confidence)} conf)` : ""}` : ""}${r.version ? ` · v${esc(r.version)}` : ""} <button class="help" data-help="regime">?</button></strong>
       <span>${esc(r.action || "")}</span></div>
     ${apHtml}
+    ${overlay}
     <div class="rnote">${esc(r.note || "")}<br><em>Alpha = scarcity thesis · timing = trend+momentum+vol+drawdown+macro overlay, on the ETF composite${r.composite_basis?.length ? ` (${esc(r.composite_basis.join(", "))})` : ""}. ${esc(r.basis || "")}. ${r.confidence_note ? "⚠ " + esc(r.confidence_note) + ". " : ""}Not advice.</em></div>`;
 }
 

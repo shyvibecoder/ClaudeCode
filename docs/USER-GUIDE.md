@@ -210,6 +210,13 @@ noisy single names); it's **account-aware** — the posture drives your **IRA/Ro
 tax-free turnover) while **taxable** stays buy-and-hold anchors (shown under the posture); and it carries
 a **per-name TSMOM tilt** (which names to lean into vs. trim).
 
+**Overlays line.** Directly under the account policy, an **Overlays** row makes both dials explicit at a
+glance: the **Brake** (trend vs the 200-DMA + breadth above it → *brakes on / clear*) and **Fast re-entry**
+(breadth above the 20-DMA vs its **60% trigger** → *armed* / *not armed*, and whether it **re-risked one
+notch**), plus the macro overlay state. The tilt + posture flow into the **buy plan's SIGNAL weights**
+(`web/sizing.mjs` `regimeFactor` — overweights only accelerate in a risk-on posture; trims bite in any
+posture) and into the forced-flow accumulate badges (⏳ on-trigger when the brakes are on).
+
 **Regime instruments panel.** Under the posture, a small table shows the daily technicals the timing layer
 actually reads on the **QQQ** complex — **QQQ** (the regime's reference underlying) plus **TQQQ / SQQQ** (the
 3× long / 3× short proxies, the actionable risk-on / brake instruments): **price, RSI-14, % vs the 200-DMA

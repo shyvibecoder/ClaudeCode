@@ -347,6 +347,39 @@ const alerts = {
 };
 if (alerts.newly_fired.length) console.log(`Alerts: newly fired -> ${alerts.newly_fired.join(", ")}`);
 
+// --- DEEP BACKFILL SEED (--backfill only): seed the DB with deep reconciled history BEFORE the
+// metrics/proofs read it, so the brake + fast-reentry proofs use that deep history IN THE SAME RUN.
+// (Previously the deep seed ran with the end-of-scan top-off, AFTER the proofs had already read the
+// DB — so the first backfill's own proofs were still shallow and you needed a second scan.) The
+// end-of-scan top-off still writes today's bars; this just front-loads the one-time deep seed. ---
+if (BACKFILL && !OFFLINE && supabaseConfigured()) {
+  try {
+    const all = [...new Set([...universe, ...V23_TICKERS, ...REGIME_INSTRUMENTS, ...BENCHMARKS])];
+    console.log(`Backfill: deep ADJUSTED history for ${all.length} tickers — Yahoo(adj)+Stooq${process.env.TIINGO_API_KEY ? "+Tiingo(adj)" : ""}, cross-provider reconciled (BEFORE metrics/proofs)…`);
+    const seedBars = [];
+    const tally = { tickers: 0, kept: 0, conflict: 0, weekend: 0, holiday: 0, jump: 0, single: 0, corr: 0 };
+    for (const t of all) {
+      const sources = {};
+      try { sources.yahoo = await fetchSeries(t, "max"); } catch { /* skip */ }
+      await new Promise((r) => setTimeout(r, 200));
+      // Stooq may serve UNADJUSTED prices → for split-prone leveraged ETFs it would conflict with the
+      // adjusted pair across split boundaries and drop most bars; trust only the adjusted sources there.
+      if (!LEVERAGED_ETFS.has(t)) { try { sources.stooq = await fetchStooqHistory(t); } catch { /* skip */ } await new Promise((r) => setTimeout(r, 200)); }
+      if (process.env.TIINGO_API_KEY) { try { sources.tiingo = await fetchTiingoHistory(t); } catch { /* skip */ } await new Promise((r) => setTimeout(r, 300)); }
+      const { rows, stats } = reconcileSeries(t, sources);
+      if (LEVERAGED_ETFS.has(t) && stats.kept < 200) console.log(`  ⚠ ${t}: only ${stats.kept} bars kept — split-adjustment mismatch likely; need the Yahoo+Tiingo adjusted pair (set TIINGO_API_KEY).`);
+      for (const r of rows) seedBars.push({ ticker: r.ticker, d: r.d, close: r.close, source: r.source });
+      if (rows.length) { tally.tickers++; tally.kept += stats.kept; tally.conflict += stats.dropped_conflict; tally.weekend += stats.dropped_weekend; tally.holiday += stats.dropped_holiday_fill; tally.jump += stats.dropped_jump; tally.single += stats.single_source; tally.corr += stats.corroborated; }
+      console.log(`  ${t}: ${stats.kept} bars (${stats.corroborated} corroborated, ${stats.single_source} single)${rows.length ? ` ${rows[0].d}..${rows[rows.length - 1].d}` : ""}`);
+    }
+    console.log(`Backfill reconciliation: ${tally.tickers} tickers, ${tally.kept} bars kept (${tally.corr} corroborated, ${tally.single} single-source); dropped ${tally.conflict} conflict / ${tally.weekend} weekend / ${tally.holiday} holiday-fill / ${tally.jump} jump.`);
+    const ordered = seedBars.slice().sort((a, b) => (a.source === "consensus" ? 0 : 1) - (b.source === "consensus" ? 0 : 1));
+    const clean = sanitizePriceRows(dedupePriceRows(ordered));
+    const { written, skipped } = await upsertPriceHistory(clean);
+    console.log(`Backfill seed: ${skipped ? "skipped" : `wrote ${written}`} bars → DB (deep history seeded BEFORE metrics/proofs)`);
+  } catch (e) { errors.push(`backfill-seed: ${e.message}`); console.error(`Backfill seed failed (non-fatal): ${e.message}`); }
+}
+
 // --- Objective metrics: trailing CAGR / maxDD / Calmar / Sortino on the strategy basket ---
 let metrics = null;
 let attribution = null; // G1: factor attribution — is the basket return alpha or just factor/beta?
@@ -801,11 +834,10 @@ const out = {
   errors,
 };
 
-// --- THE SINGLE DAILY TOP-OFF: one place that writes to the DB. Everything else only READS.
-// Gathers today's real bars from three sources already computed above — (1) the universe quotes
-// (corroborated), (2) the non-universe V2.3 tickers' latest bars — plus, when --backfill is set,
-// (3) the one-time deep reconciled history — then de-dupes, runs the anti-synthetic guard, and
-// does ONE upsert. No-ops without the DB; non-fatal on error so the scan never breaks. ---
+// --- DAILY TOP-OFF: writes TODAY's real bars to the DB (the one-time deep --backfill seed runs
+// earlier, before metrics/proofs). Gathers today's bars from two sources already computed above —
+// (1) the universe quotes (corroborated) and (2) the non-universe V2.3 tickers' latest bars — then
+// de-dupes, runs the anti-synthetic guard, and does ONE upsert. No-ops without the DB; non-fatal. ---
 if (!OFFLINE && supabaseConfigured()) {
   try {
     const bars = [];
@@ -818,29 +850,8 @@ if (!OFFLINE && supabaseConfigured()) {
     }
     // (2) Non-universe V2.3 tickers (QQQ/^VIX/^VIX3M/HYG/QLD/SGOV) collected during the cross-check.
     bars.push(...v23LatestBars);
-    // (3) One-time deep seed.
-    if (BACKFILL) {
-      const all = [...new Set([...universe, ...V23_TICKERS, ...REGIME_INSTRUMENTS, ...BENCHMARKS])];
-      // Yahoo adjclose + Tiingo adjClose are the ADJUSTED corroborating pair; Stooq is a KEYLESS
-      // fallback so rate-limiting can't zero a ticker (outvoted when the adjusted pair is present).
-      console.log(`Backfill: deep ADJUSTED history for ${all.length} tickers — Yahoo(adj)+Stooq${process.env.TIINGO_API_KEY ? "+Tiingo(adj)" : ""}, cross-provider reconciled…`);
-      const tally = { tickers: 0, kept: 0, conflict: 0, weekend: 0, holiday: 0, jump: 0, single: 0, corr: 0 };
-      for (const t of all) {
-        const sources = {};
-        try { sources.yahoo = await fetchSeries(t, "max"); } catch { /* skip */ }
-        await new Promise((r) => setTimeout(r, 200));
-        // Stooq may serve UNADJUSTED prices → for split-prone leveraged ETFs it would conflict with the
-        // adjusted pair across split boundaries and drop most bars; trust only the adjusted sources there.
-        if (!LEVERAGED_ETFS.has(t)) { try { sources.stooq = await fetchStooqHistory(t); } catch { /* skip */ } await new Promise((r) => setTimeout(r, 200)); }
-        if (process.env.TIINGO_API_KEY) { try { sources.tiingo = await fetchTiingoHistory(t); } catch { /* skip */ } await new Promise((r) => setTimeout(r, 300)); }
-        const { rows, stats } = reconcileSeries(t, sources);
-        if (LEVERAGED_ETFS.has(t) && stats.kept < 200) console.log(`  ⚠ ${t}: only ${stats.kept} bars kept — split-adjustment mismatch likely; need the Yahoo+Tiingo adjusted pair (set TIINGO_API_KEY).`);
-        for (const r of rows) bars.push({ ticker: r.ticker, d: r.d, close: r.close, source: r.source });
-        if (rows.length) { tally.tickers++; tally.kept += stats.kept; tally.conflict += stats.dropped_conflict; tally.weekend += stats.dropped_weekend; tally.holiday += stats.dropped_holiday_fill; tally.jump += stats.dropped_jump; tally.single += stats.single_source; tally.corr += stats.corroborated; }
-        console.log(`  ${t}: ${stats.kept} bars (${stats.corroborated} corroborated, ${stats.single_source} single)${rows.length ? ` ${rows[0].d}..${rows[rows.length - 1].d}` : ""}${stats.dropped_conflict + stats.dropped_weekend + stats.dropped_holiday_fill + stats.dropped_jump ? ` · dropped ${stats.dropped_conflict}conf/${stats.dropped_weekend}wknd/${stats.dropped_holiday_fill}hol/${stats.dropped_jump}jump` : ""}`);
-      }
-      console.log(`Backfill reconciliation: ${tally.tickers} tickers, ${tally.kept} bars kept (${tally.corr} corroborated, ${tally.single} single-source); dropped ${tally.conflict} conflict / ${tally.weekend} weekend / ${tally.holiday} holiday-fill / ${tally.jump} jump.`);
-    }
+    // (3) The one-time deep --backfill seed runs EARLIER (before metrics/proofs) — see the
+    // "DEEP BACKFILL SEED" block above — so the proofs read the deep history in the same run.
     // Higher-trust bars first so de-dupe keeps them (consensus > single-source); then guard + ONE upsert.
     const ordered = bars.slice().sort((a, b) => (a.source === "consensus" ? 0 : 1) - (b.source === "consensus" ? 0 : 1));
     const dedup = dedupePriceRows(ordered);
