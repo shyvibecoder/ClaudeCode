@@ -23,6 +23,11 @@ describe("fcThrustBacktest: the canonical F+C Thrust rule vs buy-&-hold", () => 
   it("returns null when the series is too short to warm up (needs ≥211 bars)", () => {
     assert.equal(fcThrustBacktest(closes.slice(0, 150)), null);
   });
+  it("NO LOOK-AHEAD: changing only the FINAL bar can't change any prior position (switches invariant)", () => {
+    const alt = [...closes.slice(0, -1), closes[closes.length - 1] * 1.5];
+    const r2 = fcThrustBacktest(alt, { dates });
+    assert.equal(r.switches, r2.switches); // every decision used only prior bars; only the last return differs
+  });
 });
 
 // Build a series: smooth uptrend, then a sharp crash. A trend brake (exit below the

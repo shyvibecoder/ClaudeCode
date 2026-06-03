@@ -122,6 +122,33 @@ dynamic tool that protects it once a correlated drawdown starts.
 
 ---
 
+## Backtest realism — what the F+C Thrust numbers prove and don't (adversarial round)
+
+The scorecard now shows the F+C Thrust ladder three ways: on **deep benchmarks** (SPY/QQQ/SOXX), on the
+**actual book** (`fc_thrust_book`, ~2.4y bull-only), and on a **long-history build-out analogue** through
+real bears (`fc_thrust_book_proxy`). Red-teaming their realism, honestly:
+
+- **No look-ahead** — positions decide on the *prior* bar's close; only the next bar's return accrues.
+  Regression-tested (changing the final bar can't change any prior position). ✅
+- **Tax is NOT modeled.** The timing backtest charges only a flat `costPerSwitchBps` (≈liquid-ETF spread).
+  In a **taxable** account every exit realizes capital gains — a large, real drag the backtest omits. So
+  these results implicitly assume the **tax-free (IRA) sleeve** — which is exactly why the doctrine routes
+  timing to the IRA and keeps taxable buy-and-hold. On the taxable sleeve the timing edge is much smaller.
+- **Execution optimism.** Decide-on-`t-1` / earn-return-`t` is the standard MA convention, but in a gappy
+  crash you don't actually exit at the prior close — so the avoided-drawdown is a mild **upper bound**. The
+  flat cost only partly covers slippage.
+- **The analogue proxy carries survivor + hindsight bias.** SMH/XLI/XLU/XME/ITA/PHO/XLK were chosen knowing
+  which themes/ETFs survived; weights only approximate the book. Its value is the **drawdown-cut and Calmar
+  delta** (did the ladder cut 2008/2020/2022), **not** the absolute CAGR, which is the analogue's, not yours.
+- **Conservative omission:** the exit-only composite-stress (VIX/HY) overlay is *not* in the backtest, so the
+  live system would brake *more*, not less.
+- **1×, not 2×.** We model 1× the underlying (the V2.3 panel's QLD is 2× — leverage would breach −35%).
+
+**Net:** the proofs evidence the *timing methodology's* tail-cut through real bears and confirm no
+look-ahead; they do **not** prove the *exact book's* future, and they **overstate** the edge in a taxable
+account (no tax) and in gappy crashes (execution). Read them as an upper-bound on a methodology, decomposed
+from the selection edge (graded separately, and currently marginal — IC ≈ 0.05, hit-rate ≈ 52%).
+
 ## What would change this doctrine
 
 - ~~A backtest of the **live 200-DMA brake through an actual ≥35% drawdown**, on a long-history

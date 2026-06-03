@@ -46,7 +46,13 @@ const read = (p) => JSON.parse(readFileSync(new URL(`../web/data/${p}`, import.m
 const v23LatestBars = []; // today's bars for the non-universe V2.3 tickers, collected during the cross-check
 const V23_TICKERS = ["QQQ", "^VIX", "^VIX3M", "HYG", "QLD", "SGOV"]; // V2.3 cross-check + execution instruments
 const REGIME_INSTRUMENTS = ["QQQ", "TQQQ", "SQQQ"]; // regime visibility panel — full DB-history technicals incl 12m
-const BENCHMARKS = ["SPY", "QQQ", "SOXX", "MTUM"]; // market/tech/semis/momentum proxies — deep-seed so the brake proof + factor attribution read DEEP history from the DB, not a shallow live `range=max` fallback
+const BENCHMARKS = ["SPY", "QQQ", "SOXX", "MTUM", "XLI", "XLU", "XME", "ITA", "PHO", "XLK"]; // market/tech/semis/momentum proxies + the build-out analogues below — deep-seed so the F+C Thrust proofs read DEEP DB history, not a shallow live `range=max` fallback
+// Build-out (alpha) sleeve mapped to LONG-HISTORY (≥2006) liquid analogues so the COMBO (theme × F+C Thrust
+// timing) can be cycle-tested through 2008/2020/2022. theme→weight = the book's build-out weight in that
+// theme (semis SMH · industrials/electrification XLI · power/nuclear XLU · copper/materials XME · defense
+// ITA · water PHO · robotics/space XLK), normalized to ~1. ANALOGUE: weights/names approximate; survivor +
+// hindsight bias acknowledged — methodology evidence, not the exact book.
+const BOOK_PROXY = { SMH: 0.22, XLI: 0.33, XLU: 0.16, XME: 0.12, ITA: 0.05, PHO: 0.08, XLK: 0.04 };
 const LEVERAGED_ETFS = new Set(["TQQQ", "SQQQ", "QLD"]); // split-prone 2×/3× ETFs → backfill from ADJUSTED sources only (Yahoo/Tiingo); skip possibly-UNADJUSTED Stooq so it can't conflict-drop the adjusted pair across split boundaries
 
 const dataUrl = (p) => new URL(`../web/data/${p}`, import.meta.url);
@@ -429,6 +435,28 @@ if (!OFFLINE) {
           await new Promise((r) => setTimeout(r, 200));
         }
         if (proofs.length) metrics.fc_thrust_proof = proofs;
+      } catch { /* best-effort */ }
+      // CYCLE-TESTED COMBO: the build-out (alpha) sleeve mapped to LONG-HISTORY liquid analogues (≥2006)
+      // so F+C Thrust can be tested on a deep-tech-build-out-LIKE basket through REAL bears (2008/2020/2022).
+      // HONEST BIASES (the realism caveats): (a) this is an ANALOGUE — composition/weights only approximate
+      // the book's themes; (b) the mapping is chosen with hindsight; (c) the analogues are survivors; (d) the
+      // actual holdings are younger. It tests the COMBO (build-out theme × timing) through a full cycle —
+      // methodology evidence, NOT a forecast of the exact book. Fixed map of theme → analogue (weight = the
+      // book's build-out weight in that theme, normalized): see BOOK_PROXY.
+      try {
+        const pseries = {};
+        for (const tk of Object.keys(BOOK_PROXY)) {
+          try { const s = await seriesFor(tk, { liveRange: "max", years: 40 }); if (s?.closes?.length > 250) pseries[tk] = s; } catch { /* skip */ }
+          await new Promise((r) => setTimeout(r, 150));
+        }
+        if (Object.keys(pseries).length >= 5) {
+          const pidx = basketIndex(pseries, BOOK_PROXY);
+          const fcp = pidx.values.length > 250 ? fcThrustBacktest(pidx.values, { dates: pidx.dates }) : null;
+          if (fcp) {
+            metrics.fc_thrust_book_proxy = { ...fcp, basis: Object.keys(pseries), map: BOOK_PROXY };
+            console.log(`Combo (build-out analogue, ${fcp.years}y ${fcp.window}): buy&hold maxDD ${(fcp.buyhold.max_drawdown * 100).toFixed(0)}% CAGR ${(fcp.buyhold.cagr * 100).toFixed(0)}% → timed maxDD ${(fcp.fc_thrust.max_drawdown * 100).toFixed(0)}% CAGR ${(fcp.fc_thrust.cagr * 100).toFixed(0)}%, ${fcp.episodes.filter((e) => e.helped).length}/${fcp.episodes.length} crashes cut`);
+          }
+        }
       } catch { /* best-effort */ }
       // G1: regress the basket on tradeable factors — MARKET (SPY), MOMENTUM (MTUM), and crucially a
       // THEME proxy (QQQ). The intercept is residual alpha BEYOND market+momentum+theme exposure — the
