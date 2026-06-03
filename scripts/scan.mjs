@@ -29,7 +29,7 @@ import { getForwardPEs } from "./lib/fundamentals.mjs";
 import { computeRegime } from "./lib/regime.mjs";
 import { updateScarcityHistory, applySeenState } from "./lib/history.mjs";
 import { writeDcaPlan } from "./lib/dca.mjs";
-import { makeForecasts, resolveDue, updateScorecard, makeScarcityForecasts, makeSizingForecast, makeKillForecasts } from "./lib/forecast.mjs";
+import { makeForecasts, resolveDue, updateScorecard, makeScarcityForecasts, makeSizingForecast, makeKillForecasts, pruneStale } from "./lib/forecast.mjs";
 import { relativeStrength, deRatingSignal, tickerRelStrength } from "./lib/derating.mjs";
 import { newsForQuery } from "./lib/news.mjs";
 import { chokepointHeat } from "./lib/chokepoints.mjs";
@@ -776,7 +776,9 @@ let scorecard = null;
     ...makeKillForecasts(scarcities.scarcities, TODAY), // close the loop: deadline-track each committee kill-criterion
   ];
   const seen = new Set([...stillOpen.map((f) => f.id), ...(store.kills_resolved || [])]);
-  store.open = [...stillOpen, ...fresh.filter((f) => !seen.has(f.id))];
+  const merged = [...stillOpen, ...fresh.filter((f) => !seen.has(f.id))];
+  store.open = pruneStale(merged, TODAY); // drop unresolvable (>180d overdue) so the ledger can't grow unbounded
+  if (store.open.length < merged.length) console.log(`Forecasts: pruned ${merged.length - store.open.length} unresolvable (>180d overdue)`);
   store.updated = TODAY;
   // Surface pending (registered, deadline not yet reached) kill-criteria alongside the matured tally.
   const pendingKills = store.open.filter((f) => f.type === "kill_criterion").length;

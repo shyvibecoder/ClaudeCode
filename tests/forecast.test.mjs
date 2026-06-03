@@ -2,6 +2,19 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { makeForecasts, resolveDue, updateScorecard, addDays, makeScarcityForecasts, meanPrice, makeSizingForecast, weightedReturn, makeKillForecasts } from "../scripts/lib/forecast.mjs";
 
+import { pruneStale } from "../scripts/lib/forecast.mjs";
+describe("forecast: pruneStale drops unresolvable, keeps pending/future", () => {
+  const open = [
+    { id: "a", resolve_on: "2025-01-01" },                 // ~1.4y overdue → drop
+    { id: "b", resolve_on: addDays("2026-06-03", -30) },   // 30d overdue → keep (within grace)
+    { id: "c", resolve_on: "2027-12-31" },                 // future (e.g. kill-criterion) → keep
+  ];
+  it("drops only forecasts >180d past their resolve date", () => {
+    const kept = pruneStale(open, "2026-06-03", 180).map((f) => f.id);
+    assert.deepEqual(kept, ["b", "c"]);
+  });
+});
+
 describe("forecast: kill-criterion deadline accountability", () => {
   const scs = [
     { id: "rare-earth", kill_criterion: { condition: "China lifts export controls", by_date: "2027" } },

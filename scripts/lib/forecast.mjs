@@ -129,6 +129,14 @@ export function makeSizingForecast(rebalance, quotes, today, horizon = 42) {
   }];
 }
 
+// Drop forecasts stuck more than `graceDays` past their resolve date — these are unresolvable (e.g. a
+// delisted ticker whose price never returns), so without pruning the open ledger grows without bound.
+// Resolved calls already leave via resolveDue; pending/future ones (incl. kill-criteria) are untouched. Pure.
+export function pruneStale(open, today, graceDays = 180) {
+  const cutoff = addDays(today, -graceDays);
+  return (open || []).filter((f) => !f.resolve_on || f.resolve_on >= cutoff);
+}
+
 export function updateScorecard(sc, resolved) {
   const s = sc && sc.by_tilt ? JSON.parse(JSON.stringify(sc))
     : { by_tilt: { overweight: { n: 0, hits: 0 }, underweight: { n: 0, hits: 0 } }, total: { n: 0, hits: 0 } };
