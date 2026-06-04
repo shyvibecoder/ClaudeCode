@@ -686,25 +686,75 @@ $$(".tabs button").forEach((b) => b.onclick = () => {
   $$(".tab").forEach((x) => x.classList.remove("active"));
   b.classList.add("active"); $("#" + b.dataset.tab).classList.add("active");
 });
-// Refresh: trigger the 'scan' GitHub Action via repository_dispatch. Needs a
-// fine-grained PAT (Contents: Read & write on REPO). The token is NEVER hardcoded
-// — it's stored only in this browser's localStorage and sent straight to GitHub.
-// See SETUP.md → "Wire up the Refresh button". Fallback is the manual Actions run.
+// Refresh: kick the 'scan' GitHub Action on demand. Two paths, tried in order:
+//   1) KEYLESS (default) — POST to the same-origin serverless endpoint /api/refresh, which holds the
+//      GitHub dispatch token SERVER-SIDE (a Vercel env var) and fires repository_dispatch. The user
+//      enters NOTHING. This is the path on a configured Vercel deployment.
+//   2) FALLBACK — if that endpoint is absent/unconfigured (404/501, or the page is opened from
+//      file://), prompt for a fine-grained PAT stored only in this browser's localStorage and POST
+//      straight to GitHub. See SETUP.md → "Wire up the Refresh button".
 async function triggerScan() {
+  const btn = $("#refresh"), label = "⟳ Refresh";
+  btn.disabled = true; btn.textContent = "⟳ Dispatching…";
+  try {
+    // 1) Keyless server-side dispatch (no user token).
+    let keyless = null;
+    try {
+      keyless = await fetch("/api/refresh", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    } catch { /* endpoint unreachable (e.g. file://) → fall through to the token path */ }
+    if (keyless) {
+      if (keyless.status === 202) { await afterDispatch(btn, label); return; }
+      if (keyless.status === 429) {
+        btn.textContent = label;
+        showBanner("⏳ A scan was just triggered — give it a moment before refreshing again.");
+        return;
+      }
+      if (![404, 501].includes(keyless.status)) {
+        // Endpoint exists but errored (e.g. its server-side token is bad). Report — don't silently
+        // demand a user token, since this deploy is meant to be keyless.
+        const j = await keyless.json().catch(() => ({}));
+        btn.textContent = label;
+        alert(`Refresh failed (HTTP ${keyless.status})${j.status ? ` — GitHub returned ${j.status}` : ""}.\nManual fallback: repo → Actions → "scan" → Run workflow.`);
+        return;
+      }
+      // 404/501 → keyless not configured on this deployment; fall through to the token path below.
+    }
+    // 2) Fallback: bring-your-own token.
+    await triggerScanWithToken(btn, label);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// After a successful dispatch (either path): poll the committed signals.json and live-reload on fresh.
+async function afterDispatch(btn, label) {
+  const before = DATA.sig?.scanned_at || null;
+  btn.textContent = "⏳ Scanning…";
+  showBanner("⏳ Scan running on GitHub Actions — this view will auto-refresh when fresh data lands (~1–3 min).");
+  const fresh = await pollForFresh(before);
+  if (fresh) {
+    btn.textContent = "✓ Updated"; setTimeout(() => (btn.textContent = label), 4000);
+  } else {
+    btn.textContent = label;
+    showBanner("Scan dispatched ✓ — fresh data hasn't appeared yet (the Action + Vercel redeploy can take a few minutes). It will update on its own; reload later if needed.");
+  }
+}
+
+// Fallback path: dispatch with a user-supplied fine-grained PAT (Contents: R/W on REPO), stored only
+// in this browser's localStorage and sent straight to GitHub — never committed.
+async function triggerScanWithToken(btn, label) {
   let token = localStorage.getItem(TOKEN_KEY);
   if (!token) {
     token = prompt(
       `Trigger a live scan via GitHub Actions.\n\n` +
-      `Paste a fine-grained Personal Access Token scoped to ${REPO} with "Contents: Read and write". ` +
+      `This deployment has no server-side Refresh configured, so paste a fine-grained Personal Access Token scoped to ${REPO} with "Contents: Read and write". ` +
       `It is stored ONLY in this browser (localStorage) and sent directly to GitHub — never committed.\n\n` +
       `Cancel to run it manually instead (repo → Actions → "scan" → Run workflow).`
     );
-    if (!token) return;
+    if (!token) { btn.textContent = label; return; }
     token = token.trim();
     localStorage.setItem(TOKEN_KEY, token);
   }
-  const btn = $("#refresh"), label = "⟳ Refresh";
-  btn.disabled = true; btn.textContent = "⟳ Dispatching…";
   try {
     const r = await fetch(`https://api.github.com/repos/${REPO}/dispatches`, {
       method: "POST",
@@ -712,16 +762,7 @@ async function triggerScan() {
       body: JSON.stringify({ event_type: "scan" }),
     });
     if (r.status === 204) {
-      const before = DATA.sig?.scanned_at || null;
-      btn.textContent = "⏳ Scanning…";
-      showBanner("⏳ Scan running on GitHub Actions — this view will auto-refresh when fresh data lands (~1–3 min).");
-      const fresh = await pollForFresh(before);
-      if (fresh) {
-        btn.textContent = "✓ Updated"; setTimeout(() => (btn.textContent = label), 4000);
-      } else {
-        btn.textContent = label;
-        showBanner("Scan dispatched ✓ — fresh data hasn't appeared yet (the Action + Vercel redeploy can take a few minutes). It will update on its own; reload later if needed.");
-      }
+      await afterDispatch(btn, label);
     } else if ([401, 403, 404].includes(r.status)) {
       localStorage.removeItem(TOKEN_KEY);
       btn.textContent = label;
@@ -733,8 +774,6 @@ async function triggerScan() {
   } catch (e) {
     btn.textContent = label;
     alert(`Dispatch error: ${e.message}\nManual fallback: repo → Actions → "scan" → Run workflow.`);
-  } finally {
-    btn.disabled = false;
   }
 }
 

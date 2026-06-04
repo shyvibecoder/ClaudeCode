@@ -706,7 +706,8 @@ One place for every credential, in two tiers:
 **Browser keys** (stored only in this browser; power client-side features):
 - **Gemini** (aistudio.google.com) — in-browser digest. **Groq** (console.groq.com) — second red-team model.
 - **Finnhub / Twelve Data / Alpha Vantage** — data cross-checks; Finnhub also powers **✓ Check live prices**.
-- **GitHub dispatch token** (Contents: R/W) — lets **⟳ Refresh** trigger a live scan (§9).
+- **GitHub dispatch token** (Contents: R/W) — only needed for the **fallback** ⟳ Refresh path; with the
+  keyless server-side setup (`SETUP.md` §3a) you don't paste this at all (§9).
 - Click **Save browser keys**.
 
 **Repo configuration + research review** (what the automated scanner uses, and what approves research
@@ -743,10 +744,14 @@ Everything you paste here stays in this browser.
 ## 9. ⟳ Refresh (on-demand scan)
 
 The scanner runs automatically on weekdays. To refresh **now**, click **⟳ Refresh**:
-- The first time, paste your **dispatch token** (stored only in your browser).
-- It triggers the GitHub Action; the dashboard **auto-polls and live-reloads** when fresh data lands
-  (~1–3 min). No manual reload.
-- No token? Refresh points you to the manual **Actions → scan → Run workflow**.
+- **Keyless (default on a configured deploy)** — the button POSTs to a same-origin serverless endpoint
+  (`/api/refresh`) that holds the GitHub dispatch token **server-side**, so you paste **nothing**. Set it
+  up once: add a `GH_DISPATCH_TOKEN` env var on Vercel (`SETUP.md` §3a).
+- **Fallback** — if that endpoint isn't configured (or you opened the page from `file://`), Refresh prompts
+  you once for a **dispatch token** (stored only in your browser) — see `SETUP.md` §3b.
+- Either way it triggers the GitHub Action; the dashboard **auto-polls and live-reloads** when fresh data
+  lands (~1–3 min). No manual reload.
+- No token configured anywhere? Refresh points you to the manual **Actions → scan → Run workflow**.
 
 ---
 
