@@ -115,7 +115,7 @@ export function computeRegime(quotes, holdings, { macro, securities = {}, compos
       breadth_above_20dma: breadth20 == null ? null : +(breadth20 * 100).toFixed(0),
     },
     macro: macro || null,
-    options_suggestion: suggestOptionStructure(posture, { macroStressed }),
+    options_suggestion: suggestOptionStructure(posture, { macroStressed, vix: macro?.vix ?? null }),
     action,
     basis: "F+C Thrust ladder (Faber 200-DMA trend + Daniel-Moskowitz 252d-return/60d-vol crash + rising-20-DMA thrust re-entry) on the composite, + exit-only composite-stress overlay — see v23.mjs / FABER-CRASH-STRATEGY.md",
     note: fc
