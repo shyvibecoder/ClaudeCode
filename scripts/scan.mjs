@@ -505,30 +505,26 @@ if (!OFFLINE && supabaseConfigured()) {
   } catch (e) { errors.push(`signal_backtest: ${e.message}`); }
 }
 
-// --- Macro-stress overlay inputs (free, keyless): VIX term-structure + HY credit velocity ---
+// --- V2.3 deep series (DB-first, + today's REAL bar): fetched ONCE and shared by BOTH the
+// composite-stress overlay below AND the QQQ cross-check later, so the overlay is CURRENT, the
+// portfolio brake == the cross-check overlay by construction, and we don't double-hit providers. ---
+let qqqS = null, vixS = null, vix3mS = null, hygS = null;
 let macro = null;
 if (!OFFLINE) {
   try {
-    const [vix, vix3m, hyg, vixSer, vix3mSer] = await Promise.all([
-      fetchYahoo("^VIX").catch(() => null),
-      fetchYahoo("^VIX3M").catch(() => null),
-      fetchYahoo("HYG").catch(() => null),
-      fetchSeries("^VIX", "1mo").catch(() => null),
-      fetchSeries("^VIX3M", "1mo").catch(() => null),
-    ]);
-    // Helm #2: trailing VIX/VIX3M ratios (recency-aligned) for the 3-day term-structure persistence check.
-    let termRatios = null;
-    if (vixSer?.closes?.length && vix3mSer?.closes?.length) {
-      const n = Math.min(vixSer.closes.length, vix3mSer.closes.length, 6);
-      const a = vixSer.closes.slice(-n), b = vix3mSer.closes.slice(-n);
-      termRatios = a.map((v, i) => (b[i] > 0 ? v / b[i] : 0));
+    [qqqS, vixS, vix3mS, hygS] = await Promise.all(
+      ["QQQ", "^VIX", "^VIX3M", "HYG"].map((t) => v23Series(t).catch(() => null)));
+    // Keep the V2.3 execution instruments current in the DB too (not used by the overlay/cross-check).
+    for (const t of ["QLD", "SGOV"]) {
+      try { const q = await fetchYahoo(t); if (q && q.price > 0 && q.asof) v23LatestBars.push({ ticker: t, d: q.asof, close: q.price, source: q.source || "yahoo" }); } catch { /* ignore */ }
     }
-    const m = macroStress({ vix: vix?.price, vix3m: vix3m?.price, hygMom1m: hyg?.mom_1m, termRatios });
-    // Helm #1: the brake needs ALL inputs. If ANY is missing it's SUPPRESSED — leave macro=null so the
-    // regime marks the exit-only overlay UNAVAILABLE instead of silently showing "calm" (a missing VIX
-    // would otherwise make the term-structure leg false → fake "calm"). Was: only caught BOTH missing.
+    // EXACT V2.3 composite-stress: VTS (VIX/VIX3M ≥ 1.0 ×3 consecutive days) AND HV (20-day −log(HYG)
+    // velocity in the top 5% of its trailing 252-day distribution) — computed from the deep closes.
+    const m = macroStress({ vixCloses: vixS?.closes, vix3mCloses: vix3mS?.closes, hygCloses: hygS?.closes });
+    // Helm #1: the brake needs ALL inputs. If ANY leg is uncomputable it's SUPPRESSED — leave macro=null
+    // so the regime marks the exit-only overlay UNAVAILABLE instead of silently showing "calm".
     if (!m.available) errors.push(`macro: overlay suppressed — missing ${m.missing.join("/")} this run`);
-    else { macro = m; console.log(`Macro: ${m.stressed ? "STRESSED" : "calm"} (vix_term ${m.vix_term}, hy_1m ${m.hy_mom_1m})`); }
+    else { macro = m; console.log(`Macro: ${m.stressed ? "STRESSED" : "calm"} (vix_term ${m.vix_term}, term_inv ${m.term_inverted}, hy_elev ${m.hy_stressed})`); }
   } catch (e) { errors.push(`macro: ${e.message}`); }
 }
 
@@ -716,14 +712,8 @@ try {
 let v23 = { state: "UNAVAILABLE", reasons: ["offline run"], basis: "needs QQQ/VIX/HYG history" };
 if (!OFFLINE) {
   try {
-    // Deep history from the accumulated DB (no on-demand 2y fetch) + a light latest-bar top-up so
-    // the cross-check is current AND the non-universe V2.3 tickers stay fed in the DB.
-    const [qqqS, vixS, vix3mS, hygS] = await Promise.all(
-      ["QQQ", "^VIX", "^VIX3M", "HYG"].map((t) => v23Series(t)));
-    // Keep the V2.3 execution instruments current in the DB too (not used by the cross-check itself).
-    for (const t of ["QLD", "SGOV"]) {
-      try { const q = await fetchYahoo(t); if (q && q.price > 0 && q.asof) v23LatestBars.push({ ticker: t, d: q.asof, close: q.price, source: q.source || "yahoo" }); } catch { /* ignore */ }
-    }
+    // Reuse the deep QQQ/VIX/VIX3M/HYG series already fetched for the macro overlay above (one source
+    // of truth → the cross-check's overlay is the SAME exact rule that brakes the portfolio).
     const stress = compositeStress({ vixCloses: vixS?.closes, vix3mCloses: vix3mS?.closes, hygCloses: hygS?.closes });
     v23 = v23State(qqqS?.closes || null, { compositeStress: stress });
     console.log(`V2.3 cross-check: ${v23.state} (${v23.rule}${v23.overlay_applied ? "+overlay" : ""}); stress ${stress == null ? "suppressed" : stress}; src qqq=${qqqS?.src || "?"}/hyg=${hygS?.src || "?"}`);

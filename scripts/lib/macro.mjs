@@ -1,41 +1,47 @@
-// Macro-stress overlay (Timing v2) — exit-only, AND-gated. Forces a defensive posture
-// ONLY when two independent, leading risk signals fire together (rare combined-signal):
-//   1. VIX term-structure inverted  — front VIX >= VIX3M (backwardation = acute stress)
-//   2. HY credit widening fast       — HYG ~1-month return <= -3% (spreads blowing out)
-// Requiring a conjunction makes false positives rare; being exit-only makes it safe
-// (it can only de-risk, never add). Adapted from the V2.3 composite-stress pattern;
-// coarse, economically-motivated thresholds (not curve-fit). See REGIME.md.
+// Macro-stress overlay — the EXACT V2.3 composite-stress rule (§23.D), exit-only and AND-gated.
+// Forces a defensive posture ONLY when two independent leading risk signals fire together:
+//   1. VTS — VIX term-structure backwardation: VIX/VIX3M ≥ 1.0 for 3 CONSECUTIVE trading days.
+//   2. HV  — HY credit velocity: the 20-day change in −log(HYG) sits in the TOP 5% of its trailing
+//            252-day distribution (an ADAPTIVE percentile, not a fixed return threshold).
+// Both legs are the canonical rules implemented once in v23.mjs (`termBackwardation`,
+// `hyVelocityElevated`) and reused here, so the live PORTFOLIO brake == the QLD/SGOV cross-check
+// overlay by construction. Requiring a conjunction makes false positives rare (~2–3/yr); being
+// exit-only makes it safe (it can only de-risk, never add). See REGIME.md / FABER-CRASH-STRATEGY.md.
+//
+// Staleness guard: each leg returns null when its inputs are missing or too short (VTS needs ≥3 bars
+// of both VIX & VIX3M; HV needs ≥273 bars of HYG). ANY null ⇒ the WHOLE overlay is SUPPRESSED
+// (available:false) rather than evaluated to a silent false-negative "calm" — the consumer marks the
+// overlay UNAVAILABLE and falls back to the price-only ladder.
 
-const HY_VELOCITY = -0.03;   // HYG 1m return at/below this = fast HY widening
-const TERM_INVERT = 1.0;     // VIX / VIX3M at/above this = backwardation
+import { termBackwardation, hyVelocityElevated } from "./v23.mjs";
 
-export function macroStress({ vix, vix3m, hygMom1m, termRatios = null, minTermDays = 3 } = {}) {
-  // Helm #1: the exit-only brake needs ALL inputs present. If ANY is missing, SUPPRESS it (available:
-  // false) rather than evaluating a missing leg to false — "false on missing data" is a silent false-
-  // negative (failing to de-risk when the feed is gone). Only an all-inputs-present read is confident;
-  // the consumer marks the overlay UNAVAILABLE (not "calm") and falls back to the price-only regime.
-  const missing = [vix == null && "VIX", (vix3m == null || !(vix3m > 0)) && "VIX3M", hygMom1m == null && "HYG"].filter(Boolean);
-  if (missing.length) {
-    return { stressed: false, available: false, suppressed: true, missing,
-      term_inverted: null, hy_stressed: null, vix_term: null, hy_mom_1m: hygMom1m ?? null,
-      reasons: [`macro overlay suppressed — missing input(s): ${missing.join(", ")}`] };
+export function macroStress({ vixCloses, vix3mCloses, hygCloses } = {}) {
+  const term = termBackwardation(vixCloses, vix3mCloses); // true/false/null — VIX/VIX3M ≥ 1.0 ×3 consecutive days
+  const hy = hyVelocityElevated(hygCloses);               // true/false/null — 20d −log(HYG) velocity in top 5% of trailing 252d
+  const missing = [
+    term == null && "VIX/VIX3M(≥3 bars)",
+    hy == null && "HYG(≥273 bars)",
+  ].filter(Boolean);
+
+  // Today's term ratio, for display only (best-effort; null if unavailable).
+  const a = Array.isArray(vixCloses) ? vixCloses[vixCloses.length - 1] : null;
+  const b = Array.isArray(vix3mCloses) ? vix3mCloses[vix3mCloses.length - 1] : null;
+  const vix_term = a != null && b > 0 ? +(a / b).toFixed(3) : null;
+
+  if (term == null || hy == null) {
+    return {
+      stressed: false, available: false, suppressed: true, missing,
+      term_inverted: term, hy_stressed: hy, vix_term,
+      reasons: [`macro overlay suppressed — missing/short input(s): ${missing.join(", ")}`],
+    };
   }
-  // Helm #2: the term-structure leg needs PERSISTENCE — when recent VIX/VIX3M history is available,
-  // require minTermDays CONSECUTIVE inverted days so a lone 1-day spike (even alongside HY stress) is
-  // inert. Falls back to today's single ratio when no history is supplied (back-compat).
-  const term_inverted = (Array.isArray(termRatios) && termRatios.length >= minTermDays)
-    ? termRatios.slice(-minTermDays).every((r) => r >= TERM_INVERT)
-    : vix / vix3m >= TERM_INVERT;
-  const hy_stressed = hygMom1m <= HY_VELOCITY;
   const reasons = [];
-  if (term_inverted) reasons.push(`VIX term-structure inverted (VIX ${(+vix).toFixed(1)} ≥ VIX3M ${(+vix3m).toFixed(1)})`);
-  if (hy_stressed) reasons.push(`HY credit widening fast (HYG 1m ${(hygMom1m * 100).toFixed(1)}%)`);
+  if (term) reasons.push(`VIX term-structure inverted ≥3 consecutive days (VIX/VIX3M ≥ 1.0; now ${vix_term})`);
+  if (hy) reasons.push("HY credit velocity in the top 5% of its trailing year (20-day −log(HYG))");
   return {
-    stressed: term_inverted && hy_stressed, // AND gate
+    stressed: term && hy, // AND gate — the V2.3 conjunction
     available: true, suppressed: false, missing: [],
-    term_inverted, hy_stressed,
-    vix_term: +(vix / vix3m).toFixed(3),
-    hy_mom_1m: hygMom1m,
+    term_inverted: term, hy_stressed: hy, vix_term,
     reasons,
   };
 }
