@@ -55,6 +55,7 @@ export function validatePortfolio(p, errors = []) {
     check(errors, isNum(h.weight), `${at}: weight must be a number`);
     check(errors, isStr(h.tier), `${at}: tier required`);
     check(errors, isStr(h.role), `${at}: role required`);
+    if ("axis" in h) oneOf(errors, h.axis, AXIS, `${at}: axis`); // C4: explicit sleeve tag (diversifier vs deep-tech) so axis-only predicates are robust
   });
   return errors;
 }

@@ -421,6 +421,17 @@ if (!OFFLINE) {
       if (!supabaseConfigured()) await new Promise((r) => setTimeout(r, 120)); // throttle only when live-fetching
     }
     const idx = basketIndex(series, weights);
+    // D6: basketIndex aligns on the DATE-INTERSECTION of all members, so one shallow ticker (a DB miss
+    // falling back to a 1-yr live fetch) silently truncates the WHOLE composite — incl. the series the
+    // live brake runs on. Surface it instead of letting metrics/regime quietly run on a short window.
+    {
+      const lens = Object.entries(series).map(([t, s]) => [t, s?.closes?.length || 0]);
+      const deepest = lens.reduce((m, [, n]) => Math.max(m, n), 0);
+      if (idx.values.length && deepest && idx.values.length < deepest * 0.6) {
+        const shallow = lens.filter(([, n]) => n > 0).sort((a, b) => a[1] - b[1])[0];
+        errors.push(`metrics: composite truncated to ${idx.values.length} bars (deepest member ${deepest}) — shallow ticker ${shallow?.[0]} (${shallow?.[1]} bars) shrinks the date-intersection; metrics + regime composite run SHORT this scan`);
+      }
+    }
     if (idx.values.length > 60) {
       const years = ((Date.parse(idx.dates[idx.dates.length - 1]) - Date.parse(idx.dates[0])) / (365.25 * 86400000)).toFixed(1);
       metrics = { ...portfolioMetrics(idx.values), basis: Object.keys(series), window: `${idx.dates[0]}..${idx.dates[idx.dates.length - 1]}`, source: fromDb ? `accumulated DB (${fromDb}/${Object.keys(series).length} tickers)` : "live", note: `trailing ~${years}y, target-weighted strategy basket${fromDb ? " (from accumulated history)" : ""}` };
