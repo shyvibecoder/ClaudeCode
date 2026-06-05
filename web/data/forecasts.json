@@ -5043,6 +5043,348 @@
         "ROBO": 89.63999938964844,
         "UFO": 57.7400016784668
       }
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:PAVE",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "PAVE",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 57.21500015258789,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:GRID",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "GRID",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 190.74000549316406,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:FIW",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "FIW",
+      "claim": "down",
+      "horizon_days": 21,
+      "price_at": 104.54499816894531,
+      "resolve_on": "2026-06-26",
+      "basis": "underweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:ASML",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "ASML",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 1686.2099609375,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:SMH",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "SMH",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 591.280029296875,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:COPX",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "COPX",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 82.7488021850586,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:NUKZ",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "NUKZ",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 69.30999755859375,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:MU",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "MU",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 925.4000244140625,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:GEV",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "GEV",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 947.344970703125,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:CEG",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "CEG",
+      "claim": "down",
+      "horizon_days": 21,
+      "price_at": 257.8500061035156,
+      "resolve_on": "2026-06-26",
+      "basis": "underweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:EME",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "EME",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 836.8400268554688,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:ROBO",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "ROBO",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 85.22779846191406,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:UFO",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "UFO",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 55.599998474121094,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:JNJ",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "JNJ",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 233.11000061035156,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:WMT",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "WMT",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 120.05500030517578,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:KO",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "KO",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 79.22000122070312,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:MRK",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "MRK",
+      "claim": "up",
+      "horizon_days": 21,
+      "price_at": 122.8499984741211,
+      "resolve_on": "2026-06-26",
+      "basis": "overweight"
+    },
+    {
+      "id": "2026-06-05:tsmom_tilt:PG",
+      "date": "2026-06-05",
+      "type": "tsmom_tilt",
+      "subject": "PG",
+      "claim": "down",
+      "horizon_days": 21,
+      "price_at": 145.3699951171875,
+      "resolve_on": "2026-06-26",
+      "basis": "underweight"
+    },
+    {
+      "date": "2026-06-05",
+      "type": "scarcity_rel",
+      "subject": "cooling",
+      "proxies": [
+        "VRT",
+        "MOD",
+        "NVT"
+      ],
+      "complex_tickers": [
+        "PAVE",
+        "GRID",
+        "FIW",
+        "SHLD",
+        "SMH",
+        "COPX",
+        "NUKZ",
+        "ROBO",
+        "UFO"
+      ],
+      "basket_at": 252.59667460123697,
+      "complex_at": 144.46184794108072,
+      "basket_prices": {
+        "VRT": 308.07000732421875,
+        "MOD": 282.6700134277344,
+        "NVT": 167.0500030517578
+      },
+      "complex_prices": {
+        "PAVE": 57.21500015258789,
+        "GRID": 190.74000549316406,
+        "FIW": 104.54499816894531,
+        "SHLD": 63.4900016784668,
+        "SMH": 591.280029296875,
+        "COPX": 82.7488021850586,
+        "NUKZ": 69.30999755859375,
+        "ROBO": 85.22779846191406,
+        "UFO": 55.599998474121094
+      },
+      "market_tickers": [
+        "QQQ"
+      ],
+      "market_prices": {
+        "QQQ": 720.5700073242188
+      },
+      "horizon_days": 42,
+      "resolve_on": "2026-07-17",
+      "id": "2026-06-05:scarcity_rel:cooling",
+      "claim": "underperform",
+      "source": "de-rating"
+    },
+    {
+      "date": "2026-06-05",
+      "type": "scarcity_rel",
+      "subject": "space-power",
+      "proxies": [
+        "RKLB"
+      ],
+      "complex_tickers": [
+        "PAVE",
+        "GRID",
+        "FIW",
+        "SHLD",
+        "SMH",
+        "COPX",
+        "NUKZ",
+        "ROBO",
+        "UFO"
+      ],
+      "basket_at": 111.80220031738281,
+      "complex_at": 144.46184794108072,
+      "basket_prices": {
+        "RKLB": 111.80220031738281
+      },
+      "complex_prices": {
+        "PAVE": 57.21500015258789,
+        "GRID": 190.74000549316406,
+        "FIW": 104.54499816894531,
+        "SHLD": 63.4900016784668,
+        "SMH": 591.280029296875,
+        "COPX": 82.7488021850586,
+        "NUKZ": 69.30999755859375,
+        "ROBO": 85.22779846191406,
+        "UFO": 55.599998474121094
+      },
+      "market_tickers": [
+        "QQQ"
+      ],
+      "market_prices": {
+        "QQQ": 720.5700073242188
+      },
+      "horizon_days": 42,
+      "resolve_on": "2026-07-17",
+      "id": "2026-06-05:scarcity_rel:space-power",
+      "claim": "outperform",
+      "source": "de-rating"
+    },
+    {
+      "date": "2026-06-05",
+      "type": "scarcity_rel",
+      "subject": "rl-data",
+      "proxies": [
+        "(private: Scale, Surge, Mercor)",
+        "RDDT"
+      ],
+      "complex_tickers": [
+        "PAVE",
+        "GRID",
+        "FIW",
+        "SHLD",
+        "SMH",
+        "COPX",
+        "NUKZ",
+        "ROBO",
+        "UFO"
+      ],
+      "basket_at": 173.52999877929688,
+      "complex_at": 144.46184794108072,
+      "basket_prices": {
+        "RDDT": 173.52999877929688
+      },
+      "complex_prices": {
+        "PAVE": 57.21500015258789,
+        "GRID": 190.74000549316406,
+        "FIW": 104.54499816894531,
+        "SHLD": 63.4900016784668,
+        "SMH": 591.280029296875,
+        "COPX": 82.7488021850586,
+        "NUKZ": 69.30999755859375,
+        "ROBO": 85.22779846191406,
+        "UFO": 55.599998474121094
+      },
+      "market_tickers": [
+        "QQQ"
+      ],
+      "market_prices": {
+        "QQQ": 720.5700073242188
+      },
+      "horizon_days": 42,
+      "resolve_on": "2026-07-17",
+      "id": "2026-06-05:scarcity_rel:opp:rl-data",
+      "claim": "outperform",
+      "source": "opportunity",
+      "opportunity": 84
     }
   ],
   "scorecard": {
